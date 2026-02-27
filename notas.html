@@ -1092,26 +1092,17 @@
         edit.placeholder = "Escribe aquí…";
         edit.setAttribute("aria-label", "Editor de nota");
 
-        const meta = document.createElement("div");
-        meta.className = "meta";
+// --- META (sin fechas visibles, sin iconos visibles) ---
+const meta = document.createElement("div");
+meta.className = "meta";
 
-        /* ✅ MEJORA: fechas ocultas pero operativas (solo ícono visible) */
-        const createdLabel = formatDate(note.createdAt);
-        const updatedLabel = formatDate(note.updatedAt);
+// Solo mostramos algo si está fijada (opcional). Si no, ocultamos la fila meta para que no deje espacio.
+meta.hidden = !note.pinned;
+meta.innerHTML = note.pinned ? `<span class="badge">📌 Fijada</span>` : "";
 
-        meta.innerHTML = [
-          note.pinned ? `<span class="badge">📌 Fijada</span>` : "",
-          `<span class="badge badge-date" title="Creada: ${escapeHTML(createdLabel)}">
-             🆕<span class="sr-only">Creada: ${escapeHTML(createdLabel)}</span>
-           </span>`,
-          `<span class="badge badge-date" title="Editada: ${escapeHTML(updatedLabel)}">
-             ✏️<span class="sr-only">Editada: ${escapeHTML(updatedLabel)}</span>
-           </span>`
-        ].filter(Boolean).join(" ");
-
-        content.appendChild(view);
-        content.appendChild(edit);
-        content.appendChild(meta);
+content.appendChild(view);
+content.appendChild(edit);
+content.appendChild(meta);
 
         const actions = document.createElement("div");
         actions.className = "actions";
@@ -1208,23 +1199,10 @@
             pinBtn.setAttribute("aria-label", note.pinned ? "Soltar" : "Fijar");
           }
 
-          const meta = el.querySelector(".meta");
-          if (meta) {
-            /* ✅ MEJORA: fechas ocultas pero operativas (solo ícono visible) */
-            const createdLabel = formatDate(note.createdAt);
-            const updatedLabel = formatDate(note.updatedAt);
-
-            meta.innerHTML = [
-              note.pinned ? `<span class="badge">📌 Fijada</span>` : "",
-              `<span class="badge badge-date" title="Creada: ${escapeHTML(createdLabel)}">
-                 🆕<span class="sr-only">Creada: ${escapeHTML(createdLabel)}</span>
-               </span>`,
-              `<span class="badge badge-date" title="Editada: ${escapeHTML(updatedLabel)}">
-                 ✏️<span class="sr-only">Editada: ${escapeHTML(updatedLabel)}</span>
-               </span>`
-            ].filter(Boolean).join(" ");
-          }
-        });
+		if (meta) {
+		  meta.hidden = !note.pinned;
+		  meta.innerHTML = note.pinned ? `<span class="badge">📌 Fijada</span>` : "";
+		}        });
 
         return visible;
       }
