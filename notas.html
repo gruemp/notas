@@ -1,0 +1,1632 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#0b1020" />
+  <title></title>
+
+  <style>
+    :root{
+      --bg: #0b1020;
+      --panel: rgba(17,26,51,.55);
+      --panel2: rgba(17,26,51,.35);
+      --text: #e8eeff;
+      --muted: #a7b3dd;
+      --line: rgba(255,255,255,.10);
+
+      /* ✅ PALETA PRO (modificada) */
+      --fluor-blue:  #4F46E5;   /* indigo */
+      --fluor-blue2: #818CF8;
+
+      --fluor-orange:  #F59E0B; /* amber */
+      --fluor-orange2: #FBBF24;
+
+      --danger:  #EF4444;       /* red */
+      --danger2: #F87171;
+
+      --ok:  #10B981;           /* emerald */
+      --ok2: #34D399;
+
+      --btn:  #1F2A44;          /* neutro */
+      --btn2: #2B3A5E;
+
+      --mark: rgba(255, 210, 0, .24);
+
+      /* Botones compactos */
+      --btn-fixed-width: 44px;
+
+      --radius: 12px;
+    }
+
+    [data-theme="light"]{
+      --bg: #f7f8fc;
+      --panel: rgba(255,255,255,.75);
+      --panel2: rgba(255,255,255,.55);
+      --text: #101428;
+      --muted: #4a587e;
+      --line: rgba(16,20,40,.12);
+
+      --btn: #e7ebff;
+      --btn2:#f2f4ff;
+
+      --mark: rgba(255, 200, 0, .22);
+    }
+
+    *{ box-sizing: border-box; }
+
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(21,34,74,.9) 0%, var(--bg) 55%, rgba(7,10,20,.95) 100%);
+    }
+
+    [data-theme="light"] body{
+      background: radial-gradient(1200px 600px at 20% 0%, rgba(140,165,255,.35) 0%, var(--bg) 55%, rgba(255,255,255,.9) 100%);
+    }
+
+    .app{
+      max-width: 1080px;
+      margin: 18px auto;
+      padding: 14px;
+    }
+
+    .header{
+      display:flex;
+      gap:14px;
+      justify-content:space-between;
+      align-items:flex-start;
+      flex-wrap:wrap;
+      margin-bottom: 12px;
+    }
+
+    .sub{
+      margin-top: 6px;
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .count{
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .topbar{
+      display:flex;
+      gap:12px;
+      align-items:flex-end;
+      flex: 1 1 640px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
+    .search{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex: 1 1 380px;
+      justify-content:flex-end;
+    }
+
+    .search label{
+      color: var(--muted);
+      font-size: 13px;
+      user-select:none;
+      white-space:nowrap;
+    }
+
+    .searchbox{
+      display:flex;
+      align-items:stretch;
+      width: min(560px, 100%);
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.18);
+      overflow:hidden;
+    }
+
+    [data-theme="light"] .searchbox{
+      background: rgba(255,255,255,.8);
+    }
+
+    .search input{
+      width: 100%;
+      padding: 10px 12px;
+      border: none;
+      outline:none;
+      background: transparent;
+      color: var(--text);
+    }
+
+    .searchbox:focus-within{
+      border-color: rgba(0,183,255,.55);
+      box-shadow: 0 0 0 3px rgba(0,183,255,.18);
+    }
+
+    .icon-btn{
+      width: 44px;
+      border: none;
+      cursor:pointer;
+      background: transparent;
+      color: var(--muted);
+      font-size: 22px;
+      line-height: 1;
+    }
+    .icon-btn:hover{ color: var(--text); }
+
+    .toolbar{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
+    .select{
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      outline:none;
+    }
+
+    [data-theme="light"] .select{
+      background: rgba(255,255,255,.8);
+    }
+
+    .select:focus{
+      border-color: rgba(0,183,255,.55);
+      box-shadow: 0 0 0 3px rgba(0,183,255,.18);
+    }
+
+    .select option{
+      color: #000;
+      background: #fff;
+    }
+
+    .btn{
+      width: var(--btn-fixed-width);
+      min-width: var(--btn-fixed-width);
+      height: 44px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: linear-gradient(180deg, var(--btn2), var(--btn));
+      color: var(--text);
+      padding: 0;
+      border-radius: 10px;
+      cursor:pointer;
+      user-select:none;
+      transition: transform .05s ease, filter .15s ease, box-shadow .15s ease, border-color .15s ease;
+      font-weight: 650;
+      letter-spacing: .2px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      white-space:nowrap;
+      overflow:hidden;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn:hover{ filter: brightness(1.08); }
+
+    .btn svg{
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex: 0 0 auto;
+    }
+
+    /* ✅ Botones con colores nuevos (modificado) */
+    .btn-add{
+      border-color: rgba(129,140,248,.85);
+      background: linear-gradient(180deg, var(--fluor-blue2), var(--fluor-blue));
+      color: #ffffff;
+      box-shadow: 0 0 18px rgba(79,70,229,.22);
+    }
+
+    .btn-copy{
+      border-color: rgba(16,185,129,.70);
+      background: linear-gradient(180deg, var(--ok2), var(--ok));
+      color: #052014;
+      box-shadow: 0 0 16px rgba(16,185,129,.20);
+    }
+
+    .btn-paste{
+      border-color: rgba(245,158,11,.80);
+      background: linear-gradient(180deg, var(--fluor-orange2), var(--fluor-orange));
+      color: #1a1200;
+      box-shadow: 0 0 18px rgba(245,158,11,.20);
+    }
+
+    .btn-danger{
+      border-color: rgba(239,68,68,.75);
+      background: linear-gradient(180deg, var(--danger2), var(--danger));
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(239,68,68,.20);
+    }
+
+    .btn-ghost{
+      background: rgba(0,0,0,.12);
+      border-color: rgba(255,255,255,.14);
+      box-shadow: none;
+    }
+
+    [data-theme="light"] .btn-ghost{
+      background: rgba(255,255,255,.55);
+    }
+
+    .list{
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow:hidden;
+    }
+
+    .section{
+      border-top: 1px solid var(--line);
+    }
+    .section:first-child{ border-top:none; }
+
+    .section-title{
+      padding: 10px 12px;
+      font-weight: 700;
+      letter-spacing:.2px;
+      color: var(--muted);
+      background: var(--panel2);
+    }
+
+    .section-body{
+      padding: 10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .note{
+      display:grid;
+      grid-template-columns: 34px 1fr auto;
+      gap: 10px;
+      align-items:stretch;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(0,0,0,.12);
+    }
+
+    [data-theme="light"] .note{
+      background: rgba(255,255,255,.55);
+    }
+
+    .note[hidden]{ display:none; }
+
+    .drag-handle{
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.12);
+      border-radius: 10px;
+      cursor: grab;
+      color: var(--muted);
+      font-size: 18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      user-select:none;
+    }
+    .drag-handle:active{ cursor: grabbing; }
+    .drag-handle:hover{ color: var(--text); }
+
+    .note.dragging{
+      opacity:.55;
+      outline: 2px dashed rgba(0,183,255,.45);
+      outline-offset: 2px;
+    }
+
+    .content{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 220px;
+    }
+
+    .note-view{
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.18);
+      cursor:text;
+      line-height: 1.4;
+      word-break: break-word;
+
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    [data-theme="light"] .note-view{
+      background: rgba(255,255,255,.75);
+    }
+
+    .note-view:focus{
+      outline:none;
+      border-color: rgba(0,255,153,.40);
+      box-shadow: 0 0 0 3px rgba(0,255,153,.12);
+    }
+
+    .note-view .placeholder{
+      color: var(--muted);
+    }
+
+    .note-edit{
+      display:none;
+      width:100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      outline:none;
+      resize:none;
+      overflow:hidden;
+      line-height: 1.4;
+      min-height: 44px;
+    }
+
+    [data-theme="light"] .note-edit{
+      background: rgba(255,255,255,.75);
+    }
+
+    .note.editing .note-view{ display:none; }
+    .note.editing .note-edit{ display:block; }
+
+    .note-edit:focus{
+      border-color: rgba(0,255,153,.40);
+      box-shadow: 0 0 0 3px rgba(0,255,153,.12);
+    }
+
+    .meta{
+      color: var(--muted);
+      font-size: 12px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.14);
+    }
+
+    mark{
+      background: var(--mark);
+      color: inherit;
+      border-radius: 4px;
+      padding: 0 .12em;
+    }
+
+    .actions{
+      display:flex;
+      flex-direction:row;
+      gap:8px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:nowrap;
+      overflow-x:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .actions .btn{
+      flex: 0 0 auto;
+    }
+
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.78);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,.16);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events:none;
+      transition: opacity .2s ease, transform .2s ease;
+      max-width: min(860px, 92vw);
+      display:flex;
+      gap:10px;
+      align-items:center;
+    }
+
+    [data-theme="light"] .toast{
+      background: rgba(20,25,40,.88);
+    }
+
+    .toast.show{
+      opacity: 1;
+      transform: translateX(-50%) translateY(-4px);
+      pointer-events:auto;
+    }
+
+    .toast .toast-btn{
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.12);
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 10px;
+      cursor:pointer;
+      font-weight: 650;
+    }
+
+    .toast .toast-btn:hover{ filter: brightness(1.08); }
+
+    .empty{
+      padding: 18px 14px;
+      text-align:center;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+    }
+
+    .empty-title{
+      font-weight: 750;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .sr-only{
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border:0;
+    }
+
+    @media (max-width: 860px){
+      .btn{ width: var(--btn-fixed-width); min-width: var(--btn-fixed-width); }
+      .note{
+        grid-template-columns: 34px 1fr;
+        grid-template-rows: auto auto;
+      }
+      .actions{
+        grid-column: 1 / -1;
+        flex-direction:row;
+        flex-wrap:nowrap;
+        justify-content:flex-end;
+        overflow-x:auto;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *{ transition: none !important; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="sub">
+          <span id="count" class="count">—</span>
+        </div>
+      </div>
+
+      <div class="topbar">
+        <div class="search">
+          <label for="search">Buscar</label>
+          <div class="searchbox">
+            <input id="search" type="text" autocomplete="off" placeholder="Escribe para filtrar… (ignora tildes)" />
+            <button id="clearSearch" class="icon-btn" type="button" aria-label="Limpiar búsqueda" title="Limpiar">×</button>
+          </div>
+        </div>
+
+        <div class="toolbar" role="group" aria-label="Acciones">
+          <label class="sr-only" for="sort">Orden</label>
+          <select id="sort" class="select" aria-label="Ordenar notas">
+            <option value="manual">Manual (arrastrar)</option>
+            <option value="updated_desc">Actualizadas (más recientes)</option>
+            <option value="created_desc">Creadas (más recientes)</option>
+            <option value="alpha_asc">A-Z</option>
+          </select>
+
+          <button id="newNote" class="btn btn-add" type="button" aria-label="Nueva nota" title="Nueva nota">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <path d="M14 2v6h6"></path>
+              <path d="M12 12v6"></path>
+              <path d="M9 15h6"></path>
+            </svg>
+            <span class="sr-only">Nueva nota</span>
+          </button>
+
+          <button id="exportJson" class="btn" type="button" aria-label="Exportar JSON" title="Exportar JSON">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 3v10"></path>
+              <path d="M8 9l4 4 4-4"></path>
+              <path d="M4 17h16v4H4z"></path>
+              <path d="M9 8l-2 2 2 2"></path>
+              <path d="M15 8l2 2-2 2"></path>
+            </svg>
+            <span class="sr-only">Exportar JSON</span>
+          </button>
+
+          <button id="exportTxt" class="btn" type="button" aria-label="Exportar TXT" title="Exportar TXT">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 3v10"></path>
+              <path d="M8 9l4 4 4-4"></path>
+              <path d="M4 17h16v4H4z"></path>
+              <path d="M7 8h10"></path>
+              <path d="M7 11h8"></path>
+            </svg>
+            <span class="sr-only">Exportar TXT</span>
+          </button>
+
+          <input id="importFile" type="file" accept=".json,.txt,application/json,text/plain" hidden />
+          <button id="importBtn" class="btn" type="button" aria-label="Importar" title="Importar">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 21V11"></path>
+              <path d="M16 15l-4-4-4 4"></path>
+              <path d="M4 3h16v6H4z"></path>
+            </svg>
+            <span class="sr-only">Importar</span>
+          </button>
+
+          <button id="themeBtn" class="btn btn-ghost" type="button" aria-label="Cambiar tema" title="Tema">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 3v2"></path>
+              <path d="M12 19v2"></path>
+              <path d="M4.22 4.22l1.42 1.42"></path>
+              <path d="M18.36 18.36l1.42 1.42"></path>
+              <path d="M3 12h2"></path>
+              <path d="M19 12h2"></path>
+              <path d="M4.22 19.78l1.42-1.42"></path>
+              <path d="M18.36 5.64l1.42-1.42"></path>
+              <path d="M12 7a5 5 0 1 0 0 10a5 5 0 0 0 0-10z"></path>
+            </svg>
+            <span class="sr-only">Tema</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ✅ “Lista” quitado también de aria-label -->
+    <main class="list" aria-label="Notas">
+      <section id="pinnedSection" class="section" hidden>
+        <div class="section-title">Fijadas</div>
+        <div id="pinnedList" class="section-body" role="list"></div>
+      </section>
+
+      <section id="notesSection" class="section">
+        <!-- ✅ Antes: <div class="section-title">Lista</div> -->
+        <div id="notesList" class="section-body" role="list"></div>
+      </section>
+
+      <div id="empty" class="empty" hidden>
+        <div class="empty-title">Sin resultados</div>
+        <div class="empty-sub">Prueba con otra búsqueda o crea una nota nueva.</div>
+      </div>
+    </main>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const STORAGE_KEY = "notas_web_state_v2";
+      const LEGACY_KEY = "notas_web_v1";
+      const THEME_KEY = "notas_web_theme_v1";
+
+      const DEFAULT_SETTINGS = {
+        sortMode: "manual",
+        theme: "auto" // auto | dark | light
+      };
+
+      const Icons = {
+        pin: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M14 4h-4v5l-2 2v3h8v-3l-2-2z"></path>
+            <path d="M12 14v7"></path>
+          </svg>`,
+        unpin: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M14 4h-4v5l-2 2v3h8v-3l-2-2z"></path>
+            <path d="M12 14v7"></path>
+            <path d="M4 4l16 16"></path>
+          </svg>`,
+        copy: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+            <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"></path>
+          </svg>`,
+        paste: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M9 4h6"></path>
+            <path d="M9 4a2 2 0 0 0-2 2v1h10V6a2 2 0 0 0-2-2"></path>
+            <path d="M7 7h10v15H7z"></path>
+          </svg>`,
+        clear: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M20 20H8"></path>
+            <path d="M6 14l8-8 4 4-8 8H6z"></path>
+            <path d="M14 6l4 4"></path>
+          </svg>`,
+        trash: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M3 6h18"></path>
+            <path d="M8 6V4h8v2"></path>
+            <path d="M19 6l-1 16H6L5 6"></path>
+            <path d="M10 11v6"></path>
+            <path d="M14 11v6"></path>
+          </svg>`
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      const searchEl = $("search");
+      const clearSearchEl = $("clearSearch");
+      const sortEl = $("sort");
+      const newNoteEl = $("newNote");
+      const exportJsonEl = $("exportJson");
+      const exportTxtEl = $("exportTxt");
+      const importBtnEl = $("importBtn");
+      const importFileEl = $("importFile");
+      const themeBtnEl = $("themeBtn");
+      const countEl = $("count");
+
+      const pinnedSectionEl = $("pinnedSection");
+      const pinnedListEl = $("pinnedList");
+      const notesListEl = $("notesList");
+      const emptyEl = $("empty");
+      const toastEl = $("toast");
+
+      let notes = [];
+      let settings = { ...DEFAULT_SETTINGS };
+      let undoState = null; // { note, index, pinned }
+      let dragId = null;
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const loaded = loadState();
+        notes = loaded.notes;
+        settings = { ...DEFAULT_SETTINGS, ...loaded.settings };
+
+        const savedTheme = localStorage.getItem(THEME_KEY);
+        if (savedTheme && ["auto","dark","light"].includes(savedTheme)) settings.theme = savedTheme;
+
+        applyTheme(settings.theme);
+        sortEl.value = settings.sortMode;
+
+        computeFixedButtonWidth();
+        bindEvents();
+        renderAll();
+      });
+
+      function bindEvents() {
+        const onSearch = debounce(() => applySearchAndHighlights(), 60);
+        searchEl.addEventListener("input", onSearch);
+
+        clearSearchEl.addEventListener("click", () => {
+          searchEl.value = "";
+          searchEl.focus();
+          applySearchAndHighlights();
+        });
+
+        sortEl.addEventListener("change", () => {
+          settings.sortMode = sortEl.value;
+          saveDebounced();
+          renderAll();
+          toast("Orden actualizado");
+        });
+
+        newNoteEl.addEventListener("click", () => {
+          const n = createNote({ afterId: null, pinned: false });
+          notes.push(n);
+          if (settings.sortMode === "manual") renormalizeOrders(false);
+          saveDebounced();
+          renderAll();
+          focusNote(n.id);
+          toast("Nota creada");
+        });
+
+        exportJsonEl.addEventListener("click", exportJSON);
+        exportTxtEl.addEventListener("click", exportTXT);
+
+        importBtnEl.addEventListener("click", () => importFileEl.click());
+        importFileEl.addEventListener("change", async () => {
+          const file = importFileEl.files && importFileEl.files[0];
+          importFileEl.value = "";
+          if (!file) return;
+          await importFile(file);
+        });
+
+        themeBtnEl.addEventListener("click", () => {
+          settings.theme = nextTheme(settings.theme);
+          localStorage.setItem(THEME_KEY, settings.theme);
+          applyTheme(settings.theme);
+          toast(`Tema: ${themeLabel(settings.theme)}`);
+        });
+
+        [pinnedListEl, notesListEl].forEach(container => {
+          container.addEventListener("click", onNoteClick);
+          container.addEventListener("keydown", onNoteKeydown);
+          container.addEventListener("input", onNoteInput);
+          container.addEventListener("focusin", onNoteFocusIn);
+          container.addEventListener("focusout", onNoteFocusOut);
+
+          container.addEventListener("dragstart", onDragStart);
+          container.addEventListener("dragover", onDragOver);
+          container.addEventListener("drop", onDrop);
+          container.addEventListener("dragend", onDragEnd);
+        });
+
+        window.addEventListener("beforeunload", saveNow);
+      }
+
+      function safeParse(json, fallback) { try { return JSON.parse(json); } catch { return fallback; } }
+      function makeId() { return (window.crypto?.randomUUID) ? crypto.randomUUID() : String(Date.now()) + "_" + Math.random().toString(16).slice(2); }
+
+      function norm(s) {
+        return (s ?? "")
+          .toString()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .toLowerCase();
+      }
+
+      function escapeHTML(s) {
+        return (s ?? "").toString().replace(/[&<>"']/g, (ch) => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[ch]));
+      }
+
+      function debounce(fn, ms) {
+        let t = 0;
+        return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+      }
+
+      function buildNormMap(str) {
+        let normStr = "";
+        const map = [];
+        for (let i = 0; i < str.length; i++) {
+          const ch = str[i];
+          const n = ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+          for (let j = 0; j < n.length; j++) {
+            normStr += n[j];
+            map.push(i);
+          }
+        }
+        return { normStr, map };
+      }
+
+      function makeHighlightedHTML(text, terms, preview = false) {
+        if (!text) return `<span class="placeholder">Escribe una nota…</span>`;
+
+        const cleanTerms = (terms || []).filter(Boolean);
+
+        const baseText = preview
+          ? (text ?? "").toString().replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").trim()
+          : (text ?? "").toString();
+
+        if (!cleanTerms.length) {
+          const escaped = escapeHTML(baseText);
+          return preview ? escaped : escaped.replace(/\n/g, "<br>");
+        }
+
+        const { normStr, map } = buildNormMap(baseText);
+        const ranges = [];
+
+        for (const term of cleanTerms) {
+          let start = 0;
+          while (true) {
+            const idx = normStr.indexOf(term, start);
+            if (idx === -1) break;
+            ranges.push([idx, idx + term.length]);
+            start = idx + term.length;
+          }
+        }
+
+        if (!ranges.length) {
+          const escaped = escapeHTML(baseText);
+          return preview ? escaped : escaped.replace(/\n/g, "<br>");
+        }
+
+        ranges.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+        const merged = [];
+        for (const r of ranges) {
+          if (!merged.length || r[0] > merged[merged.length - 1][1]) merged.push(r.slice());
+          else merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], r[1]);
+        }
+
+        const origRanges = merged.map(([a, b]) => {
+          const startOrig = map[a] ?? 0;
+          const endOrig = (map[b - 1] ?? (baseText.length - 1)) + 1;
+          return [startOrig, endOrig];
+        });
+
+        origRanges.sort((a, b) => a[0] - b[0]);
+        const final = [];
+        for (const r of origRanges) {
+          if (!final.length || r[0] > final[final.length - 1][1]) final.push(r.slice());
+          else final[final.length - 1][1] = Math.max(final[final.length - 1][1], r[1]);
+        }
+
+        let out = "";
+        let last = 0;
+        for (const [s, e] of final) {
+          out += escapeHTML(baseText.slice(last, s));
+          out += `<mark>${escapeHTML(baseText.slice(s, e))}</mark>`;
+          last = e;
+        }
+        out += escapeHTML(baseText.slice(last));
+        return preview ? out : out.replace(/\n/g, "<br>");
+      }
+
+      function formatDate(ts) {
+        const df = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" });
+        return df.format(new Date(ts));
+      }
+
+      function cssEscape(s) {
+        if (window.CSS && typeof CSS.escape === "function") return CSS.escape(s);
+        return String(s).replace(/"/g, '\\"');
+      }
+
+      function migrateNotesArray(arr) {
+        const now = Date.now();
+        const out = [];
+
+        for (let i = 0; i < arr.length; i++) {
+          const x = arr[i];
+
+          if (typeof x === "string") {
+            out.push({ id: makeId(), text: x, createdAt: now, updatedAt: now, pinned: false, order: i * 1000 });
+            continue;
+          }
+
+          if (x && typeof x === "object") {
+            const createdAt = Number(x.createdAt ?? now);
+            const updatedAt = Number(x.updatedAt ?? createdAt);
+            out.push({
+              id: String(x.id ?? makeId()),
+              text: String(x.text ?? ""),
+              createdAt: isFinite(createdAt) ? createdAt : now,
+              updatedAt: isFinite(updatedAt) ? updatedAt : now,
+              pinned: Boolean(x.pinned ?? false),
+              order: isFinite(Number(x.order)) ? Number(x.order) : i * 1000
+            });
+          }
+        }
+
+        return out;
+      }
+
+      function loadState() {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const data = safeParse(raw, null);
+          if (data && typeof data === "object") {
+            const loadedNotes = Array.isArray(data.notes) ? migrateNotesArray(data.notes) : [];
+            const loadedSettings = (data.settings && typeof data.settings === "object") ? data.settings : {};
+            return { notes: loadedNotes, settings: loadedSettings };
+          }
+        }
+
+        const legacy = localStorage.getItem(LEGACY_KEY);
+        if (legacy) {
+          const data = safeParse(legacy, []);
+          const migrated = { notes: migrateNotesArray(Array.isArray(data) ? data : []), settings: { ...DEFAULT_SETTINGS } };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 2, notes: migrated.notes, settings: migrated.settings }));
+          return migrated;
+        }
+
+        return { notes: [], settings: { ...DEFAULT_SETTINGS } };
+      }
+
+      function serializeState() {
+        return {
+          v: 2,
+          savedAt: Date.now(),
+          notes,
+          settings: { sortMode: settings.sortMode, theme: settings.theme }
+        };
+      }
+
+      const saveDebounced = debounce(() => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState()));
+      }, 250);
+
+      function saveNow() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState()));
+      }
+
+      function applyTheme(theme) {
+        let t = theme;
+        if (theme === "auto") {
+          t = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+        }
+        document.documentElement.setAttribute("data-theme", t);
+      }
+
+      function nextTheme(theme) { return theme === "auto" ? "dark" : theme === "dark" ? "light" : "auto"; }
+      function themeLabel(theme) { return theme === "auto" ? "Auto" : theme === "dark" ? "Oscuro" : theme === "light" ? "Claro" : "Auto"; }
+
+      function computeFixedButtonWidth() {
+        document.documentElement.style.setProperty("--btn-fixed-width", "44px");
+      }
+
+      function createNote({ afterId = null, pinned = false }) {
+        const now = Date.now();
+
+        const group = notes
+          .filter(n => n.pinned === pinned)
+          .slice()
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+        let order = group.length ? group[group.length - 1].order + 1000 : 0;
+
+        if (afterId) {
+          const idx = group.findIndex(n => n.id === afterId);
+          if (idx !== -1) {
+            const after = group[idx];
+            const next = group[idx + 1];
+            order = next ? (after.order + next.order) / 2 : after.order + 1000;
+          }
+        }
+
+        return { id: makeId(), text: "", createdAt: now, updatedAt: now, pinned, order };
+      }
+
+      function renormalizeOrders(pinned) {
+        const group = notes
+          .filter(n => n.pinned === pinned)
+          .slice()
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+        for (let i = 0; i < group.length; i++) group[i].order = i * 1000;
+      }
+
+      function getNoteById(id) { return notes.find(n => n.id === id) || null; }
+
+      function getSortedNotes() {
+        const pinned = notes.filter(n => n.pinned);
+        const normal = notes.filter(n => !n.pinned);
+
+        const mode = settings.sortMode;
+        const sorters = {
+          manual: (a, b) => (a.order ?? 0) - (b.order ?? 0),
+          updated_desc: (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0),
+          created_desc: (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0),
+          alpha_asc: (a, b) => (a.text || "").localeCompare((b.text || ""), "es", { sensitivity: "base" })
+        };
+
+        const s = sorters[mode] || sorters.manual;
+        return { pinned: pinned.slice().sort(s), normal: normal.slice().sort(s) };
+      }
+
+      function renderAll() {
+        const { pinned, normal } = getSortedNotes();
+
+        pinnedListEl.innerHTML = "";
+        notesListEl.innerHTML = "";
+
+        if (pinned.length) {
+          pinnedSectionEl.hidden = false;
+          pinnedListEl.appendChild(buildFragment(pinned));
+        } else {
+          pinnedSectionEl.hidden = true;
+        }
+
+        notesListEl.appendChild(buildFragment(normal));
+        applySearchAndHighlights();
+      }
+
+      function buildFragment(list) {
+        const frag = document.createDocumentFragment();
+        for (const note of list) frag.appendChild(buildNoteEl(note));
+        return frag;
+      }
+
+      function currentTerms() {
+        return norm(searchEl.value).split(/\s+/).filter(Boolean);
+      }
+
+      function pinHTML(pinned) {
+        const label = pinned ? "Soltar" : "Fijar";
+        const icon = pinned ? Icons.unpin : Icons.pin;
+        return `${icon}<span class="sr-only">${label}</span>`;
+      }
+
+      function buildNoteEl(note) {
+        const el = document.createElement("article");
+        el.className = "note";
+        el.dataset.id = note.id;
+        el.dataset.norm = norm(note.text);
+        el.draggable = false;
+
+        const drag = document.createElement("button");
+        drag.className = "drag-handle";
+        drag.type = "button";
+        drag.title = "Arrastrar para reordenar (modo manual)";
+        drag.setAttribute("aria-label", "Arrastrar para reordenar");
+        drag.textContent = "≡";
+        drag.draggable = true;
+
+        const content = document.createElement("div");
+        content.className = "content";
+
+        const view = document.createElement("div");
+        view.className = "note-view";
+        view.tabIndex = 0;
+        view.setAttribute("role", "button");
+        view.setAttribute("aria-label", "Editar nota (Enter o clic)");
+        view.innerHTML = makeHighlightedHTML(note.text, currentTerms(), true);
+
+        const edit = document.createElement("textarea");
+        edit.className = "note-edit";
+        edit.value = note.text;
+        edit.rows = 1;
+        edit.spellcheck = false;
+        edit.placeholder = "Escribe aquí…";
+        edit.setAttribute("aria-label", "Editor de nota");
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.innerHTML = [
+          note.pinned ? `<span class="badge">📌 Fijada</span>` : "",
+          `<span class="badge" title="Creada">🆕 ${escapeHTML(formatDate(note.createdAt))}</span>`,
+          `<span class="badge" title="Editada">✏️ ${escapeHTML(formatDate(note.updatedAt))}</span>`
+        ].filter(Boolean).join(" ");
+
+        content.appendChild(view);
+        content.appendChild(edit);
+        content.appendChild(meta);
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const pinBtn = document.createElement("button");
+        pinBtn.className = "btn btn-ghost";
+        pinBtn.type = "button";
+        pinBtn.dataset.action = "pin";
+        pinBtn.title = note.pinned ? "Soltar" : "Fijar";
+        pinBtn.setAttribute("aria-label", note.pinned ? "Soltar" : "Fijar");
+        pinBtn.innerHTML = pinHTML(note.pinned);
+
+        const cpBtn = document.createElement("button");
+        cpBtn.className = "btn";
+        cpBtn.type = "button";
+        cpBtn.dataset.action = "copyPaste";
+        setCopyPasteUI(cpBtn, note.text);
+
+        const clearBtn = document.createElement("button");
+        clearBtn.className = "btn btn-ghost";
+        clearBtn.type = "button";
+        clearBtn.dataset.action = "clear";
+        clearBtn.title = "Limpiar";
+        clearBtn.setAttribute("aria-label", "Limpiar");
+        clearBtn.innerHTML = `${Icons.clear}<span class="sr-only">Limpiar</span>`;
+
+        const delBtn = document.createElement("button");
+        delBtn.className = "btn btn-danger";
+        delBtn.type = "button";
+        delBtn.dataset.action = "delete";
+        delBtn.title = "Eliminar";
+        delBtn.setAttribute("aria-label", "Eliminar");
+        delBtn.innerHTML = `${Icons.trash}<span class="sr-only">Eliminar</span>`;
+
+        actions.appendChild(pinBtn);
+        actions.appendChild(cpBtn);
+        actions.appendChild(clearBtn);
+        actions.appendChild(delBtn);
+
+        el.appendChild(drag);
+        el.appendChild(content);
+        el.appendChild(actions);
+
+        return el;
+      }
+
+      function applySearchAndHighlights() {
+        const terms = currentTerms();
+        let visible = 0;
+
+        visible += applyToContainer(pinnedListEl, terms);
+        visible += applyToContainer(notesListEl, terms);
+
+        const anyPinnedVisible = pinnedListEl.querySelector(".note:not([hidden])");
+        pinnedSectionEl.hidden = !anyPinnedVisible;
+
+        const anyNormalVisible = notesListEl.querySelector(".note:not([hidden])");
+        emptyEl.hidden = (anyPinnedVisible || anyNormalVisible);
+
+        updateCount(visible, notes.length);
+
+        const dragEnabled = (settings.sortMode === "manual");
+        document.querySelectorAll(".drag-handle").forEach(b => {
+          b.style.opacity = dragEnabled ? "1" : ".35";
+          b.title = dragEnabled ? "Arrastrar para reordenar (modo manual)" : "Reordenar solo disponible en modo Manual";
+          b.draggable = dragEnabled;
+        });
+      }
+
+      function applyToContainer(container, terms) {
+        const items = container.querySelectorAll(".note");
+        let visible = 0;
+
+        items.forEach(el => {
+          const id = el.dataset.id;
+          const note = getNoteById(id);
+          if (!note) return;
+
+          const t = el.dataset.norm || "";
+          const match = terms.every(term => t.includes(term));
+          el.hidden = !match;
+          if (match) visible++;
+
+          const view = el.querySelector(".note-view");
+          if (view) view.innerHTML = makeHighlightedHTML(note.text, terms, true);
+
+          const cpBtn = el.querySelector('[data-action="copyPaste"]');
+          if (cpBtn) setCopyPasteUI(cpBtn, note.text);
+
+          const pinBtn = el.querySelector('[data-action="pin"]');
+          if (pinBtn) {
+            pinBtn.innerHTML = pinHTML(note.pinned);
+            pinBtn.title = note.pinned ? "Soltar" : "Fijar";
+            pinBtn.setAttribute("aria-label", note.pinned ? "Soltar" : "Fijar");
+          }
+
+          const meta = el.querySelector(".meta");
+          if (meta) {
+            meta.innerHTML = [
+              note.pinned ? `<span class="badge">📌 Fijada</span>` : "",
+              `<span class="badge" title="Creada">🆕 ${escapeHTML(formatDate(note.createdAt))}</span>`,
+              `<span class="badge" title="Editada">✏️ ${escapeHTML(formatDate(note.updatedAt))}</span>`
+            ].filter(Boolean).join(" ");
+          }
+        });
+
+        return visible;
+      }
+
+      function updateCount(visible, total) {
+        countEl.textContent = `Mostrando ${visible} de ${total}`;
+      }
+
+      function findNoteEl(target) { return target.closest(".note"); }
+
+      function onNoteClick(e) {
+        const noteEl = findNoteEl(e.target);
+        if (!noteEl) return;
+
+        const id = noteEl.dataset.id;
+        const note = getNoteById(id);
+        if (!note) return;
+
+        if (e.target.closest(".note-view")) {
+          enterEdit(noteEl);
+          return;
+        }
+
+        const actionBtn = e.target.closest("[data-action]");
+        if (!actionBtn) return;
+
+        const action = actionBtn.dataset.action;
+
+        if (action === "pin") {
+          note.pinned = !note.pinned;
+          note.updatedAt = Date.now();
+
+          if (settings.sortMode === "manual") {
+            const group = notes
+              .filter(n => n.pinned === note.pinned && n.id !== note.id)
+              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            const lastOrder = group.length ? group[group.length - 1].order : -1000;
+            note.order = lastOrder + 1000;
+            renormalizeOrders(note.pinned);
+            renormalizeOrders(!note.pinned);
+          }
+
+          saveDebounced();
+          renderAll();
+          toast(note.pinned ? "Nota fijada 📌" : "Nota liberada");
+          return;
+        }
+
+        if (action === "copyPaste") {
+          (async () => {
+            if (note.text && note.text.length > 0) {
+              const ok = await copyToClipboard(note.text);
+              toast(ok ? "Copiado ✅" : "No pude copiar ❌");
+            } else {
+              const clip = await readFromClipboard();
+              note.text = clip;
+              note.updatedAt = Date.now();
+              saveDebounced();
+
+              noteEl.dataset.norm = norm(note.text);
+              const edit = noteEl.querySelector(".note-edit");
+              if (edit) edit.value = note.text;
+              applySearchAndHighlights();
+              toast("Pegado ✅");
+            }
+          })();
+          return;
+        }
+
+        if (action === "clear") {
+          note.text = "";
+          note.updatedAt = Date.now();
+          saveDebounced();
+
+          noteEl.dataset.norm = "";
+          const edit = noteEl.querySelector(".note-edit");
+          if (edit) edit.value = "";
+          applySearchAndHighlights();
+          toast("Nota limpiada");
+          return;
+        }
+
+        if (action === "delete") {
+          deleteNote(note.id);
+          return;
+        }
+      }
+
+      function onNoteKeydown(e) {
+        const noteEl = findNoteEl(e.target);
+        if (!noteEl) return;
+
+        if (e.target.classList.contains("note-view") && e.key === "Enter") {
+          e.preventDefault();
+          enterEdit(noteEl);
+          return;
+        }
+
+        if (e.target.classList.contains("note-edit")) {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            e.target.blur();
+            return;
+          }
+
+          if (e.ctrlKey && e.key === "Enter") {
+            e.preventDefault();
+            return;
+          }
+        }
+      }
+
+      function onNoteInput(e) {
+        if (!e.target.classList.contains("note-edit")) return;
+
+        const noteEl = findNoteEl(e.target);
+        if (!noteEl) return;
+
+        const id = noteEl.dataset.id;
+        const note = getNoteById(id);
+        if (!note) return;
+
+        note.text = e.target.value;
+        note.updatedAt = Date.now();
+        noteEl.dataset.norm = norm(note.text);
+
+        autoResize(e.target);
+
+        saveDebounced();
+        applySearchAndHighlights();
+      }
+
+      function onNoteFocusIn(e) {
+        if (!e.target.classList.contains("note-edit")) return;
+        autoResize(e.target);
+      }
+
+      function onNoteFocusOut(e) {
+        if (!e.target.classList.contains("note-edit")) return;
+
+        const noteEl = findNoteEl(e.target);
+        if (!noteEl) return;
+
+        exitEdit(noteEl);
+
+        if (settings.sortMode !== "manual") renderAll();
+        else applySearchAndHighlights();
+      }
+
+      function enterEdit(noteEl) {
+        noteEl.classList.add("editing");
+        const ta = noteEl.querySelector(".note-edit");
+        if (ta) {
+          ta.focus();
+          ta.selectionStart = ta.selectionEnd = ta.value.length;
+          autoResize(ta);
+        }
+      }
+
+      function exitEdit(noteEl) {
+        noteEl.classList.remove("editing");
+      }
+
+      function focusNote(id) {
+        const safeId = cssEscape(id);
+        const noteEl = document.querySelector(`.note[data-id="${safeId}"]`);
+        if (!noteEl) return;
+        enterEdit(noteEl);
+        noteEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+
+      function autoResize(ta) {
+        ta.style.height = "auto";
+        ta.style.height = (ta.scrollHeight) + "px";
+      }
+
+      async function copyToClipboard(text) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch {
+          try {
+            const ta = document.createElement("textarea");
+            ta.value = text;
+            ta.style.position = "fixed";
+            ta.style.left = "-9999px";
+            document.body.appendChild(ta);
+            ta.select();
+            const ok = document.execCommand("copy");
+            document.body.removeChild(ta);
+            return ok;
+          } catch {
+            return false;
+          }
+        }
+      }
+
+      async function readFromClipboard() {
+        try {
+          return await navigator.clipboard.readText();
+        } catch {
+          return prompt("No pude leer el portapapeles automáticamente. Pega aquí el texto:") ?? "";
+        }
+      }
+
+      function setCopyPasteUI(btn, text) {
+        const hasText = (text ?? "").length > 0;
+        btn.classList.remove("btn-copy", "btn-paste");
+
+        if (hasText) {
+          btn.classList.add("btn-copy");
+          btn.title = "Copiar";
+          btn.setAttribute("aria-label", "Copiar");
+          btn.innerHTML = `${Icons.copy}<span class="sr-only">Copiar</span>`;
+        } else {
+          btn.classList.add("btn-paste");
+          btn.title = "Pegar";
+          btn.setAttribute("aria-label", "Pegar");
+          btn.innerHTML = `${Icons.paste}<span class="sr-only">Pegar</span>`;
+        }
+      }
+
+      function deleteNote(id) {
+        const idx = notes.findIndex(n => n.id === id);
+        if (idx === -1) return;
+
+        const [removed] = notes.splice(idx, 1);
+        undoState = { note: removed, index: idx, pinned: removed.pinned };
+
+        saveDebounced();
+        renderAll();
+
+        toastWithAction("Nota eliminada", "Deshacer", () => {
+          if (!undoState) return;
+          notes.splice(undoState.index, 0, undoState.note);
+          if (settings.sortMode === "manual") renormalizeOrders(undoState.pinned);
+          saveDebounced();
+          renderAll();
+          undoState = null;
+          toast("Restaurada ✅");
+        }, 4500);
+      }
+
+      function exportJSON() {
+        const payload = { v: 2, exportedAt: Date.now(), notes, settings: { sortMode: settings.sortMode, theme: settings.theme } };
+        downloadFile("notas.json", JSON.stringify(payload, null, 2), "application/json");
+        toast("Exportado JSON ✅");
+      }
+
+      function exportTXT() {
+        const { pinned, normal } = getSortedNotes();
+        const blocks = [];
+
+        if (pinned.length) blocks.push("=== FIJADAS ===\n" + pinned.map(n => n.text || "").join("\n\n---\n\n"));
+        blocks.push("=== NOTAS ===\n" + normal.map(n => n.text || "").join("\n\n---\n\n"));
+
+        downloadFile("notas.txt", blocks.join("\n\n\n"), "text/plain;charset=utf-8");
+        toast("Exportado TXT ✅");
+      }
+
+      async function importFile(file) {
+        const name = (file.name || "").toLowerCase();
+        const text = await file.text();
+
+        if (name.endsWith(".json")) {
+          const data = safeParse(text, null);
+          if (!data) { toast("JSON inválido ❌"); return; }
+
+          const incomingNotes = Array.isArray(data.notes) ? migrateNotesArray(data.notes)
+            : Array.isArray(data) ? migrateNotesArray(data)
+            : [];
+
+          if (!incomingNotes.length) { toast("No encontré notas en el JSON"); return; }
+
+          const existing = new Set(notes.map(n => n.id));
+          for (const n of incomingNotes) {
+            if (existing.has(n.id)) n.id = makeId();
+            existing.add(n.id);
+            notes.push(n);
+          }
+
+          if (settings.sortMode === "manual") {
+            renormalizeOrders(true);
+            renormalizeOrders(false);
+          }
+
+          saveDebounced();
+          renderAll();
+          toast(`Importadas ${incomingNotes.length} notas ✅`);
+          return;
+        }
+
+        const blocks = text.replace(/\r/g, "")
+          .split(/\n\s*\n+/)
+          .map(s => s.trim())
+          .filter(Boolean);
+
+        if (!blocks.length) { toast("TXT vacío"); return; }
+
+        const now = Date.now();
+        const created = blocks.map((b, i) => ({ id: makeId(), text: b, createdAt: now, updatedAt: now, pinned: false, order: i * 1000 }));
+
+        notes.push(...created);
+        if (settings.sortMode === "manual") renormalizeOrders(false);
+
+        saveDebounced();
+        renderAll();
+        toast(`Importadas ${created.length} notas ✅`);
+      }
+
+      function downloadFile(filename, content, mime) {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      function toast(message, ms = 1400) {
+        toastEl.textContent = message;
+        toastEl.classList.add("show");
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => toastEl.classList.remove("show"), ms);
+      }
+
+      function toastWithAction(message, actionText, onAction, ms = 3000) {
+        toastEl.innerHTML = "";
+        const span = document.createElement("span");
+        span.textContent = message;
+
+        const btn = document.createElement("button");
+        btn.className = "toast-btn";
+        btn.type = "button";
+        btn.textContent = actionText;
+
+        btn.addEventListener("click", () => {
+          try { onAction?.(); } finally { toastEl.classList.remove("show"); }
+        }, { once: true });
+
+        toastEl.appendChild(span);
+        toastEl.appendChild(btn);
+
+        toastEl.classList.add("show");
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => toastEl.classList.remove("show"), ms);
+      }
+
+      function canDrag() { return settings.sortMode === "manual"; }
+
+      function onDragStart(e) {
+        if (!canDrag()) { e.preventDefault(); return; }
+
+        const handle = e.target.closest(".drag-handle");
+        if (!handle) { e.preventDefault(); return; }
+
+        const noteEl = handle.closest(".note");
+        if (!noteEl) { e.preventDefault(); return; }
+
+        dragId = noteEl.dataset.id;
+        noteEl.classList.add("dragging");
+
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", dragId);
+
+        try { e.dataTransfer.setDragImage(noteEl, 18, 18); } catch {}
+      }
+
+      function onDragOver(e) {
+        if (!canDrag() || !dragId) return;
+        e.preventDefault();
+
+        const container = e.currentTarget;
+        const draggingEl = container.querySelector(`.note[data-id="${cssEscape(dragId)}"]`);
+        if (!draggingEl) return;
+
+        const afterEl = getDragAfterElement(container, e.clientY);
+        if (afterEl == null) container.appendChild(draggingEl);
+        else container.insertBefore(draggingEl, afterEl);
+      }
+
+      function onDrop(e) {
+        if (!canDrag() || !dragId) return;
+        e.preventDefault();
+
+        const container = e.currentTarget;
+        const isPinnedContainer = (container === pinnedListEl);
+
+        const ids = [...container.querySelectorAll(".note")].map(el => el.dataset.id);
+        const groupNotes = notes.filter(n => n.pinned === isPinnedContainer);
+
+        const byId = new Map(groupNotes.map(n => [n.id, n]));
+        for (let i = 0; i < ids.length; i++) {
+          const n = byId.get(ids[i]);
+          if (n) n.order = i * 1000;
+        }
+
+        saveDebounced();
+        dragId = null;
+        renderAll();
+        toast("Orden guardado");
+      }
+
+      function onDragEnd(e) {
+        const noteEl = findNoteEl(e.target);
+        if (noteEl) noteEl.classList.remove("dragging");
+        dragId = null;
+      }
+
+      function getDragAfterElement(container, y) {
+        const els = [...container.querySelectorAll(".note:not(.dragging)")];
+        let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+
+        for (const el of els) {
+          const box = el.getBoundingClientRect();
+          const offset = y - (box.top + box.height / 2);
+          if (offset < 0 && offset > closest.offset) closest = { offset, element: el };
+        }
+        return closest.element;
+      }
+    })();
+  </script>
+</body>
+</html>
