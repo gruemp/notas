@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark light" />
   <meta name="theme-color" content="#0b1020" />
-  <title></title>
+  <title>Notas</title>
 
   <style>
     :root{
@@ -16,27 +16,25 @@
       --muted: #a7b3dd;
       --line: rgba(255,255,255,.10);
 
-      /* ✅ PALETA PRO (modificada) */
-      --fluor-blue:  #4F46E5;   /* indigo */
+      /* ✅ PALETA PRO */
+      --fluor-blue:  #4F46E5;
       --fluor-blue2: #818CF8;
 
-      --fluor-orange:  #F59E0B; /* amber */
+      --fluor-orange:  #F59E0B;
       --fluor-orange2: #FBBF24;
 
-      --danger:  #EF4444;       /* red */
+      --danger:  #EF4444;
       --danger2: #F87171;
 
-      --ok:  #10B981;           /* emerald */
+      --ok:  #10B981;
       --ok2: #34D399;
 
-      --btn:  #1F2A44;          /* neutro */
+      --btn:  #1F2A44;
       --btn2: #2B3A5E;
 
       --mark: rgba(255, 210, 0, .24);
 
-      /* Botones compactos */
       --btn-fixed-width: 44px;
-
       --radius: 12px;
     }
 
@@ -68,6 +66,12 @@
       background: radial-gradient(1200px 600px at 20% 0%, rgba(140,165,255,.35) 0%, var(--bg) 55%, rgba(255,255,255,.9) 100%);
     }
 
+    /* ✅ evita selección durante drag táctil */
+    body.dragging-no-select, body.dragging-no-select *{
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    }
+
     .app{
       max-width: 1080px;
       margin: 18px auto;
@@ -81,6 +85,13 @@
       align-items:flex-start;
       flex-wrap:wrap;
       margin-bottom: 12px;
+    }
+
+    .brand{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-width: 220px;
     }
 
     .sub{
@@ -224,7 +235,6 @@
       flex: 0 0 auto;
     }
 
-    /* ✅ Botones con colores nuevos (modificado) */
     .btn-add{
       border-color: rgba(129,140,248,.85);
       background: linear-gradient(180deg, var(--fluor-blue2), var(--fluor-blue));
@@ -318,6 +328,10 @@
       align-items:center;
       justify-content:center;
       user-select:none;
+
+      /* ✅ móvil */
+      touch-action: none;
+      -webkit-touch-callout: none;
     }
     .drag-handle:active{ cursor: grabbing; }
     .drag-handle:hover{ color: var(--text); }
@@ -326,6 +340,18 @@
       opacity:.55;
       outline: 2px dashed rgba(0,183,255,.45);
       outline-offset: 2px;
+    }
+
+    .note.placeholder{
+      background: transparent !important;
+      border: 2px dashed rgba(0,183,255,.45) !important;
+    }
+
+    .note.dragging-touch{
+      opacity: .92;
+      box-shadow: 0 18px 40px rgba(0,0,0,.35);
+      pointer-events: none;
+      transform: rotate(.2deg);
     }
 
     .content{
@@ -407,13 +433,6 @@
       border: 1px solid var(--line);
       background: rgba(0,0,0,.14);
     }
-
-    /* ✅ MEJORA: fechas ocultas (solo ícono visible) */
-    .badge-date{
-      gap: 0;
-      padding: 2px 7px;
-    }
-    .badge-date .vis-date{ display:none; }
 
     mark{
       background: var(--mark);
@@ -504,12 +523,70 @@
       border:0;
     }
 
+    /* ✅ MÓVIL: todo centrado */
     @media (max-width: 860px){
-      .btn{ width: var(--btn-fixed-width); min-width: var(--btn-fixed-width); }
+      .header{
+        justify-content:center;
+        align-items:center;
+        text-align:center;
+      }
+
+      .brand{
+        flex: 1 1 100%;
+        align-items:center;
+        min-width: auto;
+      }
+
+      .sub{
+        justify-content:center;
+      }
+
+      .topbar{
+        flex: 1 1 100%;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        gap: 10px;
+      }
+
+      .search{
+        flex: 1 1 100%;
+        justify-content:center;
+        align-items:center;
+        flex-direction:column;
+        gap: 8px;
+      }
+
+      .search label{
+        text-align:center;
+      }
+
+      .searchbox{
+        width: min(560px, 100%);
+        margin: 0 auto;
+      }
+
+      .toolbar{
+        width: 100%;
+        justify-content:center;
+        align-items:center;
+      }
+
+      .select{
+        width: min(320px, 100%);
+        text-align-last: center;
+      }
+
+      .btn{
+        width: var(--btn-fixed-width);
+        min-width: var(--btn-fixed-width);
+      }
+
       .note{
         grid-template-columns: 34px 1fr;
         grid-template-rows: auto auto;
       }
+
       .actions{
         grid-column: 1 / -1;
         flex-direction:row;
@@ -704,8 +781,14 @@
 
       let notes = [];
       let settings = { ...DEFAULT_SETTINGS };
-      let undoState = null; // { note, index, pinned }
+      let undoState = null;
       let dragId = null;
+
+      /* ✅ drag táctil */
+      let pendingPress = null; // { pointerId, timer, startX, startY, lastX, lastY, noteEl, container }
+      let pointerDrag = null;  // { pointerId, noteEl, container, placeholder, offsetX, offsetY }
+      const isCoarsePointer = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+      const supportsPointer = "PointerEvent" in window;
 
       document.addEventListener("DOMContentLoaded", () => {
         const loaded = loadState();
@@ -775,10 +858,14 @@
           container.addEventListener("focusin", onNoteFocusIn);
           container.addEventListener("focusout", onNoteFocusOut);
 
+          /* Desktop: drag & drop */
           container.addEventListener("dragstart", onDragStart);
           container.addEventListener("dragover", onDragOver);
           container.addEventListener("drop", onDrop);
           container.addEventListener("dragend", onDragEnd);
+
+          /* Móvil: pointer drag */
+          if (supportsPointer) container.addEventListener("pointerdown", onHandlePointerDown);
         });
 
         window.addEventListener("beforeunload", saveNow);
@@ -824,7 +911,6 @@
         if (!text) return `<span class="placeholder">Escribe una nota…</span>`;
 
         const cleanTerms = (terms || []).filter(Boolean);
-
         const baseText = preview
           ? (text ?? "").toString().replace(/\r/g, "").replace(/\n+/g, " ").replace(/\s+/g, " ").trim()
           : (text ?? "").toString();
@@ -884,14 +970,9 @@
         return preview ? out : out.replace(/\n/g, "<br>");
       }
 
-      function formatDate(ts) {
-        const df = new Intl.DateTimeFormat("es-CO", { dateStyle: "medium", timeStyle: "short" });
-        return df.format(new Date(ts));
-      }
-
       function cssEscape(s) {
         if (window.CSS && typeof CSS.escape === "function") return CSS.escape(s);
-        return String(s).replace(/"/g, '\\"');
+        return String(s).replace(/["\\]/g, "\\$&");
       }
 
       function migrateNotesArray(arr) {
@@ -1069,10 +1150,10 @@
         const drag = document.createElement("button");
         drag.className = "drag-handle";
         drag.type = "button";
-        drag.title = "Arrastrar para reordenar (modo manual)";
+        drag.title = "Arrastrar para reordenar (modo manual). En móvil: mantén presionado y arrastra.";
         drag.setAttribute("aria-label", "Arrastrar para reordenar");
         drag.textContent = "≡";
-        drag.draggable = true;
+        drag.draggable = true; // se ajusta luego según dispositivo
 
         const content = document.createElement("div");
         content.className = "content";
@@ -1092,17 +1173,14 @@
         edit.placeholder = "Escribe aquí…";
         edit.setAttribute("aria-label", "Editor de nota");
 
-// --- META (sin fechas visibles, sin iconos visibles) ---
-const meta = document.createElement("div");
-meta.className = "meta";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.hidden = !note.pinned;
+        meta.innerHTML = note.pinned ? `<span class="badge">📌 Fijada</span>` : "";
 
-// Solo mostramos algo si está fijada (opcional). Si no, ocultamos la fila meta para que no deje espacio.
-meta.hidden = !note.pinned;
-meta.innerHTML = note.pinned ? `<span class="badge">📌 Fijada</span>` : "";
-
-content.appendChild(view);
-content.appendChild(edit);
-content.appendChild(meta);
+        content.appendChild(view);
+        content.appendChild(edit);
+        content.appendChild(meta);
 
         const actions = document.createElement("div");
         actions.className = "actions";
@@ -1167,8 +1245,12 @@ content.appendChild(meta);
         const dragEnabled = (settings.sortMode === "manual");
         document.querySelectorAll(".drag-handle").forEach(b => {
           b.style.opacity = dragEnabled ? "1" : ".35";
-          b.title = dragEnabled ? "Arrastrar para reordenar (modo manual)" : "Reordenar solo disponible en modo Manual";
-          b.draggable = dragEnabled;
+          b.title = dragEnabled
+            ? "Arrastrar para reordenar (modo manual). En móvil: mantén presionado y arrastra."
+            : "Reordenar solo disponible en modo Manual";
+
+          /* ✅ evita conflicto: HTML5 drag solo en no-táctil */
+          b.draggable = dragEnabled && !isCoarsePointer;
         });
       }
 
@@ -1199,16 +1281,19 @@ content.appendChild(meta);
             pinBtn.setAttribute("aria-label", note.pinned ? "Soltar" : "Fijar");
           }
 
-		if (meta) {
-		  meta.hidden = !note.pinned;
-		  meta.innerHTML = note.pinned ? `<span class="badge">📌 Fijada</span>` : "";
-		}        });
+          const meta = el.querySelector(".meta");
+          if (meta) {
+            meta.hidden = !note.pinned;
+            meta.innerHTML = note.pinned ? `<span class="badge">📌 Fijada</span>` : "";
+          }
+        });
 
         return visible;
       }
 
+      /* ✅ Cambiado: "Mostrando 2 de 2" -> "2 de 2" */
       function updateCount(visible, total) {
-        countEl.textContent = `Mostrando ${visible} de ${total}`;
+        countEl.textContent = `${visible} de ${total}`;
       }
 
       function findNoteEl(target) { return target.closest(".note"); }
@@ -1495,7 +1580,14 @@ content.appendChild(meta);
           return;
         }
 
-        const blocks = text.replace(/\r/g, "")
+        const cleaned = text
+          .replace(/\r/g, "")
+          .replace(/^===\s*FIJADAS\s*===\s*\n?/im, "")
+          .replace(/^===\s*NOTAS\s*===\s*\n?/im, "")
+          .split(/\n\s*---\s*\n/g)
+          .join("\n\n");
+
+        const blocks = cleaned
           .split(/\n\s*\n+/)
           .map(s => s.trim())
           .filter(Boolean);
@@ -1556,8 +1648,10 @@ content.appendChild(meta);
 
       function canDrag() { return settings.sortMode === "manual"; }
 
+      /* Desktop: HTML5 Drag */
       function onDragStart(e) {
         if (!canDrag()) { e.preventDefault(); return; }
+        if (isCoarsePointer) { e.preventDefault(); return; } // móvil usa pointer drag
 
         const handle = e.target.closest(".drag-handle");
         if (!handle) { e.preventDefault(); return; }
@@ -1592,6 +1686,31 @@ content.appendChild(meta);
         e.preventDefault();
 
         const container = e.currentTarget;
+        saveManualOrderFromContainer(container);
+
+        dragId = null;
+        renderAll();
+        toast("Orden guardado");
+      }
+
+      function onDragEnd() {
+        document.querySelectorAll(".note.dragging").forEach(el => el.classList.remove("dragging"));
+        dragId = null;
+      }
+
+      function getDragAfterElement(container, y) {
+        const els = [...container.querySelectorAll(".note:not(.dragging):not(.placeholder)")];
+        let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+
+        for (const el of els) {
+          const box = el.getBoundingClientRect();
+          const offset = y - (box.top + box.height / 2);
+          if (offset < 0 && offset > closest.offset) closest = { offset, element: el };
+        }
+        return closest.element;
+      }
+
+      function saveManualOrderFromContainer(container) {
         const isPinnedContainer = (container === pinnedListEl);
 
         const ids = [...container.querySelectorAll(".note")].map(el => el.dataset.id);
@@ -1604,27 +1723,158 @@ content.appendChild(meta);
         }
 
         saveDebounced();
-        dragId = null;
-        renderAll();
-        toast("Orden guardado");
       }
 
-      function onDragEnd(e) {
-        const noteEl = findNoteEl(e.target);
-        if (noteEl) noteEl.classList.remove("dragging");
-        dragId = null;
+      /* ✅ Móvil: drag táctil (long press en ≡) */
+      function onHandlePointerDown(e) {
+        if (!isCoarsePointer) return;
+        if (!canDrag()) return;
+        if (pointerDrag) return;
+
+        const handle = e.target.closest(".drag-handle");
+        if (!handle) return;
+
+        const noteEl = handle.closest(".note");
+        if (!noteEl) return;
+
+        const container = noteEl.parentElement;
+        if (container !== pinnedListEl && container !== notesListEl) return;
+
+        if (noteEl.classList.contains("editing")) return;
+
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const pointerId = e.pointerId;
+
+        pendingPress = {
+          pointerId,
+          startX, startY,
+          lastX: startX, lastY: startY,
+          noteEl, container
+        };
+
+        const t = setTimeout(() => {
+          if (!pendingPress || pendingPress.pointerId !== pointerId) return;
+          beginPointerDrag(pendingPress.noteEl, pendingPress.container, pointerId, pendingPress.lastX, pendingPress.lastY);
+          pendingPress = null;
+        }, 180);
+
+        pendingPress.timer = t;
+
+        const onMove = (ev) => {
+          if (!pendingPress || ev.pointerId !== pointerId) return;
+          pendingPress.lastX = ev.clientX;
+          pendingPress.lastY = ev.clientY;
+
+          const dx = ev.clientX - startX;
+          const dy = ev.clientY - startY;
+          if (Math.hypot(dx, dy) > 10) {
+            clearTimeout(t);
+            cleanup();
+          }
+        };
+
+        const onUp = (ev) => {
+          if (!pendingPress || ev.pointerId !== pointerId) return;
+          clearTimeout(t);
+          cleanup();
+        };
+
+        const cleanup = () => {
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          window.removeEventListener("pointercancel", onUp);
+          pendingPress = null;
+        };
+
+        window.addEventListener("pointermove", onMove, { passive: true });
+        window.addEventListener("pointerup", onUp, { passive: true });
+        window.addEventListener("pointercancel", onUp, { passive: true });
       }
 
-      function getDragAfterElement(container, y) {
-        const els = [...container.querySelectorAll(".note:not(.dragging)")];
-        let closest = { offset: Number.NEGATIVE_INFINITY, element: null };
+      function beginPointerDrag(noteEl, container, pointerId, clientX, clientY) {
+        const rect = noteEl.getBoundingClientRect();
 
-        for (const el of els) {
-          const box = el.getBoundingClientRect();
-          const offset = y - (box.top + box.height / 2);
-          if (offset < 0 && offset > closest.offset) closest = { offset, element: el };
-        }
-        return closest.element;
+        const placeholder = document.createElement("div");
+        placeholder.className = "note placeholder";
+        placeholder.style.height = rect.height + "px";
+
+        container.insertBefore(placeholder, noteEl);
+
+        noteEl.classList.add("dragging", "dragging-touch");
+        noteEl.style.position = "fixed";
+        noteEl.style.zIndex = "9999";
+        noteEl.style.width = rect.width + "px";
+        noteEl.style.left = rect.left + "px";
+        noteEl.style.top = rect.top + "px";
+
+        document.body.appendChild(noteEl);
+        document.body.classList.add("dragging-no-select");
+
+        const offsetX = clientX - rect.left;
+        const offsetY = clientY - rect.top;
+
+        pointerDrag = { pointerId, noteEl, container, placeholder, offsetX, offsetY };
+
+        const onMove = (e) => {
+          if (!pointerDrag) return;
+          if (e.pointerId !== pointerDrag.pointerId) return;
+
+          e.preventDefault();
+
+          const x = e.clientX;
+          const y = e.clientY;
+
+          pointerDrag.noteEl.style.left = (x - pointerDrag.offsetX) + "px";
+          pointerDrag.noteEl.style.top  = (y - pointerDrag.offsetY) + "px";
+
+          autoScrollWindow(y);
+
+          const afterEl = getDragAfterElement(pointerDrag.container, y);
+          if (afterEl == null) pointerDrag.container.appendChild(pointerDrag.placeholder);
+          else pointerDrag.container.insertBefore(pointerDrag.placeholder, afterEl);
+        };
+
+        const onEnd = (e) => {
+          if (!pointerDrag) return;
+          if (e.pointerId !== pointerDrag.pointerId) return;
+
+          e.preventDefault();
+
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onEnd);
+          window.removeEventListener("pointercancel", onEnd);
+
+          pointerDrag.container.insertBefore(pointerDrag.noteEl, pointerDrag.placeholder);
+          pointerDrag.placeholder.remove();
+
+          pointerDrag.noteEl.classList.remove("dragging", "dragging-touch");
+          pointerDrag.noteEl.style.position = "";
+          pointerDrag.noteEl.style.zIndex = "";
+          pointerDrag.noteEl.style.width = "";
+          pointerDrag.noteEl.style.left = "";
+          pointerDrag.noteEl.style.top = "";
+
+          document.body.classList.remove("dragging-no-select");
+
+          saveManualOrderFromContainer(pointerDrag.container);
+          pointerDrag = null;
+
+          renderAll();
+          toast("Orden guardado");
+        };
+
+        window.addEventListener("pointermove", onMove, { passive: false });
+        window.addEventListener("pointerup", onEnd, { passive: false });
+        window.addEventListener("pointercancel", onEnd, { passive: false });
+      }
+
+      function autoScrollWindow(clientY) {
+        const margin = 70;
+        const speed = 14;
+
+        if (clientY < margin) window.scrollBy({ top: -speed, left: 0, behavior: "auto" });
+        else if (clientY > window.innerHeight - margin) window.scrollBy({ top: speed, left: 0, behavior: "auto" });
       }
     })();
   </script>
