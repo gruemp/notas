@@ -1,0 +1,32 @@
+necesito una aplicacion de notas para copiarlas y pegarlas, debe tener interfaz web, es decir una pagina web html, con un buscador, la busqueda debe ser incremental que divida la consulta en palabras y muestre únicamente aquellos cuyos nombres contengan todos los términos, sin importar orden, mayúsculas ni tildes; por ejemplo, la frase «el reten bueno» aparecerá si se escribe «bue te el». Los resultados deben actualizarse en tiempo real conforme el usuario teclea.
+
+cada una ocupara una linea, al final de la linea que muestra el texto de la nota, habra un boton llamado copiar que cuando la nota no tenga texto alguno mostrara no el nombre copiar, sino el nombre pegar y cambiara a color naranja fluorescente. a la derecha de ese boton habla otro boton llamado limpiar, que servira para borrar el contenido de la nota. al lado de este habra otro llamado eliminar, que servira para eliminar la nota. llamese nota a toda una linea, dicha linea contine la caja de entrada de texto, botones y todo lo demas que halla en la linea. en la primera linea (cuando no halla nota en ella), habra un boton llamado nueva nota, de color azul fluoresente, que servira para agregar una nota con todo y sus botones en esa linea donde esta el boton nueva nota, luego de agregar la nueva nota, ese boton desaparece de esa linea y aparece en la siguiente y asi sucesivamente para poder agregar mas notas.
+
+el texto que se escriba en la nota se debe ir guradando mientras se escribe y al actualizar la vista o al cerrar el navegador, las notas no deben borrarse.
+
+nuevas instrucciones:
+los botones siempre deben tener el mismo tamaño, aun cuando su nombre cambie, asi que cuadra el tamño de todos con base al boton con el texto mas largo, asi aunque el texto sea mas grande el tamaño del boton no necesitara cambiar y de esta manera todos seguiran siendo del mismo tamaño.
+
+si oprimo enter dentro de una nota, el cursor debe ir a la siguiente linea dentro de la nota, y debera espandirse hacia abajo para permitir ver todo el texto de la nota de un solo vistazo, es mas, siempre que la nota tanga mas de una linea y de clic dentro de la nota, debo poder ver el texto completo de la nota.
+
+la nota siempre debe ocupar una linea en la ventana, a menos que el cursor este dentro de la nota, ahi si debera mostrar todo el contenido de la nota.
+
+
+
+
+
+quita esto:
+**Búsqueda:** divide lo escrito en palabras y muestra solo notas cuyo texto contenga **todos** los términos (sin importar orden, mayúsculas ni tildes). **Copiar/Pegar:** si la nota está vacía el botón cambia a **Pegar** (naranja fluorescente).
+
+quita el texto de fondo de la barra de busqueada.
+
+los botones estan muy grandes.
+
+reemplaza la palabra creada y editada por figuras, icono o algo asi.
+
+estos atajos no deben servir para nada: Atajos: Ctrl+N, Ctrl+K, Ctrl+Enter
+
+cuando uno de los textos de la lista despleglable no tenga el foco, debe estar de color negro ese texto, como cuando se pasa el cursor por encima de ese texto.
+
+
+
