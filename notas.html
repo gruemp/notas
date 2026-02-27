@@ -408,6 +408,13 @@
       background: rgba(0,0,0,.14);
     }
 
+    /* ✅ MEJORA: fechas ocultas (solo ícono visible) */
+    .badge-date{
+      gap: 0;
+      padding: 2px 7px;
+    }
+    .badge-date .vis-date{ display:none; }
+
     mark{
       background: var(--mark);
       color: inherit;
@@ -605,7 +612,6 @@
       </div>
     </header>
 
-    <!-- ✅ “Lista” quitado también de aria-label -->
     <main class="list" aria-label="Notas">
       <section id="pinnedSection" class="section" hidden>
         <div class="section-title">Fijadas</div>
@@ -613,7 +619,6 @@
       </section>
 
       <section id="notesSection" class="section">
-        <!-- ✅ Antes: <div class="section-title">Lista</div> -->
         <div id="notesList" class="section-body" role="list"></div>
       </section>
 
@@ -1089,10 +1094,19 @@
 
         const meta = document.createElement("div");
         meta.className = "meta";
+
+        /* ✅ MEJORA: fechas ocultas pero operativas (solo ícono visible) */
+        const createdLabel = formatDate(note.createdAt);
+        const updatedLabel = formatDate(note.updatedAt);
+
         meta.innerHTML = [
           note.pinned ? `<span class="badge">📌 Fijada</span>` : "",
-          `<span class="badge" title="Creada">🆕 ${escapeHTML(formatDate(note.createdAt))}</span>`,
-          `<span class="badge" title="Editada">✏️ ${escapeHTML(formatDate(note.updatedAt))}</span>`
+          `<span class="badge badge-date" title="Creada: ${escapeHTML(createdLabel)}">
+             🆕<span class="sr-only">Creada: ${escapeHTML(createdLabel)}</span>
+           </span>`,
+          `<span class="badge badge-date" title="Editada: ${escapeHTML(updatedLabel)}">
+             ✏️<span class="sr-only">Editada: ${escapeHTML(updatedLabel)}</span>
+           </span>`
         ].filter(Boolean).join(" ");
 
         content.appendChild(view);
@@ -1196,10 +1210,18 @@
 
           const meta = el.querySelector(".meta");
           if (meta) {
+            /* ✅ MEJORA: fechas ocultas pero operativas (solo ícono visible) */
+            const createdLabel = formatDate(note.createdAt);
+            const updatedLabel = formatDate(note.updatedAt);
+
             meta.innerHTML = [
               note.pinned ? `<span class="badge">📌 Fijada</span>` : "",
-              `<span class="badge" title="Creada">🆕 ${escapeHTML(formatDate(note.createdAt))}</span>`,
-              `<span class="badge" title="Editada">✏️ ${escapeHTML(formatDate(note.updatedAt))}</span>`
+              `<span class="badge badge-date" title="Creada: ${escapeHTML(createdLabel)}">
+                 🆕<span class="sr-only">Creada: ${escapeHTML(createdLabel)}</span>
+               </span>`,
+              `<span class="badge badge-date" title="Editada: ${escapeHTML(updatedLabel)}">
+                 ✏️<span class="sr-only">Editada: ${escapeHTML(updatedLabel)}</span>
+               </span>`
             ].filter(Boolean).join(" ");
           }
         });
