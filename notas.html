@@ -17,7 +17,6 @@
       --muted: #a7b3dd;
       --line: rgba(255,255,255,.10);
 
-      /* ✅ PALETA PRO */
       --fluor-blue:  #4F46E5;
       --fluor-blue2: #818CF8;
 
@@ -35,14 +34,12 @@
 
       --mark: rgba(255, 210, 0, .24);
 
-      /* ✅ NUEVO: alturas y tamaños */
-      --row-h: 44px;              /* altura de la barra de nota */
-      --btn-fixed-width: 44px;    /* ancho botones por defecto */
-      --btn-icon: 20px;           /* tamaño iconos botones */
-      --top-btn-w: 160px;         /* ancho controles superiores (categorías/orden/nueva cat) */
-      --note-cat-w: 140px;        /* ancho selector categoría por nota */
+      /* ✅ tamaños */
+      --row-h: 44px;
+      --btn-fixed-width: 44px;
+      --btn-icon: 20px;
 
-      /* ✅ Categorías: un solo color */
+      /* ✅ categorías: color único */
       --cat-blue: #4F46E5;
 
       --radius: 12px;
@@ -88,41 +85,48 @@
       padding: 14px;
     }
 
-    /* ✅ Header: móvil en UNA SOLA FILA (search + categorías + orden + nueva categoría) */
-    .header{ margin-bottom: 12px; }
+    /* ✅ Header fijo en móvil + sin scroll horizontal */
+    .header{
+      margin-bottom: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+      background: rgba(11,16,32,.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+    [data-theme="light"] .header{
+      background: rgba(247,248,252,.82);
+    }
 
+    /* ✅ Barra superior: PC en UNA FILA (sin overflow) */
     .topbar{
       display:flex;
       gap:10px;
       align-items:center;
       justify-content:flex-start;
-      flex-wrap:nowrap;             /* ✅ nunca se parte en 2 filas */
-      overflow-x:auto;              /* ✅ si no cabe, scroll horizontal manteniendo 1 fila */
-      -webkit-overflow-scrolling: touch;
-      padding-bottom: 2px;
+      flex-wrap:nowrap;       /* ✅ PC: 1 fila */
+      overflow: hidden;       /* ✅ sin barra horizontal */
     }
-
-    .topbar::-webkit-scrollbar{ height: 6px; }
-    .topbar::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.12); border-radius: 999px; }
 
     .searchbox{
       display:flex;
       align-items:stretch;
       flex: 1 1 auto;
-      min-width: 220px;
+      min-width: 0;                 /* ✅ permite encoger sin overflow */
       height: var(--row-h);
       border-radius: 10px;
       border: 1px solid var(--line);
       background: rgba(0,0,0,.18);
       overflow:hidden;
     }
-
-    [data-theme="light"] .searchbox{
-      background: rgba(255,255,255,.8);
-    }
+    [data-theme="light"] .searchbox{ background: rgba(255,255,255,.8); }
 
     .searchbox input{
       width: 100%;
+      min-width: 0;
       padding: 10px 12px;
       border: none;
       outline:none;
@@ -135,91 +139,35 @@
       box-shadow: 0 0 0 3px rgba(0,183,255,.18);
     }
 
+    /* ✅ Botón limpiar: mismo tamaño que los demás */
     .icon-btn{
       width: var(--btn-fixed-width);
       min-width: var(--btn-fixed-width);
-      border: none;
-      cursor:pointer;
-      background: transparent;
-      color: var(--muted);
-      font-size: 22px;
-      line-height: 1;
-    }
-    .icon-btn:hover{ color: var(--text); }
-
-    /* ✅ “select” con apariencia de botón (incluye icono + chevron) */
-    .selectwrap{
-      position: relative;
-      width: var(--top-btn-w);
-      min-width: var(--top-btn-w);
-      height: var(--row-h);
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: linear-gradient(180deg, var(--btn2), var(--btn));
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      overflow:hidden;
-      box-shadow: none;
-      flex: 0 0 auto;
-    }
-
-    [data-theme="light"] .selectwrap{
-      border-color: rgba(16,20,40,.14);
-    }
-
-    .selectwrap svg{
-      width: 18px;
-      height: 18px;
-      stroke: currentColor;
-      fill: none;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      color: var(--text);
-      opacity: .95;
-      pointer-events:none;
-      position:absolute;
-      top: 50%;
-      transform: translateY(-50%);
-    }
-
-    .selectwrap .icon-left{ left: 10px; opacity: .92; }
-    .selectwrap .icon-right{ right: 10px; opacity: .85; }
-
-    .selectwrap select{
-      width: 100%;
       height: 100%;
       border: none;
-      outline:none;
-      background: transparent;
-      color: var(--text);
-      font-weight: 750;
-      letter-spacing: .2px;
       cursor:pointer;
-      appearance:none;
-      -webkit-appearance:none;
-      -moz-appearance:none;
+      background: rgba(0,0,0,.10);
+      border-left: 1px solid var(--line);
+      color: var(--text);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding: 0;
+    }
+    [data-theme="light"] .icon-btn{ background: rgba(255,255,255,.55); }
+    .icon-btn:hover{ filter: brightness(1.08); }
 
-      padding: 0 34px 0 34px; /* deja espacio a iconos */
-      text-align: center;
-      text-align-last: center;
-      white-space: nowrap;
-      overflow:hidden;
-      text-overflow: ellipsis;
+    .icon-btn svg{
+      width: var(--btn-icon);
+      height: var(--btn-icon);
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
-    .selectwrap select option{
-      color: #000;
-      background: #fff;
-    }
-
-    .selectwrap:focus-within{
-      border-color: rgba(0,183,255,.55);
-      box-shadow: 0 0 0 3px rgba(0,183,255,.18);
-    }
-
-    /* ✅ Botones base */
+    /* ✅ Botones base (cuadrados) */
     .btn{
       width: var(--btn-fixed-width);
       min-width: var(--btn-fixed-width);
@@ -232,8 +180,6 @@
       cursor:pointer;
       user-select:none;
       transition: transform .05s ease, filter .15s ease, box-shadow .15s ease, border-color .15s ease;
-      font-weight: 650;
-      letter-spacing: .2px;
       display:inline-flex;
       align-items:center;
       justify-content:center;
@@ -262,19 +208,6 @@
       box-shadow: 0 0 18px rgba(79,70,229,.22);
     }
 
-    .btn-wide{
-      width: var(--top-btn-w);
-      min-width: var(--top-btn-w);
-      gap: 10px;
-      padding: 0 12px;
-      justify-content:center;
-    }
-
-    .btn-wide span{
-      font-weight: 800;
-      letter-spacing: .2px;
-    }
-
     .btn-copy{
       border-color: rgba(16,185,129,.70);
       background: linear-gradient(180deg, var(--ok2), var(--ok));
@@ -301,25 +234,65 @@
       border-color: rgba(255,255,255,.14);
       box-shadow: none;
     }
+    [data-theme="light"] .btn-ghost{ background: rgba(255,255,255,.55); }
 
-    [data-theme="light"] .btn-ghost{
-      background: rgba(255,255,255,.55);
-    }
-
-    /* ✅ Barra secundaria (acciones extra) */
-    .subbar{
-      margin-top: 10px;
+    /* ✅ Select como control cuadrado con icono (sin texto visible) */
+    .selectwrap{
+      position: relative;
+      width: var(--btn-fixed-width);
+      min-width: var(--btn-fixed-width);
+      height: var(--row-h);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: linear-gradient(180deg, var(--btn2), var(--btn));
       display:flex;
-      gap: 10px;
       align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
+      justify-content:center;
+      overflow:hidden;
+      flex: 0 0 auto;
+    }
+    [data-theme="light"] .selectwrap{ border-color: rgba(16,20,40,.14); }
+
+    .selectwrap svg{
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      color: var(--text);
+      opacity: .95;
+      pointer-events:none;
     }
 
-    .count{
-      color: var(--muted);
-      font-size: 13px;
-      white-space:nowrap;
+    .selectwrap select{
+      position:absolute;      /* ✅ captura clic/tap */
+      inset:0;
+      width:100%;
+      height:100%;
+      opacity:0;              /* ✅ oculto, pero funcional */
+      cursor:pointer;
+      appearance:none;
+      -webkit-appearance:none;
+      -moz-appearance:none;
+      border:none;
+      outline:none;
+      background: transparent;
+    }
+
+    .selectwrap:focus-within{
+      border-color: rgba(0,183,255,.55);
+      box-shadow: 0 0 0 3px rgba(0,183,255,.18);
+    }
+
+    /* ✅ Agrupaciones dentro de la barra superior */
+    .top-controls{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex: 0 0 auto;
+      min-width: 0;
     }
 
     .toolbar2{
@@ -327,8 +300,25 @@
       gap:10px;
       align-items:center;
       justify-content:flex-end;
-      flex-wrap:wrap;
+      flex-wrap:nowrap;   /* ✅ PC: 1 fila */
+      flex: 0 0 auto;
     }
+
+    .count-pill{
+      height: var(--row-h);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding: 0 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.10);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      white-space:nowrap;
+    }
+    [data-theme="light"] .count-pill{ background: rgba(255,255,255,.55); }
 
     .list{
       background: var(--panel);
@@ -337,9 +327,7 @@
       overflow:hidden;
     }
 
-    .section{
-      border-top: 1px solid var(--line);
-    }
+    .section{ border-top: 1px solid var(--line); }
     .section:first-child{ border-top:none; }
 
     .section-title{
@@ -361,16 +349,14 @@
       gap:12px;
     }
 
-    /* ✅ Categorías (SIEMPRE color azul y contraídas al inicio) */
+    /* ✅ Categorías */
     .cat-group{
       border: 1px solid var(--line);
       border-radius: 12px;
       overflow:hidden;
       background: rgba(0,0,0,.10);
     }
-    [data-theme="light"] .cat-group{
-      background: rgba(255,255,255,.55);
-    }
+    [data-theme="light"] .cat-group{ background: rgba(255,255,255,.55); }
 
     .cat-head{
       display:flex;
@@ -451,9 +437,7 @@
       gap:10px;
     }
 
-    .cat-group.collapsed .cat-list{
-      display:none;
-    }
+    .cat-group.collapsed .cat-list{ display:none; }
 
     .cat-empty{
       padding: 10px 12px;
@@ -464,11 +448,9 @@
       font-size: 13px;
       text-align:center;
     }
-    [data-theme="light"] .cat-empty{
-      background: rgba(255,255,255,.45);
-    }
+    [data-theme="light"] .cat-empty{ background: rgba(255,255,255,.45); }
 
-    /* ✅ Nota: controles EN LA MISMA FILA (PC y móvil) */
+    /* ✅ Nota */
     .note{
       display:grid;
       grid-template-columns: 34px 1fr auto;
@@ -479,15 +461,11 @@
       border-radius: 12px;
       background: rgba(0,0,0,.12);
     }
-
-    [data-theme="light"] .note{
-      background: rgba(255,255,255,.55);
-    }
-
+    [data-theme="light"] .note{ background: rgba(255,255,255,.55); }
     .note[hidden]{ display:none; }
 
     .drag-handle{
-      height: var(--row-h);               /* ✅ misma altura que la barra */
+      height: var(--row-h);
       border: 1px solid var(--line);
       background: rgba(0,0,0,.12);
       border-radius: 10px;
@@ -498,7 +476,6 @@
       align-items:center;
       justify-content:center;
       user-select:none;
-
       touch-action: none;
       -webkit-touch-callout: none;
     }
@@ -523,12 +500,10 @@
       transform: rotate(.2deg);
     }
 
-    .content{
-      min-width: 0;
-    }
+    .content{ min-width: 0; }
 
     .note-view{
-      height: var(--row-h);              /* ✅ misma altura que iconos */
+      height: var(--row-h);
       padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid var(--line);
@@ -543,10 +518,7 @@
       display:flex;
       align-items:center;
     }
-
-    [data-theme="light"] .note-view{
-      background: rgba(255,255,255,.75);
-    }
+    [data-theme="light"] .note-view{ background: rgba(255,255,255,.75); }
 
     .note-view:focus{
       outline:none;
@@ -554,14 +526,12 @@
       box-shadow: 0 0 0 3px rgba(0,255,153,.12);
     }
 
-    .note-view .placeholder{
-      color: var(--muted);
-    }
+    .note-view .placeholder{ color: var(--muted); }
 
     .note-edit{
       display:none;
       width:100%;
-      height: var(--row-h);              /* ✅ fija: mantiene controles alineados */
+      height: var(--row-h);
       padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid var(--line);
@@ -569,16 +539,12 @@
       color: var(--text);
       outline:none;
       resize:none;
-      overflow:auto;                     /* ✅ permite scroll dentro sin crecer */
+      overflow:auto;
       line-height: 1.4;
       min-height: var(--row-h);
       max-height: var(--row-h);
     }
-
-    [data-theme="light"] .note-edit{
-      background: rgba(255,255,255,.75);
-    }
-
+    [data-theme="light"] .note-edit{ background: rgba(255,255,255,.75); }
     .note.editing .note-view{ display:none; }
     .note.editing .note-edit{ display:block; }
 
@@ -594,33 +560,17 @@
       padding: 0 .12em;
     }
 
-    /* ✅ Acciones por nota: misma fila + scroll horizontal si hace falta */
+    /* ✅ Acciones por nota: sin scroll horizontal */
     .actions{
-      height: var(--row-h);
+      min-height: var(--row-h);
       display:flex;
       flex-direction:row;
       gap:8px;
       align-items:center;
       justify-content:flex-end;
-      flex-wrap:nowrap;
-      overflow-x:auto;
-      -webkit-overflow-scrolling: touch;
-      max-width: 60vw;
-    }
-
-    .actions::-webkit-scrollbar{ height: 6px; }
-    .actions::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.12); border-radius: 999px; }
-
-    /* ✅ Selector de categoría por nota: botón + lista */
-    .selectwrap.note-select{
-      width: var(--note-cat-w);
-      min-width: var(--note-cat-w);
-      height: var(--row-h);
-    }
-
-    .selectwrap.note-select select{
-      font-size: 12px;
-      font-weight: 800;
+      flex-wrap:nowrap;     /* ✅ PC: 1 fila */
+      overflow: hidden;     /* ✅ sin barra horizontal */
+      max-width: none;
     }
 
     .btn-pin{
@@ -649,10 +599,7 @@
       gap:10px;
       align-items:center;
     }
-
-    [data-theme="light"] .toast{
-      background: rgba(20,25,40,.88);
-    }
+    [data-theme="light"] .toast{ background: rgba(20,25,40,.88); }
 
     .toast.show{
       opacity: 1;
@@ -669,7 +616,6 @@
       cursor:pointer;
       font-weight: 650;
     }
-
     .toast .toast-btn:hover{ filter: brightness(1.08); }
 
     .empty{
@@ -712,9 +658,7 @@
       background: rgba(245,247,255,.96);
       color: var(--text);
     }
-    dialog::backdrop{
-      background: rgba(0,0,0,.55);
-    }
+    dialog::backdrop{ background: rgba(0,0,0,.55); }
 
     .modal-head{
       display:flex;
@@ -725,10 +669,7 @@
       border-bottom: 1px solid var(--line);
       background: var(--panel2);
     }
-    .modal-title{
-      font-weight: 900;
-      letter-spacing: .2px;
-    }
+    .modal-title{ font-weight: 900; letter-spacing: .2px; }
     .modal-body{
       padding: 14px;
       display:flex;
@@ -742,7 +683,6 @@
       gap:10px;
     }
 
-    /* ✅ SIN selector de color (color fijo azul) */
     .cat-row{
       display:grid;
       grid-template-columns: 1fr 34px 34px 44px;
@@ -753,9 +693,7 @@
       border-radius: 12px;
       background: rgba(0,0,0,.10);
     }
-    [data-theme="light"] .cat-row{
-      background: rgba(255,255,255,.65);
-    }
+    [data-theme="light"] .cat-row{ background: rgba(255,255,255,.65); }
 
     .cat-row input[type="text"]{
       width: 100%;
@@ -766,9 +704,7 @@
       color: var(--text);
       outline:none;
     }
-    [data-theme="light"] .cat-row input[type="text"]{
-      background: rgba(255,255,255,.9);
-    }
+    [data-theme="light"] .cat-row input[type="text"]{ background: rgba(255,255,255,.9); }
 
     .mini-btn{
       width: 34px;
@@ -804,37 +740,42 @@
       color: var(--text);
       outline:none;
     }
-    [data-theme="light"] .cat-add input[type="text"]{
-      background: rgba(255,255,255,.9);
-    }
+    [data-theme="light"] .cat-add input[type="text"]{ background: rgba(255,255,255,.9); }
 
-    /* ✅ MÓVIL: iconos más pequeños para que todo encaje */
+    /* ✅ MÓVIL: sin scroll horizontal, se acomoda por filas */
     @media (max-width: 860px){
       :root{
         --btn-fixed-width: 36px;
         --btn-icon: 16px;
-        --top-btn-w: 120px;
-        --note-cat-w: 110px;
+        --row-h: 40px;
       }
 
       .app{ margin: 12px auto; padding: 12px; }
 
-      .searchbox{ min-width: 180px; }
+      .topbar{
+        flex-wrap:wrap;           /* ✅ permite filas */
+        overflow: visible;
+      }
 
-      .subbar{
-        justify-content:center;
+      .searchbox{
+        flex: 1 1 100%;
+      }
+
+      .top-controls{
+        flex: 1 1 100%;
+        justify-content:flex-start;
+        flex-wrap:wrap;
       }
 
       .toolbar2{
-        justify-content:center;
-      }
-
-      .note{
-        grid-template-columns: 34px 1fr auto;
+        flex: 1 1 100%;
+        justify-content:flex-start;
+        flex-wrap:wrap;
       }
 
       .actions{
-        max-width: 56vw;
+        flex-wrap:wrap;           /* ✅ evita scroll en acciones de nota */
+        justify-content:flex-end;
       }
     }
 
@@ -847,59 +788,57 @@
 <body>
   <div class="app">
     <header class="header">
-      <!-- ✅ MÓVIL: una sola fila -->
+      <!-- ✅ TODO EN UNA SOLA FILA (PC) / sin scroll y fijo en móvil -->
       <div class="topbar" aria-label="Barra superior">
+
         <div class="searchbox" role="search">
           <label class="sr-only" for="search">Buscar</label>
           <input id="search" type="text" autocomplete="off" placeholder="Buscar… (ignora tildes)" />
-          <button id="clearSearch" class="icon-btn" type="button" aria-label="Limpiar búsqueda" title="Limpiar">×</button>
+          <button id="clearSearch" class="icon-btn" type="button" aria-label="Limpiar búsqueda" title="Limpiar">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M6 6l12 12"></path>
+              <path d="M18 6l-12 12"></path>
+            </svg>
+          </button>
         </div>
 
-        <div class="selectwrap" aria-label="Filtro de categoría">
-          <svg class="icon-left" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M4 6h16"></path>
-            <path d="M7 12h10"></path>
-            <path d="M10 18h4"></path>
-          </svg>
-          <select id="catFilter" aria-label="Filtrar por categoría"></select>
-          <svg class="icon-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M6 9l6 6 6-6"></path>
-          </svg>
-        </div>
+        <div class="top-controls" role="group" aria-label="Controles superiores">
 
-        <div class="selectwrap" aria-label="Ordenar">
-          <svg class="icon-left" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M11 5h10"></path>
-            <path d="M11 9h7"></path>
-            <path d="M11 13h5"></path>
-            <path d="M11 17h3"></path>
-            <path d="M3 7l2-2 2 2"></path>
-            <path d="M5 5v14"></path>
-          </svg>
-          <select id="sort" aria-label="Ordenar notas">
-            <option value="manual">Manual</option>
-            <option value="updated_desc">Actualizadas</option>
-            <option value="created_desc">Creadas</option>
-            <option value="alpha_asc">A-Z</option>
-          </select>
-          <svg class="icon-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M6 9l6 6 6-6"></path>
-          </svg>
-        </div>
+          <div class="selectwrap" aria-label="Filtro de categoría" title="Categoría">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M4 6h16"></path>
+              <path d="M7 12h10"></path>
+              <path d="M10 18h4"></path>
+            </svg>
+            <select id="catFilter" aria-label="Filtrar por categoría"></select>
+          </div>
 
-        <button id="newCatTop" class="btn btn-add btn-wide" type="button" aria-label="Crear nueva categoría" title="Nueva categoría">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M12 5v14"></path>
-            <path d="M5 12h14"></path>
-          </svg>
-          <span>Nueva</span>
-        </button>
-      </div>
+          <div class="selectwrap" aria-label="Ordenar" title="Orden">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M11 5h10"></path>
+              <path d="M11 9h7"></path>
+              <path d="M11 13h5"></path>
+              <path d="M11 17h3"></path>
+              <path d="M3 7l2-2 2 2"></path>
+              <path d="M5 5v14"></path>
+            </svg>
+            <select id="sort" aria-label="Ordenar notas">
+              <option value="manual">Manual</option>
+              <option value="updated_desc">Actualizadas</option>
+              <option value="created_desc">Creadas</option>
+              <option value="alpha_asc">A-Z</option>
+            </select>
+          </div>
 
-      <!-- ✅ Barra secundaria (acciones extra) -->
-      <div class="subbar" aria-label="Acciones secundarias">
-        <div class="countbox">
-          <span id="count" class="count"></span>
+          <button id="newCatTop" class="btn btn-add" type="button" aria-label="Crear nueva categoría" title="Nueva categoría">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+            <span class="sr-only">Nueva categoría</span>
+          </button>
+
+          <span id="count" class="count-pill" aria-label="Conteo"></span>
         </div>
 
         <div class="toolbar2" role="group" aria-label="Acciones">
@@ -1212,7 +1151,7 @@
          Model
       ========================== */
       const GENERAL_CATEGORY_ID = "general";
-      const CATEGORY_COLOR = "#4F46E5"; // ✅ color único para categorías
+      const CATEGORY_COLOR = "#4F46E5";
 
       const DEFAULT_GENERAL_CATEGORY = {
         id: GENERAL_CATEGORY_ID,
@@ -1353,7 +1292,7 @@
           if (savedTheme && ["auto","dark","light"].includes(savedTheme)) settings.theme = savedTheme;
 
           ensureGeneralCategory();
-          forceCategoriesStartCollapsed_();    // ✅ Inicio: categorías contraídas
+          forceCategoriesStartCollapsed_();
           sanitizeNotesCategoryIds();
 
           applyTheme(settings.theme);
@@ -1362,6 +1301,7 @@
           bindEvents();
 
           renderCategoryFilter();
+          syncTopSelectTitles_();      /* ✅ tooltip con valor actual */
           renderAll();
 
           if ((categories?.length || 0) === 0 && (notes?.length || 0) === 0) {
@@ -1389,6 +1329,7 @@
         sortEl.addEventListener("change", () => {
           settings.sortMode = sortEl.value;
           saveUISettings_();
+          syncTopSelectTitles_();
           renderAll();
           toast("Orden actualizado");
         });
@@ -1396,16 +1337,15 @@
         catFilterEl.addEventListener("change", () => {
           settings.categoryFilter = catFilterEl.value;
           saveUISettings_();
+          syncTopSelectTitles_();
           renderAll();
           toast("Filtro actualizado");
         });
 
-        // ✅ Botón superior: nueva categoría
         newCatTopEl.addEventListener("click", () => {
           openCatDialog({ focusNew: true });
         });
 
-        // ✅ Administrar categorías (barra secundaria)
         catBtnEl.addEventListener("click", () => {
           openCatDialog({ focusNew: false });
         });
@@ -1457,7 +1397,6 @@
           toast(`Tema: ${themeLabel(settings.theme)}`);
         });
 
-        /* Delegación de eventos (listas dinámicas) */
         [pinnedListEl, notesListEl].forEach(root => {
           root.addEventListener("click", onListClick);
           root.addEventListener("keydown", onListKeydown);
@@ -1465,13 +1404,11 @@
           root.addEventListener("change", onListChange);
           root.addEventListener("focusout", onListFocusOut);
 
-          /* Desktop: drag & drop */
           root.addEventListener("dragstart", onDragStart);
           root.addEventListener("dragover", onDragOver);
           root.addEventListener("drop", onDrop);
           root.addEventListener("dragend", onDragEnd);
 
-          /* Móvil: pointer drag */
           if (supportsPointer) root.addEventListener("pointerdown", onHandlePointerDown);
         });
 
@@ -1484,6 +1421,17 @@
         document.addEventListener("keydown", (e) => {
           if (e.key === "Escape" && catDialogEl.open) closeCatDialog();
         });
+      }
+
+      function syncTopSelectTitles_() {
+        try {
+          const catText = catFilterEl?.options?.[catFilterEl.selectedIndex]?.textContent || "";
+          const sortText = sortEl?.options?.[sortEl.selectedIndex]?.textContent || "";
+          const catWrap = catFilterEl?.closest(".selectwrap");
+          const sortWrap = sortEl?.closest(".selectwrap");
+          if (catWrap) catWrap.title = `Categoría: ${catText || "—"}`;
+          if (sortWrap) sortWrap.title = `Orden: ${sortText || "—"}`;
+        } catch {}
       }
 
       function saveUISettings_() {
@@ -1612,9 +1560,9 @@
           if (!c || typeof c !== "object") return;
           c.id = String(c.id ?? makeId());
           c.name = String(c.name ?? "Categoría");
-          c.color = CATEGORY_COLOR;                 // ✅ color fijo azul
+          c.color = CATEGORY_COLOR;
           c.order = Number.isFinite(Number(c.order)) ? Number(c.order) : i * 1000;
-          c.collapsed = Boolean(c.collapsed ?? true); // ✅ por defecto contraída
+          c.collapsed = Boolean(c.collapsed ?? true);
         });
 
         const general = categories.find(c => c.id === GENERAL_CATEGORY_ID);
@@ -1628,7 +1576,6 @@
       }
 
       function forceCategoriesStartCollapsed_() {
-        // ✅ “Inicio”: todas contraídas (sin forzar guardado inmediato)
         categories.forEach(c => { c.collapsed = true; c.color = CATEGORY_COLOR; });
       }
 
@@ -1670,6 +1617,7 @@
 
         if (current !== "all" && !getCategoryById(current)) settings.categoryFilter = "all";
         catFilterEl.value = settings.categoryFilter || "all";
+        syncTopSelectTitles_();
       }
 
       function openCatDialog({ focusNew } = {}) {
@@ -1677,9 +1625,7 @@
         if (typeof catDialogEl.showModal === "function") catDialogEl.showModal();
         else catDialogEl.setAttribute("open", "open");
 
-        if (focusNew) {
-          setTimeout(() => catNewNameEl.focus(), 0);
-        }
+        if (focusNew) setTimeout(() => catNewNameEl.focus(), 0);
       }
 
       function closeCatDialog() {
@@ -1897,7 +1843,7 @@
               categories = Array.isArray(remote?.categories) ? remote.categories : [];
 
               ensureGeneralCategory();
-              forceCategoriesStartCollapsed_(); // ✅ siempre contraídas al iniciar sesión
+              forceCategoriesStartCollapsed_();
               sanitizeNotesCategoryIds();
 
               renderCategoryFilter();
@@ -2021,9 +1967,8 @@
         const wrap = document.createElement("div");
         wrap.className = "selectwrap note-select";
         wrap.innerHTML = `
-          ${Icons.tag.replace('<svg ', '<svg class="icon-left" ')}
+          ${Icons.tag}
           <select data-role="catSelect" aria-label="Cambiar categoría"></select>
-          ${Icons.chevronDown.replace('<svg ', '<svg class="icon-right" ')}
         `;
 
         const sel = wrap.querySelector('select[data-role="catSelect"]');
@@ -2036,6 +1981,9 @@
           sel.appendChild(opt);
         }
         sel.value = note.categoryId || GENERAL_CATEGORY_ID;
+
+        // ✅ tooltip con categoría seleccionada
+        wrap.title = `Categoría: ${sel.options[sel.selectedIndex]?.textContent || "—"}`;
         return wrap;
       }
 
@@ -2080,7 +2028,6 @@
         const actions = document.createElement("div");
         actions.className = "actions";
 
-        // ✅ Selector categoría (apariencia botón) + 4 botones en la misma fila
         const catSelWrap = buildCategorySelectWrap(note);
 
         const pinBtn = document.createElement("button");
@@ -2292,7 +2239,11 @@
             }
 
             const sel = el.querySelector('select[data-role="catSelect"]');
-            if (sel) sel.value = catId;
+            if (sel) {
+              sel.value = catId;
+              const wrap = sel.closest(".selectwrap");
+              if (wrap) wrap.title = `Categoría: ${sel.options[sel.selectedIndex]?.textContent || "—"}`;
+            }
 
             el.dataset.categoryId = catId;
             el.dataset.pinned = String(!!note.pinned);
@@ -2310,11 +2261,8 @@
 
             if (isSearching) group.classList.remove("collapsed");
 
-            if (isSearching) {
-              group.hidden = (visibleNotes === 0);
-            } else {
-              group.hidden = false;
-            }
+            if (isSearching) group.hidden = (visibleNotes === 0);
+            else group.hidden = false;
           });
         }
 
@@ -2519,6 +2467,10 @@
           renormalizeOrders(note.pinned, oldCat);
           renormalizeOrders(note.pinned, newCat);
         }
+
+        // ✅ tooltip actualizado
+        const wrap = sel.closest(".selectwrap");
+        if (wrap) wrap.title = `Categoría: ${sel.options[sel.selectedIndex]?.textContent || "—"}`;
 
         saveDebounced();
         renderAll();
@@ -2774,7 +2726,6 @@
           return;
         }
 
-        // TXT -> General
         const cleaned = text
           .replace(/\r/g, "")
           .replace(/^===\s*FIJADAS\s*===\s*\n?/im, "")
