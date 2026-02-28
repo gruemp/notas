@@ -1011,14 +1011,10 @@
       // **TOKEN_KEY:** token guardado local (no lo subas a GitHub)
       const TOKEN_KEY = "notas_api_token_v1";
 
-      function getApiToken_() {
-        let t = (localStorage.getItem(TOKEN_KEY) || "").trim();
-        if (!t) {
-          t = (prompt("Pega tu token (NOTAS_API_TOKEN) de Apps Script:") || "").trim();
-          if (t) localStorage.setItem(TOKEN_KEY, t);
-        }
-        return t;
-      }
+function getApiToken_() {
+  // ✅ sin token
+  return "";
+}
 
       function jsonp_(params) {
         return new Promise((resolve, reject) => {
@@ -1059,13 +1055,11 @@
         });
       }
 
-      async function apiGetState_() {
-        const token = getApiToken_();
-        if (!token) throw new Error("Token faltante.");
-        const data = await jsonp_({ action: "getState", token });
-        if (data && data.ok === false) throw new Error(data.error || "Error getState");
-        return data;
-      }
+async function apiGetState_() {
+  const data = await jsonp_({ action: "getState" }); // ✅ sin token
+  if (data && data.ok === false) throw new Error(data.error || "Error getState");
+  return data;
+}
 
       // Guardado por POST via iframe (sin CORS)
       const SAVE_IFRAME_NAME = "notas_save_iframe_v1";
@@ -1124,18 +1118,16 @@
         saveBridgeReady = true;
       }
 
-      function apiSaveAllFireAndForget_(state) {
-        try {
-          const token = getApiToken_();
-          if (!token) return;
-          if (!API_URL || API_URL.includes("XXXXXXXX")) return;
+function apiSaveAllFireAndForget_(state) {
+  try {
+    if (!API_URL || API_URL.includes("XXXXXXXX")) return;
 
-          ensureSaveBridge_();
-          inTokenEl.value = token;
-          inPayloadEl.value = JSON.stringify(state);
-          saveFormEl.submit();
-        } catch {}
-      }
+    ensureSaveBridge_();
+    if (inTokenEl) inTokenEl.value = ""; // ✅ vacío
+    inPayloadEl.value = JSON.stringify(state);
+    saveFormEl.submit();
+  } catch {}
+}
 
       function apiSaveAll_(state) {
         // cola: siempre guarda el último estado
@@ -1146,7 +1138,7 @@
         return new Promise((resolve, reject) => {
           const token = getApiToken_();
           if (!API_URL || API_URL.includes("XXXXXXXX")) { reject(new Error("Configura API_URL")); return; }
-          if (!token) { reject(new Error("Token faltante")); return; }
+  
 
           ensureSaveBridge_();
 
@@ -1188,9 +1180,10 @@
 
             // submit
             try {
-              inTokenEl.value = token;
-              inPayloadEl.value = JSON.stringify(payloadState);
-              saveFormEl.submit();
+// ✅ antes del submit
+if (inTokenEl) inTokenEl.value = "";
+inPayloadEl.value = JSON.stringify(payloadState);
+saveFormEl.submit();
             } catch (e) {
               clearTimeout(t);
               window.removeEventListener("message", onMsg);
