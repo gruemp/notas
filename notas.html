@@ -1000,17 +1000,206 @@
       "use strict";
 
       /* =========================
-         Google Apps Script bridge
+         Backend: GitHub Pages -> Apps Script API
+         - Lee con JSONP (GET) para evitar CORS
+         - Guarda con POST vía iframe + postMessage (evita CORS)
       ========================== */
-      function gsRun(fn, ...args) {
+
+      // **API_URL:** pega aquí tu URL /exec del despliegue (Web App)
+      const API_URL = "https://script.google.com/macros/s/AKfycbwtIEYNklBKPYc1PwSv09rd5pjfIfHeakFlBEZUa8baeJi6mDNwEuwYn9QJXqzDr5Np/exec";
+
+      // **TOKEN_KEY:** token guardado local (no lo subas a GitHub)
+      const TOKEN_KEY = "notas_api_token_v1";
+
+      function getApiToken_() {
+        let t = (localStorage.getItem(TOKEN_KEY) || "").trim();
+        if (!t) {
+          t = (prompt("Pega tu token (NOTAS_API_TOKEN) de Apps Script:") || "").trim();
+          if (t) localStorage.setItem(TOKEN_KEY, t);
+        }
+        return t;
+      }
+
+      function jsonp_(params) {
         return new Promise((resolve, reject) => {
-          if (!window.google || !google.script || !google.script.run) {
-            reject(new Error("Esta página debe abrirse desde la Web App de Apps Script."));
+          if (!API_URL || API_URL.includes("XXXXXXXX")) {
+            reject(new Error("Configura API_URL con tu /exec real."));
             return;
           }
-          google.script.run
-            .withSuccessHandler(resolve)
-            .withFailureHandler(reject)[fn](...args);
+
+          const cb = "__jsonp_cb_" + Math.random().toString(16).slice(2);
+          const url = new URL(API_URL);
+          const q = new URLSearchParams(params || {});
+          q.set("callback", cb);
+          q.set("t", String(Date.now())); // evita cache
+          url.search = q.toString();
+
+          let done = false;
+          const cleanup = () => {
+            if (done) return;
+            done = true;
+            try { delete window[cb]; } catch {}
+            script.remove();
+            clearTimeout(timer);
+          };
+
+          window[cb] = (data) => { cleanup(); resolve(data); };
+
+          const script = document.createElement("script");
+          script.src = url.toString();
+          script.async = true;
+          script.onerror = () => { cleanup(); reject(new Error("JSONP error (revisa API_URL/token)")); };
+
+          const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error("Timeout leyendo datos (revisa Apps Script)"));
+          }, 12000);
+
+          document.head.appendChild(script);
+        });
+      }
+
+      async function apiGetState_() {
+        const token = getApiToken_();
+        if (!token) throw new Error("Token faltante.");
+        const data = await jsonp_({ action: "getState", token });
+        if (data && data.ok === false) throw new Error(data.error || "Error getState");
+        return data;
+      }
+
+      // Guardado por POST via iframe (sin CORS)
+      const SAVE_IFRAME_NAME = "notas_save_iframe_v1";
+      let saveBridgeReady = false;
+      let saveBusy = false;
+      let saveQueuedState = null;
+
+      let saveIframeEl = null;
+      let saveFormEl = null;
+      let inActionEl = null;
+      let inTokenEl = null;
+      let inPayloadEl = null;
+
+      function ensureSaveBridge_() {
+        if (saveBridgeReady) return;
+
+        // iframe oculto
+        saveIframeEl = document.createElement("iframe");
+        saveIframeEl.name = SAVE_IFRAME_NAME;
+        saveIframeEl.style.position = "fixed";
+        saveIframeEl.style.left = "-9999px";
+        saveIframeEl.style.top = "-9999px";
+        saveIframeEl.style.width = "1px";
+        saveIframeEl.style.height = "1px";
+        saveIframeEl.setAttribute("aria-hidden", "true");
+
+        // form oculto
+        saveFormEl = document.createElement("form");
+        saveFormEl.method = "POST";
+        saveFormEl.action = API_URL;
+        saveFormEl.target = SAVE_IFRAME_NAME;
+        saveFormEl.style.position = "fixed";
+        saveFormEl.style.left = "-9999px";
+        saveFormEl.style.top = "-9999px";
+
+        inActionEl = document.createElement("input");
+        inActionEl.type = "hidden";
+        inActionEl.name = "action";
+        inActionEl.value = "saveAll";
+
+        inTokenEl = document.createElement("input");
+        inTokenEl.type = "hidden";
+        inTokenEl.name = "token";
+
+        inPayloadEl = document.createElement("input");
+        inPayloadEl.type = "hidden";
+        inPayloadEl.name = "payload";
+
+        saveFormEl.appendChild(inActionEl);
+        saveFormEl.appendChild(inTokenEl);
+        saveFormEl.appendChild(inPayloadEl);
+
+        document.body.appendChild(saveIframeEl);
+        document.body.appendChild(saveFormEl);
+
+        saveBridgeReady = true;
+      }
+
+      function apiSaveAllFireAndForget_(state) {
+        try {
+          const token = getApiToken_();
+          if (!token) return;
+          if (!API_URL || API_URL.includes("XXXXXXXX")) return;
+
+          ensureSaveBridge_();
+          inTokenEl.value = token;
+          inPayloadEl.value = JSON.stringify(state);
+          saveFormEl.submit();
+        } catch {}
+      }
+
+      function apiSaveAll_(state) {
+        // cola: siempre guarda el último estado
+        saveQueuedState = state;
+
+        if (saveBusy) return Promise.resolve({ ok: true, queued: true });
+
+        return new Promise((resolve, reject) => {
+          const token = getApiToken_();
+          if (!API_URL || API_URL.includes("XXXXXXXX")) { reject(new Error("Configura API_URL")); return; }
+          if (!token) { reject(new Error("Token faltante")); return; }
+
+          ensureSaveBridge_();
+
+          const runOne = () => {
+            if (!saveQueuedState) { saveBusy = false; resolve({ ok: true, empty: true }); return; }
+            const payloadState = saveQueuedState;
+            saveQueuedState = null;
+
+            saveBusy = true;
+
+            // escuchar respuesta del iframe
+            const onMsg = (ev) => {
+              const d = ev && ev.data;
+              if (!d || d.type !== "notas_saveAll") return;
+
+              window.removeEventListener("message", onMsg);
+
+              if (d.ok) {
+                // si quedó algo en cola, seguimos
+                if (saveQueuedState) return runOne();
+                saveBusy = false;
+                resolve(d);
+              } else {
+                saveBusy = false;
+                reject(new Error(d.error || "Error guardando"));
+              }
+            };
+
+            window.addEventListener("message", onMsg);
+
+            // timeout: si no llega postMessage, no bloqueamos la app
+            const t = setTimeout(() => {
+              window.removeEventListener("message", onMsg);
+              // si hay cola, seguimos igual
+              if (saveQueuedState) return runOne();
+              saveBusy = false;
+              resolve({ ok: true, timeout: true });
+            }, 12000);
+
+            // submit
+            try {
+              inTokenEl.value = token;
+              inPayloadEl.value = JSON.stringify(payloadState);
+              saveFormEl.submit();
+            } catch (e) {
+              clearTimeout(t);
+              window.removeEventListener("message", onMsg);
+              saveBusy = false;
+              reject(e);
+            }
+          };
+
+          runOne();
         });
       }
 
@@ -1141,7 +1330,7 @@
 
       async function init() {
         try {
-          const remote = await gsRun("getState");
+          const remote = await apiGetState_();
           notes = Array.isArray(remote?.notes) ? remote.notes : [];
           categories = Array.isArray(remote?.categories) ? remote.categories : [];
 
@@ -1171,7 +1360,7 @@
           lastSnapshot = makeSnapshot_(categories, notes);
           startAutoSync();
         } catch (err) {
-          toast("Error cargando datos (revisa despliegue)");
+          toast("Error cargando datos (revisa API_URL/token)");
           console.error(err);
         }
       }
@@ -1663,17 +1852,16 @@
       }
 
       const saveDebounced = debounce(() => {
-        // actualiza snapshot local para evitar “rebotes” en auto-sync
         lastSnapshot = makeSnapshot_(categories, notes);
 
-        gsRun("saveAll", serializeState())
-          .catch(() => toast("No pude guardar (revisa permisos)"));
+        apiSaveAll_(serializeState())
+          .catch(() => toast("No pude guardar (revisa token/API_URL)"));
       }, 600);
 
       function saveNow() {
         try {
           lastSnapshot = makeSnapshot_(categories, notes);
-          google.script.run.saveAll(serializeState());
+          apiSaveAllFireAndForget_(serializeState());
         } catch {}
       }
 
@@ -1690,11 +1878,10 @@
 
       function startAutoSync() {
         setInterval(async () => {
-          // si estás editando, no “pisar” el editor
           if (document.querySelector(".note.editing")) return;
 
           try {
-            const remote = await gsRun("getState");
+            const remote = await apiGetState_();
             const snap = makeSnapshot_(remote?.categories, remote?.notes);
             if (snap !== lastSnapshot) {
               notes = Array.isArray(remote?.notes) ? remote.notes : [];
