@@ -1000,26 +1000,28 @@
       "use strict";
 
       /* =========================
-         Backend: GitHub Pages -> Apps Script API
+         Backend: GitHub Pages -> Apps Script Web App API
          - Lee con JSONP (GET) para evitar CORS
          - Guarda con POST vía iframe + postMessage (evita CORS)
+         - ✅ SIN TOKEN (abierto)
       ========================== */
 
-      // **API_URL:** pega aquí tu URL /exec del despliegue (Web App)
-      const API_URL = "https://script.google.com/macros/library/d/1VLIZqXvs-xNryI4ibq7k4G_5ei7XlSn3L8bWRMX57pH168pRh8V0bWb_/1";
+      // ✅ Pega aquí tu URL /exec del despliegue (Web App)
+      // Ejemplo: https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxx/exec
+      const API_URL = "https://script.google.com/macros/s/XXXXXXXXXXXX/exec";
 
-      // **TOKEN_KEY:** token guardado local (no lo subas a GitHub)
-      const TOKEN_KEY = "notas_api_token_v1";
+      // ✅ Si quieres cambiar el intervalo de auto-sync
+      const AUTOSYNC_MS = 15000;
 
-function getApiToken_() {
-  // ✅ sin token
-  return "";
-}
+      function isLikelyBadApiUrl_(u) {
+        const s = String(u || "");
+        return !s || s.includes("XXXXXXXX") || s.includes("/macros/library/") || s.includes("/library/d/");
+      }
 
       function jsonp_(params) {
         return new Promise((resolve, reject) => {
-          if (!API_URL || API_URL.includes("XXXXXXXX")) {
-            reject(new Error("Configura API_URL con tu /exec real."));
+          if (isLikelyBadApiUrl_(API_URL)) {
+            reject(new Error("Configura API_URL con tu /exec real (no /library)."));
             return;
           }
 
@@ -1044,7 +1046,7 @@ function getApiToken_() {
           const script = document.createElement("script");
           script.src = url.toString();
           script.async = true;
-          script.onerror = () => { cleanup(); reject(new Error("JSONP error (revisa API_URL/token)")); };
+          script.onerror = () => { cleanup(); reject(new Error("JSONP error (revisa API_URL/deploy)")); };
 
           const timer = setTimeout(() => {
             cleanup();
@@ -1055,14 +1057,14 @@ function getApiToken_() {
         });
       }
 
-async function apiGetState_() {
-  const data = await jsonp_({ action: "getState" }); // ✅ sin token
-  if (data && data.ok === false) throw new Error(data.error || "Error getState");
-  return data;
-}
+      async function apiGetState_() {
+        const data = await jsonp_({ action: "getState" }); // ✅ sin token
+        if (data && data.ok === false) throw new Error(data.error || "Error getState");
+        return data;
+      }
 
       // Guardado por POST via iframe (sin CORS)
-      const SAVE_IFRAME_NAME = "notas_save_iframe_v1";
+      const SAVE_IFRAME_NAME = "notas_save_iframe_v2";
       let saveBridgeReady = false;
       let saveBusy = false;
       let saveQueuedState = null;
@@ -1070,11 +1072,15 @@ async function apiGetState_() {
       let saveIframeEl = null;
       let saveFormEl = null;
       let inActionEl = null;
-      let inTokenEl = null;
       let inPayloadEl = null;
 
       function ensureSaveBridge_() {
         if (saveBridgeReady) return;
+
+        if (isLikelyBadApiUrl_(API_URL)) {
+          // No lanzamos error aquí para no romper la UI, solo evitamos guardar.
+          return;
+        }
 
         // iframe oculto
         saveIframeEl = document.createElement("iframe");
@@ -1091,6 +1097,7 @@ async function apiGetState_() {
         saveFormEl.method = "POST";
         saveFormEl.action = API_URL;
         saveFormEl.target = SAVE_IFRAME_NAME;
+        saveFormEl.acceptCharset = "utf-8";
         saveFormEl.style.position = "fixed";
         saveFormEl.style.left = "-9999px";
         saveFormEl.style.top = "-9999px";
@@ -1100,16 +1107,11 @@ async function apiGetState_() {
         inActionEl.name = "action";
         inActionEl.value = "saveAll";
 
-        inTokenEl = document.createElement("input");
-        inTokenEl.type = "hidden";
-        inTokenEl.name = "token";
-
         inPayloadEl = document.createElement("input");
         inPayloadEl.type = "hidden";
         inPayloadEl.name = "payload";
 
         saveFormEl.appendChild(inActionEl);
-        saveFormEl.appendChild(inTokenEl);
         saveFormEl.appendChild(inPayloadEl);
 
         document.body.appendChild(saveIframeEl);
@@ -1118,16 +1120,17 @@ async function apiGetState_() {
         saveBridgeReady = true;
       }
 
-function apiSaveAllFireAndForget_(state) {
-  try {
-    if (!API_URL || API_URL.includes("XXXXXXXX")) return;
+      function apiSaveAllFireAndForget_(state) {
+        try {
+          if (isLikelyBadApiUrl_(API_URL)) return;
 
-    ensureSaveBridge_();
-    if (inTokenEl) inTokenEl.value = ""; // ✅ vacío
-    inPayloadEl.value = JSON.stringify(state);
-    saveFormEl.submit();
-  } catch {}
-}
+          ensureSaveBridge_();
+          if (!saveBridgeReady) return;
+
+          inPayloadEl.value = JSON.stringify(state);
+          saveFormEl.submit();
+        } catch {}
+      }
 
       function apiSaveAll_(state) {
         // cola: siempre guarda el último estado
@@ -1136,11 +1139,10 @@ function apiSaveAllFireAndForget_(state) {
         if (saveBusy) return Promise.resolve({ ok: true, queued: true });
 
         return new Promise((resolve, reject) => {
-          const token = getApiToken_();
-          if (!API_URL || API_URL.includes("XXXXXXXX")) { reject(new Error("Configura API_URL")); return; }
-  
+          if (isLikelyBadApiUrl_(API_URL)) { reject(new Error("Configura API_URL")); return; }
 
           ensureSaveBridge_();
+          if (!saveBridgeReady) { reject(new Error("No se pudo inicializar puente de guardado.")); return; }
 
           const runOne = () => {
             if (!saveQueuedState) { saveBusy = false; resolve({ ok: true, empty: true }); return; }
@@ -1157,7 +1159,6 @@ function apiSaveAllFireAndForget_(state) {
               window.removeEventListener("message", onMsg);
 
               if (d.ok) {
-                // si quedó algo en cola, seguimos
                 if (saveQueuedState) return runOne();
                 saveBusy = false;
                 resolve(d);
@@ -1172,7 +1173,6 @@ function apiSaveAllFireAndForget_(state) {
             // timeout: si no llega postMessage, no bloqueamos la app
             const t = setTimeout(() => {
               window.removeEventListener("message", onMsg);
-              // si hay cola, seguimos igual
               if (saveQueuedState) return runOne();
               saveBusy = false;
               resolve({ ok: true, timeout: true });
@@ -1180,10 +1180,8 @@ function apiSaveAllFireAndForget_(state) {
 
             // submit
             try {
-// ✅ antes del submit
-if (inTokenEl) inTokenEl.value = "";
-inPayloadEl.value = JSON.stringify(payloadState);
-saveFormEl.submit();
+              inPayloadEl.value = JSON.stringify(payloadState);
+              saveFormEl.submit();
             } catch (e) {
               clearTimeout(t);
               window.removeEventListener("message", onMsg);
@@ -1323,6 +1321,12 @@ saveFormEl.submit();
 
       async function init() {
         try {
+          if (isLikelyBadApiUrl_(API_URL)) {
+            toast("Configura API_URL con tu /exec real (Apps Script Web App)");
+            console.error("API_URL inválida:", API_URL);
+            return;
+          }
+
           const remote = await apiGetState_();
           notes = Array.isArray(remote?.notes) ? remote.notes : [];
           categories = Array.isArray(remote?.categories) ? remote.categories : [];
@@ -1353,7 +1357,7 @@ saveFormEl.submit();
           lastSnapshot = makeSnapshot_(categories, notes);
           startAutoSync();
         } catch (err) {
-          toast("Error cargando datos (revisa API_URL/token)");
+          toast("Error cargando datos (revisa API_URL /exec y despliegue)");
           console.error(err);
         }
       }
@@ -1452,7 +1456,13 @@ saveFormEl.submit();
           if (supportsPointer) root.addEventListener("pointerdown", onHandlePointerDown);
         });
 
+        // ✅ mejora: intenta guardar también en eventos más confiables en móviles
         window.addEventListener("beforeunload", saveNow);
+        window.addEventListener("pagehide", saveNow);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden") saveNow();
+        });
+
         document.addEventListener("keydown", (e) => {
           if (e.key === "Escape" && catDialogEl.open) closeCatDialog();
         });
@@ -1848,7 +1858,7 @@ saveFormEl.submit();
         lastSnapshot = makeSnapshot_(categories, notes);
 
         apiSaveAll_(serializeState())
-          .catch(() => toast("No pude guardar (revisa token/API_URL)"));
+          .catch(() => toast("No pude guardar (revisa API_URL /exec y deploy)"));
       }, 600);
 
       function saveNow() {
@@ -1889,7 +1899,7 @@ saveFormEl.submit();
               lastSnapshot = snap;
             }
           } catch {}
-        }, 15000);
+        }, AUTOSYNC_MS);
       }
 
       /* =========================
@@ -2316,10 +2326,10 @@ saveFormEl.submit();
           const groups = root.querySelectorAll(".cat-group");
           groups.forEach(group => {
             const list = group.querySelector(".cat-list");
-            const countEl = group.querySelector('[data-role="catCount"]');
+            const countEl2 = group.querySelector('[data-role="catCount"]');
 
             const visibleNotes = list ? list.querySelectorAll(".note:not([hidden])").length : 0;
-            if (countEl) countEl.textContent = String(visibleNotes);
+            if (countEl2) countEl2.textContent = String(visibleNotes);
 
             if (isSearching) group.classList.remove("collapsed");
 
