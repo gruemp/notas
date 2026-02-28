@@ -330,6 +330,9 @@
     .section{ border-top: 1px solid var(--line); }
     .section:first-child{ border-top:none; }
 
+    /* ✅ Secciones colapsables */
+    .section.collapsed .section-body{ display:none; }
+
     .section-title{
       padding: 10px 12px;
       font-weight: 800;
@@ -341,6 +344,28 @@
       justify-content:space-between;
       gap:10px;
     }
+
+    .section-title.section-toggle{
+      cursor:pointer;
+      user-select:none;
+    }
+    .section-title.section-toggle:focus{
+      outline:none;
+      box-shadow: 0 0 0 3px rgba(0,183,255,.18);
+    }
+
+    .section-chevron{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width: 24px;
+      height: 24px;
+      opacity: .95;
+      color: var(--muted);
+      flex: 0 0 auto;
+    }
+    .section-title.section-toggle:hover .section-chevron{ color: var(--text); }
+    .section-chevron svg{ width: 18px; height: 18px; }
 
     .section-body{
       padding: 10px;
@@ -726,7 +751,7 @@
       justify-content:space-between;
       gap:10px;
       color: var(--muted);
-      font-weight: 700;
+      font-weight: 800;
       font-size: 13px;
       border: 1px solid var(--line);
       background: rgba(0,0,0,.10);
@@ -774,16 +799,6 @@
         --btn-icon: 16px;
         --row-h: 40px;
       }
-	  
-@media (max-width: 860px){
-
-  /* ...todo lo que ya tienes... */
-
-  /* ✅ Orden correcto en móvil */
-  .searchbox{ order: 1; }
-  .toolbar2{ order: 2; }      /* 1ra fila (7) */
-  .top-controls{ order: 3; }  /* 2da fila (3) */
-}	  
 
       .app{ margin: 12px auto; padding: 12px; }
 
@@ -793,6 +808,11 @@
         flex-wrap: nowrap;
         overflow: visible;
       }
+
+      /* ✅ Orden correcto en móvil */
+      .searchbox{ order: 1; }
+      .toolbar2{ order: 2; }      /* 1ra fila (7) */
+      .top-controls{ order: 3; }  /* 2da fila (3) */
 
       .searchbox{
         flex: 1 1 100%;
@@ -824,6 +844,17 @@
       .note-editor{
         min-height: min(66vh, 560px);
         font-size: 16px;
+      }
+
+      /* ✅ Meta en móvil: mostrar completa (sin recorte) */
+      .note-meta{
+        align-items:flex-start;
+      }
+      .note-meta .meta-text{
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        line-height: 1.25;
       }
     }
 
@@ -960,12 +991,18 @@
 
     <main class="list" aria-label="Notas">
       <section id="pinnedSection" class="section" hidden>
-        <div class="section-title">Fijadas</div>
+        <div id="pinnedTitle" class="section-title section-toggle" role="button" tabindex="0" aria-label="Mostrar/ocultar fijadas">
+          <span>Fijadas</span>
+          <span id="pinnedChevron" class="section-chevron" aria-hidden="true"></span>
+        </div>
         <div id="pinnedList" class="section-body"></div>
       </section>
 
       <section id="notesSection" class="section">
-        <div class="section-title">Categorías</div>
+        <div id="notesTitle" class="section-title section-toggle" role="button" tabindex="0" aria-label="Mostrar/ocultar categorías">
+          <span>Categorías</span>
+          <span id="notesChevron" class="section-chevron" aria-hidden="true"></span>
+        </div>
         <div id="notesList" class="section-body"></div>
       </section>
 
@@ -1016,7 +1053,7 @@
     <div class="modal-body">
       <div class="note-meta" aria-label="Información de la nota">
         <div id="noteMeta" class="meta-text"></div>
-        <button id="noteInsertDate" class="btn btn-ghost" type="button" aria-label="Insertar fecha" title="Insertar fecha (aaaa-mm-dd hh-mm)">
+        <button id="noteInsertDate" class="btn btn-ghost" type="button" aria-label="Insertar fecha" title="Insertar fecha (aaaa-mm-dd)">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M8 2v3"></path>
             <path d="M16 2v3"></path>
@@ -1240,7 +1277,9 @@
       const DEFAULT_SETTINGS = {
         sortMode: "manual",
         theme: "auto",
-        categoryFilter: "all"
+        categoryFilter: "all",
+        pinnedSectionCollapsed: false,
+        notesSectionCollapsed: false
       };
 
       const Icons = {
@@ -1318,8 +1357,15 @@
       const countEl = $("count");
 
       const pinnedSectionEl = $("pinnedSection");
+      const pinnedTitleEl = $("pinnedTitle");
+      const pinnedChevronEl = $("pinnedChevron");
       const pinnedListEl = $("pinnedList");
+
+      const notesSectionEl = $("notesSection");
+      const notesTitleEl = $("notesTitle");
+      const notesChevronEl = $("notesChevron");
       const notesListEl = $("notesList");
+
       const emptyEl = $("empty");
       const toastEl = $("toast");
 
@@ -1482,6 +1528,24 @@
           toast(`Tema: ${themeLabel(settings.theme)}`);
         });
 
+        /* ✅ Toggle secciones por título: Fijadas / Categorías */
+        const toggleWith = (kind) => {
+          if (kind === "pinned") settings.pinnedSectionCollapsed = !settings.pinnedSectionCollapsed;
+          if (kind === "notes") settings.notesSectionCollapsed = !settings.notesSectionCollapsed;
+          saveUISettings_();
+          applySectionCollapseUI_();
+        };
+
+        pinnedTitleEl?.addEventListener("click", () => toggleWith("pinned"));
+        pinnedTitleEl?.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleWith("pinned"); }
+        });
+
+        notesTitleEl?.addEventListener("click", () => toggleWith("notes"));
+        notesTitleEl?.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleWith("notes"); }
+        });
+
         // Lista
         [pinnedListEl, notesListEl].forEach(root => {
           root.addEventListener("click", onListClick);
@@ -1516,7 +1580,6 @@
           note.updatedAt = Date.now();
           maybeAssignCategoryFromPrefix(note);
 
-          // Actualiza meta y preview (sin edición en lista)
           updateNoteMeta_(note);
           syncNoteRowDataset_(note.id);
           saveDebounced();
@@ -1530,8 +1593,9 @@
           }
         });
 
+        /* ✅ Insertar fecha SOLO aaaa-mm-dd */
         noteInsertDateEl.addEventListener("click", () => {
-          const stamp = formatDateTime_(Date.now());
+          const stamp = formatDate_(Date.now());
           insertAtCursor_(noteEditorEl, stamp);
           noteEditorEl.dispatchEvent(new Event("input", { bubbles: true }));
           toast("Fecha insertada");
@@ -1564,7 +1628,9 @@
           localStorage.setItem(SETTINGS_KEY, JSON.stringify({
             sortMode: settings.sortMode,
             categoryFilter: settings.categoryFilter,
-            theme: settings.theme
+            theme: settings.theme,
+            pinnedSectionCollapsed: !!settings.pinnedSectionCollapsed,
+            notesSectionCollapsed: !!settings.notesSectionCollapsed
           }));
         } catch {}
       }
@@ -1675,10 +1741,14 @@
 
       function pad2_(n){ return String(n).padStart(2,"0"); }
 
-      /* ✅ Formato fecha: aaaa-mm-dd hh-mm */
+      /* ✅ Formatos fecha */
       function formatDateTime_(ms) {
         const d = new Date(ms);
         return `${d.getFullYear()}-${pad2_(d.getMonth()+1)}-${pad2_(d.getDate())} ${pad2_(d.getHours())}-${pad2_(d.getMinutes())}`;
+      }
+      function formatDate_(ms){
+        const d = new Date(ms);
+        return `${d.getFullYear()}-${pad2_(d.getMonth()+1)}-${pad2_(d.getDate())}`;
       }
 
       function insertAtCursor_(ta, text) {
@@ -1694,6 +1764,19 @@
           ta.value = (ta.value || "") + text;
           ta.focus();
         }
+      }
+
+      function applySectionCollapseUI_(){
+        try{
+          pinnedSectionEl?.classList.toggle("collapsed", !!settings.pinnedSectionCollapsed);
+          notesSectionEl?.classList.toggle("collapsed", !!settings.notesSectionCollapsed);
+
+          if (pinnedChevronEl) pinnedChevronEl.innerHTML = settings.pinnedSectionCollapsed ? Icons.chevronRight : Icons.chevronDown;
+          if (notesChevronEl) notesChevronEl.innerHTML = settings.notesSectionCollapsed ? Icons.chevronRight : Icons.chevronDown;
+
+          pinnedTitleEl?.setAttribute("aria-expanded", String(!settings.pinnedSectionCollapsed));
+          notesTitleEl?.setAttribute("aria-expanded", String(!settings.notesSectionCollapsed));
+        } catch {}
       }
 
       /* =========================
@@ -1717,7 +1800,6 @@
         if (general) {
           general.order = Math.min(general.order, -100000);
           general.color = CATEGORY_COLOR;
-          // ✅ NO forzamos collapsed aquí (para que no se "contraiga sola")
           if (typeof general.collapsed !== "boolean") general.collapsed = true;
         }
 
@@ -1874,7 +1956,6 @@
         for (let i = 0; i < categories.length; i++) {
           categories[i].order = i * 1000;
           categories[i].color = CATEGORY_COLOR;
-          // ✅ NO tocar collapsed aquí
         }
         const general = categories.find(c => c.id === GENERAL_CATEGORY_ID);
         if (general) general.order = -100000;
@@ -1947,7 +2028,9 @@
           settings: {
             sortMode: settings.sortMode,
             theme: settings.theme,
-            categoryFilter: settings.categoryFilter
+            categoryFilter: settings.categoryFilter,
+            pinnedSectionCollapsed: !!settings.pinnedSectionCollapsed,
+            notesSectionCollapsed: !!settings.notesSectionCollapsed
           }
         };
       }
@@ -1979,7 +2062,6 @@
 
       function startAutoSync() {
         setInterval(async () => {
-          // ✅ No pisar cambios si el modal de nota está abierto o en drag táctil
           const noteOpen = !!(noteDialogEl?.open || noteDialogEl?.hasAttribute("open"));
           if (noteOpen || pointerDrag) return;
 
@@ -2331,6 +2413,7 @@
         }
 
         applySearchAndHighlights();
+        applySectionCollapseUI_();
       }
 
       function applySearchAndHighlights() {
@@ -2396,7 +2479,6 @@
             const visibleNotes = list ? list.querySelectorAll(".note:not([hidden])").length : 0;
             if (countEl2) countEl2.textContent = String(visibleNotes);
 
-            // ✅ NO contraer automáticamente. Si hay búsqueda, solo mostramos/ocultamos.
             if (isSearching) group.hidden = (visibleNotes === 0);
             else group.hidden = false;
           });
@@ -2453,14 +2535,15 @@
         else noteDialogEl.removeAttribute("open");
       }
 
+      /* ✅ Formato requerido: c:aaaa-mm-dd hh-mm - m:aaaa-mm-dd hh-mm */
       function updateNoteMeta_(note) {
         const created = formatDateTime_(note.createdAt || Date.now());
         const updated = formatDateTime_(note.updatedAt || note.createdAt || Date.now());
-        noteMetaEl.textContent = `Creada: ${created}  ·  Actualizada: ${updated}`;
+        noteMetaEl.textContent = `c:${created} - m:${updated}`;
       }
 
       function syncNoteRowDataset_(noteId) {
-        const el = document.querySelector(`.note[data-id="${cssEscape(noteId)}"]`);
+        const el = document.querySelector(\`.note[data-id="\${cssEscape(noteId)}"]\`);
         const note = getNoteById(noteId);
         if (!el || !note) return;
         el.dataset.norm = norm(note.text);
@@ -2468,7 +2551,7 @@
 
       function focusNote(id) {
         const safeId = cssEscape(id);
-        const noteEl = document.querySelector(`.note[data-id="${safeId}"]`);
+        const noteEl = document.querySelector(\`.note[data-id="\${safeId}"]\`);
         if (noteEl) noteEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
         openNoteDialog_(id);
       }
@@ -2485,7 +2568,7 @@
           const c = getCategoryById(catId);
           if (!c) return;
 
-          c.collapsed = !c.collapsed;  // ✅ solo por acción del usuario
+          c.collapsed = !c.collapsed;
           saveDebounced();
 
           const group = catBtn.closest(".cat-group");
@@ -2516,7 +2599,6 @@
         const note = getNoteById(id);
         if (!note) return;
 
-        // ✅ abrir editor modal al tocar la nota (solo lectura en lista)
         if (e.target.closest(".note-view")) {
           openNoteDialog_(note.id);
           return;
@@ -2743,7 +2825,9 @@
           settings: {
             sortMode: settings.sortMode,
             theme: settings.theme,
-            categoryFilter: settings.categoryFilter
+            categoryFilter: settings.categoryFilter,
+            pinnedSectionCollapsed: !!settings.pinnedSectionCollapsed,
+            notesSectionCollapsed: !!settings.notesSectionCollapsed
           }
         };
         downloadFile("notas.json", JSON.stringify(payload, null, 2), "application/json");
@@ -2834,7 +2918,6 @@
             nn.pinned = !!nn.pinned;
             nn.order = Number.isFinite(Number(nn.order)) ? Number(nn.order) : (notes.length * 1000);
 
-            // collapsed por categoría ya viene en categorías importadas; no tocar aquí
             notes.push(nn);
           }
 
