@@ -286,39 +286,17 @@
       box-shadow: 0 0 0 3px rgba(0,183,255,.18);
     }
 
-    /* ✅ Agrupaciones dentro de la barra superior */
-    .top-controls{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex: 0 0 auto;
-      min-width: 0;
-    }
-
+    /* ✅ Controles bajo búsqueda: UNA sola fila (desktop y móvil) */
     .toolbar2{
       display:flex;
       gap:10px;
       align-items:center;
       justify-content:flex-end;
-      flex-wrap:nowrap;   /* ✅ PC: 1 fila */
+      flex-wrap:nowrap;   /* ✅ 1 fila */
       flex: 0 0 auto;
+      min-width: 0;
+      overflow: hidden;   /* ✅ sin scroll horizontal */
     }
-
-    .count-pill{
-      height: var(--row-h);
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      padding: 0 10px;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,.10);
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 800;
-      white-space:nowrap;
-    }
-    [data-theme="light"] .count-pill{ background: rgba(255,255,255,.55); }
 
     .list{
       background: var(--panel);
@@ -353,6 +331,29 @@
       outline:none;
       box-shadow: 0 0 0 3px rgba(0,183,255,.18);
     }
+
+    .section-title-left{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      min-width:0;
+    }
+
+    .section-count{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width: 28px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.12);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 900;
+      flex: 0 0 auto;
+    }
+    [data-theme="light"] .section-count{ background: rgba(255,255,255,.6); }
 
     .section-chevron{
       display:inline-flex;
@@ -792,12 +793,12 @@
       box-shadow: 0 0 0 3px rgba(0,255,153,.12);
     }
 
-    /* ✅ MÓVIL: filas de botones 7 + 3 centradas */
+    /* ✅ MÓVIL: debajo del buscador, TODOS los controles en UNA sola línea */
     @media (max-width: 860px){
       :root{
-        --btn-fixed-width: 36px;
-        --btn-icon: 16px;
-        --row-h: 40px;
+        --btn-fixed-width: 32px;
+        --btn-icon: 15px;
+        --row-h: 38px;
       }
 
       .app{ margin: 12px auto; padding: 12px; }
@@ -809,31 +810,14 @@
         overflow: visible;
       }
 
-      /* ✅ Orden correcto en móvil */
       .searchbox{ order: 1; }
-      .toolbar2{ order: 2; }      /* 1ra fila (7) */
-      .top-controls{ order: 3; }  /* 2da fila (3) */
-
-      .searchbox{
-        flex: 1 1 100%;
-      }
-
-      /* ✅ 1ra fila: 7 elementos (toolbar2), centrada */
       .toolbar2{
-        width: 100%;
-        display: grid;
-        grid-template-columns: repeat(7, var(--btn-fixed-width));
-        justify-content: center;
-        gap: 10px;
-        overflow: visible;
-      }
-
-      /* ✅ 2da fila: 3 elementos (top-controls), centrada */
-      .top-controls{
+        order: 2;
         width: 100%;
         justify-content: center;
-        flex-wrap: nowrap;
-        overflow: visible;
+        gap: 6px;
+        flex-wrap: nowrap;     /* ✅ 1 sola línea */
+        overflow: hidden;      /* ✅ sin scroll horizontal */
       }
 
       .actions{
@@ -858,6 +842,24 @@
       }
     }
 
+    /* ✅ móviles pequeños: aún más compacto para que quepa en una sola línea */
+    @media (max-width: 420px){
+      :root{
+        --btn-fixed-width: 30px;
+        --btn-icon: 14px;
+        --row-h: 36px;
+      }
+      .toolbar2{ gap: 4px; }
+    }
+    @media (max-width: 360px){
+      :root{
+        --btn-fixed-width: 28px;
+        --btn-icon: 14px;
+        --row-h: 36px;
+      }
+      .toolbar2{ gap: 4px; }
+    }
+
     @media (prefers-reduced-motion: reduce){
       *{ transition: none !important; }
     }
@@ -880,8 +882,8 @@
           </button>
         </div>
 
-        <!-- ✅ 2da fila móvil (3 elementos): categoría, orden, conteo -->
-        <div class="top-controls" role="group" aria-label="Controles superiores">
+        <!-- ✅ UNA sola línea debajo del buscador (móvil) / al lado (desktop) -->
+        <div class="toolbar2" role="group" aria-label="Acciones y filtros">
           <div class="selectwrap" aria-label="Filtro de categoría" title="Categoría">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M4 6h16"></path>
@@ -908,11 +910,6 @@
             </select>
           </div>
 
-          <span id="count" class="count-pill" aria-label="Conteo"></span>
-        </div>
-
-        <!-- ✅ 1ra fila móvil (7 elementos): acciones -->
-        <div class="toolbar2" role="group" aria-label="Acciones">
           <button id="catBtn" class="btn btn-ghost" type="button" aria-label="Administrar categorías" title="Administrar categorías">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -992,7 +989,10 @@
     <main class="list" aria-label="Notas">
       <section id="pinnedSection" class="section" hidden>
         <div id="pinnedTitle" class="section-title section-toggle" role="button" tabindex="0" aria-label="Mostrar/ocultar fijadas">
-          <span>Fijadas</span>
+          <span class="section-title-left">
+            <span>Fijadas</span>
+            <span id="pinnedCount" class="section-count" aria-label="Cantidad de fijadas">0</span>
+          </span>
           <span id="pinnedChevron" class="section-chevron" aria-hidden="true"></span>
         </div>
         <div id="pinnedList" class="section-body"></div>
@@ -1000,7 +1000,10 @@
 
       <section id="notesSection" class="section">
         <div id="notesTitle" class="section-title section-toggle" role="button" tabindex="0" aria-label="Mostrar/ocultar categorías">
-          <span>Categorías</span>
+          <span class="section-title-left">
+            <span>Categorías</span>
+            <span id="notesCount" class="section-count" aria-label="Cantidad de notas">0</span>
+          </span>
           <span id="notesChevron" class="section-chevron" aria-hidden="true"></span>
         </div>
         <div id="notesList" class="section-body"></div>
@@ -1271,7 +1274,9 @@
         name: "General",
         color: CATEGORY_COLOR,
         order: 0,
-        collapsed: true
+        // ✅ estados separados: normal vs fijadas
+        collapsedNormal: true,
+        collapsedPinned: true
       };
 
       const DEFAULT_SETTINGS = {
@@ -1354,17 +1359,18 @@
       const importBtnEl = $("importBtn");
       const importFileEl = $("importFile");
       const themeBtnEl = $("themeBtn");
-      const countEl = $("count");
 
       const pinnedSectionEl = $("pinnedSection");
       const pinnedTitleEl = $("pinnedTitle");
       const pinnedChevronEl = $("pinnedChevron");
       const pinnedListEl = $("pinnedList");
+      const pinnedCountEl = $("pinnedCount");
 
       const notesSectionEl = $("notesSection");
       const notesTitleEl = $("notesTitle");
       const notesChevronEl = $("notesChevron");
       const notesListEl = $("notesList");
+      const notesCountEl = $("notesCount");
 
       const emptyEl = $("empty");
       const toastEl = $("toast");
@@ -1793,14 +1799,22 @@
           c.name = String(c.name ?? "Categoría");
           c.color = CATEGORY_COLOR;
           c.order = Number.isFinite(Number(c.order)) ? Number(c.order) : i * 1000;
-          c.collapsed = Boolean(c.collapsed ?? true);
+
+          // ✅ compatibilidad con datos antiguos:
+          // - antes existía solo `collapsed`
+          if (typeof c.collapsedNormal !== "boolean") c.collapsedNormal = Boolean(c.collapsed ?? true);
+          if (typeof c.collapsedPinned !== "boolean") c.collapsedPinned = Boolean(c.collapsedPinned ?? true);
+          // mantener `collapsed` como espejo (por si lo usas en otro lado)
+          c.collapsed = c.collapsedNormal;
         });
 
         const general = categories.find(c => c.id === GENERAL_CATEGORY_ID);
         if (general) {
           general.order = Math.min(general.order, -100000);
           general.color = CATEGORY_COLOR;
-          if (typeof general.collapsed !== "boolean") general.collapsed = true;
+          if (typeof general.collapsedNormal !== "boolean") general.collapsedNormal = true;
+          if (typeof general.collapsedPinned !== "boolean") general.collapsedPinned = true;
+          general.collapsed = general.collapsedNormal;
         }
 
         categories = sortCategories(categories);
@@ -2003,7 +2017,15 @@
         }
 
         const maxOrder = categories.reduce((m, c) => Math.max(m, Number(c.order ?? 0)), 0);
-        const c = { id: makeId(), name, color: CATEGORY_COLOR, order: maxOrder + 1000, collapsed: true };
+        const c = {
+          id: makeId(),
+          name,
+          color: CATEGORY_COLOR,
+          order: maxOrder + 1000,
+          collapsedNormal: true,
+          collapsedPinned: true,
+          collapsed: true
+        };
         categories.push(c);
         ensureGeneralCategory();
 
@@ -2021,7 +2043,7 @@
       ========================== */
       function serializeState() {
         return {
-          v: 3,
+          v: 4,
           savedAt: Date.now(),
           notes,
           categories,
@@ -2292,9 +2314,20 @@
         return el;
       }
 
+      function getCatCollapsed_(cat, pinned) {
+        return pinned ? !!cat.collapsedPinned : !!cat.collapsedNormal;
+      }
+      function setCatCollapsed_(cat, pinned, collapsed) {
+        if (pinned) cat.collapsedPinned = !!collapsed;
+        else cat.collapsedNormal = !!collapsed;
+        cat.collapsed = !!cat.collapsedNormal; // espejo
+      }
+
       function buildCatGroupEl({ cat, pinned, notesInCat, showEmpty }) {
+        const collapsed = getCatCollapsed_(cat, pinned);
+
         const group = document.createElement("div");
-        group.className = "cat-group" + (cat.collapsed ? " collapsed" : "");
+        group.className = "cat-group" + (collapsed ? " collapsed" : "");
         group.dataset.catId = cat.id;
         group.dataset.pinned = String(!!pinned);
 
@@ -2312,8 +2345,8 @@
         toggle.dataset.pinned = String(!!pinned);
         toggle.title = "Contraer/Expandir";
         toggle.setAttribute("aria-label", "Contraer/Expandir");
-        toggle.setAttribute("aria-expanded", String(!cat.collapsed));
-        toggle.innerHTML = cat.collapsed ? Icons.chevronRight : Icons.chevronDown;
+        toggle.setAttribute("aria-expanded", String(!collapsed));
+        toggle.innerHTML = collapsed ? Icons.chevronRight : Icons.chevronDown;
 
         const pill = document.createElement("span");
         pill.className = "cat-pill";
@@ -2421,11 +2454,8 @@
         const filter = settings.categoryFilter || "all";
         const isSearching = terms.length > 0;
 
-        const total = (filter === "all")
-          ? notes.length
-          : notes.filter(n => (n.categoryId || GENERAL_CATEGORY_ID) === filter).length;
-
-        let visible = 0;
+        let pinnedVisible = 0;
+        let normalVisible = 0;
 
         const roots = [pinnedListEl, notesListEl];
         for (const root of roots) {
@@ -2443,7 +2473,11 @@
 
             const match = matchText && matchCat;
             el.hidden = !match;
-            if (match) visible++;
+
+            if (match) {
+              if (note.pinned) pinnedVisible++;
+              else normalVisible++;
+            }
 
             const view = el.querySelector(".note-view");
             if (view) view.innerHTML = makeHighlightedHTML(note.text, terms, true);
@@ -2490,7 +2524,9 @@
         const anyNormalVisible = notesListEl.querySelector(".note:not([hidden])");
         emptyEl.hidden = (anyPinnedVisible || anyNormalVisible);
 
-        updateCount(visible, total);
+        // ✅ contadores a la derecha de "Fijadas" y "Categorías"
+        if (pinnedCountEl) pinnedCountEl.textContent = String(pinnedVisible);
+        if (notesCountEl) notesCountEl.textContent = String(normalVisible);
 
         const dragEnabled = (settings.sortMode === "manual");
         document.querySelectorAll(".drag-handle").forEach(b => {
@@ -2501,10 +2537,6 @@
 
           b.draggable = dragEnabled && !isCoarsePointer;
         });
-      }
-
-      function updateCount(visible, total) {
-        countEl.textContent = `${visible} de ${total}`;
       }
 
       /* =========================
@@ -2543,7 +2575,7 @@
       }
 
       function syncNoteRowDataset_(noteId) {
-        const el = document.querySelector(\`.note[data-id="\${cssEscape(noteId)}"]\`);
+        const el = document.querySelector(`.note[data-id="${cssEscape(noteId)}"]`);
         const note = getNoteById(noteId);
         if (!el || !note) return;
         el.dataset.norm = norm(note.text);
@@ -2551,7 +2583,7 @@
 
       function focusNote(id) {
         const safeId = cssEscape(id);
-        const noteEl = document.querySelector(\`.note[data-id="\${safeId}"]\`);
+        const noteEl = document.querySelector(`.note[data-id="${safeId}"]`);
         if (noteEl) noteEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
         openNoteDialog_(id);
       }
@@ -2561,22 +2593,48 @@
       ========================== */
       function findNoteEl(target) { return target.closest(".note"); }
 
+      function syncCatGroupsUI_(pinned) {
+        const root = pinned ? pinnedListEl : notesListEl;
+        const groups = root.querySelectorAll(`.cat-group[data-pinned="${String(!!pinned)}"]`);
+        groups.forEach(group => {
+          const catId = group.dataset.catId;
+          const c = getCategoryById(catId);
+          if (!c) return;
+          const collapsed = getCatCollapsed_(c, pinned);
+          group.classList.toggle("collapsed", collapsed);
+
+          const btn = group.querySelector(`.cat-toggle[data-action="toggleCat"][data-cat-id="${cssEscape(catId)}"]`) || group.querySelector(".cat-toggle");
+          if (btn) {
+            btn.innerHTML = collapsed ? Icons.chevronRight : Icons.chevronDown;
+            btn.setAttribute("aria-expanded", String(!collapsed));
+          }
+        });
+      }
+
       function onListClick(e) {
         const catBtn = e.target.closest("[data-action]");
+
+        // ✅ Toggle categorías (acordeón en NO fijadas)
         if (catBtn && catBtn.dataset.action === "toggleCat") {
           const catId = catBtn.dataset.catId;
+          const pinned = (catBtn.dataset.pinned === "true");
           const c = getCategoryById(catId);
           if (!c) return;
 
-          c.collapsed = !c.collapsed;
-          saveDebounced();
+          const wasCollapsed = getCatCollapsed_(c, pinned);
 
-          const group = catBtn.closest(".cat-group");
-          if (group) {
-            group.classList.toggle("collapsed", c.collapsed);
-            catBtn.innerHTML = c.collapsed ? Icons.chevronRight : Icons.chevronDown;
-            catBtn.setAttribute("aria-expanded", String(!c.collapsed));
+          if (!pinned && wasCollapsed) {
+            // ✅ acordeón: al abrir una, se cierran las otras (NO aplica a fijadas)
+            categories.forEach(cc => setCatCollapsed_(cc, false, true));
+            setCatCollapsed_(c, false, false);
+            syncCatGroupsUI_(false);
+          } else {
+            // toggle normal/pinned
+            setCatCollapsed_(c, pinned, !wasCollapsed);
+            syncCatGroupsUI_(pinned);
           }
+
+          saveDebounced();
           return;
         }
 
@@ -2818,7 +2876,7 @@
       ========================== */
       function exportJSON() {
         const payload = {
-          v: 3,
+          v: 4,
           exportedAt: Date.now(),
           notes,
           categories,
@@ -2892,6 +2950,8 @@
               name: String(ic.name),
               color: CATEGORY_COLOR,
               order: categories.reduce((m, c) => Math.max(m, Number(c.order ?? 0)), 0) + 1000,
+              collapsedNormal: true,
+              collapsedPinned: true,
               collapsed: true
             });
             byNormName.set(k, categories[categories.length - 1]);
