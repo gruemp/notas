@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="es">
 <head>
+  <base target="_top">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark light" />
@@ -282,13 +283,123 @@
       letter-spacing:.2px;
       color: var(--muted);
       background: var(--panel2);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
     }
 
     .section-body{
       padding: 10px;
       display:flex;
       flex-direction:column;
+      gap:12px;
+    }
+
+    /* ✅ Categorías */
+    .cat-group{
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow:hidden;
+      background: rgba(0,0,0,.10);
+    }
+    [data-theme="light"] .cat-group{
+      background: rgba(255,255,255,.55);
+    }
+
+    .cat-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
       gap:10px;
+      padding: 10px 12px;
+      background: var(--panel2);
+    }
+
+    .cat-left{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width: 0;
+    }
+
+    .cat-toggle{
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.12);
+      color: var(--muted);
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      flex: 0 0 auto;
+    }
+    .cat-toggle:hover{ color: var(--text); }
+    .cat-toggle svg{ width: 18px; height: 18px; }
+
+    .cat-name{
+      font-weight: 750;
+      letter-spacing: .2px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      min-width: 0;
+    }
+
+    .cat-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--text);
+      background: rgba(0,0,0,.12);
+      flex: 0 0 auto;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .cat-dot{
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.22);
+      flex: 0 0 auto;
+    }
+    [data-theme="light"] .cat-dot{ border-color: rgba(16,20,40,.18); }
+
+    .cat-right{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex: 0 0 auto;
+    }
+
+    .cat-list{
+      padding: 10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .cat-group.collapsed .cat-list{
+      display:none;
+    }
+
+    .cat-empty{
+      padding: 10px 12px;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      color: var(--muted);
+      background: rgba(0,0,0,.10);
+      font-size: 13px;
+      text-align:center;
+    }
+    [data-theme="light"] .cat-empty{
+      background: rgba(255,255,255,.45);
     }
 
     .note{
@@ -408,11 +519,12 @@
     }
 
     .meta{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
       color: var(--muted);
       font-size: 12px;
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
     }
 
     .badge{
@@ -423,6 +535,35 @@
       border-radius: 999px;
       border: 1px solid var(--line);
       background: rgba(0,0,0,.14);
+      color: var(--text);
+      font-weight: 700;
+    }
+    [data-theme="light"] .badge{ background: rgba(255,255,255,.65); }
+
+    .badge .dot{
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.22);
+    }
+    [data-theme="light"] .badge .dot{ border-color: rgba(16,20,40,.18); }
+
+    .cat-select{
+      padding: 6px 8px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      outline:none;
+      font-size: 12px;
+      max-width: 240px;
+    }
+    [data-theme="light"] .cat-select{
+      background: rgba(255,255,255,.8);
+    }
+    .cat-select option{
+      color:#000;
+      background:#fff;
     }
 
     mark{
@@ -514,6 +655,126 @@
       border:0;
     }
 
+    /* ✅ Modal categorías */
+    dialog.modal{
+      border: none;
+      padding: 0;
+      border-radius: 14px;
+      width: min(820px, 92vw);
+      color: var(--text);
+      background: rgba(10,14,28,.92);
+      box-shadow: 0 24px 70px rgba(0,0,0,.55);
+      overflow:hidden;
+    }
+    [data-theme="light"] dialog.modal{
+      background: rgba(245,247,255,.96);
+      color: var(--text);
+    }
+    dialog::backdrop{
+      background: rgba(0,0,0,.55);
+    }
+
+    .modal-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel2);
+    }
+    .modal-title{
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+    .modal-body{
+      padding: 14px;
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+    }
+
+    .cat-table{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .cat-row{
+      display:grid;
+      grid-template-columns: 1fr 120px 34px 34px 44px;
+      gap:10px;
+      align-items:center;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(0,0,0,.10);
+    }
+    [data-theme="light"] .cat-row{
+      background: rgba(255,255,255,.65);
+    }
+
+    .cat-row input[type="text"]{
+      width: 100%;
+      padding: 10px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.16);
+      color: var(--text);
+      outline:none;
+    }
+    [data-theme="light"] .cat-row input[type="text"]{
+      background: rgba(255,255,255,.9);
+    }
+
+    .cat-row input[type="color"]{
+      width: 100%;
+      height: 40px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: transparent;
+      padding: 2px;
+      cursor:pointer;
+    }
+
+    .mini-btn{
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.12);
+      color: var(--muted);
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .mini-btn:hover{ color: var(--text); }
+    .mini-btn[disabled]{ opacity:.35; cursor:not-allowed; }
+
+    .cat-add{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      padding-top: 6px;
+      border-top: 1px solid var(--line);
+      margin-top: 4px;
+    }
+    .cat-add input[type="text"]{
+      flex: 1 1 260px;
+      min-width: 220px;
+      padding: 10px 10px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.16);
+      color: var(--text);
+      outline:none;
+    }
+    [data-theme="light"] .cat-add input[type="text"]{
+      background: rgba(255,255,255,.9);
+    }
+
     /* ✅ PC: fuerza misma fila si hay espacio */
     @media (min-width: 861px){
       .topbar{ flex-wrap:nowrap; }
@@ -580,6 +841,10 @@
         justify-content:flex-end;
         overflow-x:auto;
       }
+
+      .cat-row{
+        grid-template-columns: 1fr 120px 34px 34px 44px;
+      }
     }
 
     @media (prefers-reduced-motion: reduce){
@@ -605,6 +870,9 @@
         </div>
 
         <div class="toolbar" role="group" aria-label="Acciones">
+          <label class="sr-only" for="catFilter">Categoría</label>
+          <select id="catFilter" class="select" aria-label="Filtrar por categoría"></select>
+
           <label class="sr-only" for="sort">Orden</label>
           <select id="sort" class="select" aria-label="Ordenar notas">
             <option value="manual">Manual (arrastrar)</option>
@@ -612,6 +880,14 @@
             <option value="created_desc">Creadas (más recientes)</option>
             <option value="alpha_asc">A-Z</option>
           </select>
+
+          <button id="catBtn" class="btn btn-ghost" type="button" aria-label="Categorías" title="Categorías">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <path d="M3 9h18"></path>
+            </svg>
+            <span class="sr-only">Categorías</span>
+          </button>
 
           <button id="newNote" class="btn btn-add" type="button" aria-label="Nueva nota" title="Nueva nota">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -676,11 +952,12 @@
     <main class="list" aria-label="Notas">
       <section id="pinnedSection" class="section" hidden>
         <div class="section-title">Fijadas</div>
-        <div id="pinnedList" class="section-body" role="list"></div>
+        <div id="pinnedList" class="section-body"></div>
       </section>
 
       <section id="notesSection" class="section">
-        <div id="notesList" class="section-body" role="list"></div>
+        <div class="section-title">Categorías</div>
+        <div id="notesList" class="section-body"></div>
       </section>
 
       <div id="empty" class="empty" hidden>
@@ -690,19 +967,75 @@
     </main>
   </div>
 
+  <dialog id="catDialog" class="modal" aria-label="Gestión de categorías">
+    <div class="modal-head">
+      <div class="modal-title">Categorías</div>
+      <button id="catClose" class="btn btn-ghost" type="button" aria-label="Cerrar" title="Cerrar">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M6 6l12 12"></path>
+          <path d="M18 6l-12 12"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="cat-table" id="catTable"></div>
+
+      <div class="cat-add">
+        <input id="catNewName" type="text" placeholder="Nueva categoría (ej. Trabajo)" aria-label="Nombre de la nueva categoría" />
+        <input id="catNewColor" type="color" value="#64748B" aria-label="Color de la nueva categoría" />
+        <button id="catAddBtn" class="btn btn-add" type="button" aria-label="Agregar categoría" title="Agregar categoría">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script>
     (() => {
       "use strict";
 
-      const STORAGE_KEY = "notas_web_state_v2";
-      const LEGACY_KEY = "notas_web_v1";
+      /* =========================
+         Google Apps Script bridge
+      ========================== */
+      function gsRun(fn, ...args) {
+        return new Promise((resolve, reject) => {
+          if (!window.google || !google.script || !google.script.run) {
+            reject(new Error("Esta página debe abrirse desde la Web App de Apps Script."));
+            return;
+          }
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)[fn](...args);
+        });
+      }
+
+      /* =========================
+         Storage (solo UI)
+      ========================== */
       const THEME_KEY = "notas_web_theme_v1";
+      const SETTINGS_KEY = "notas_web_settings_v1";
+
+      /* =========================
+         Model
+      ========================== */
+      const GENERAL_CATEGORY_ID = "general";
+      const DEFAULT_GENERAL_CATEGORY = {
+        id: GENERAL_CATEGORY_ID,
+        name: "General",
+        color: "#64748B",
+        order: 0,
+        collapsed: false
+      };
 
       const DEFAULT_SETTINGS = {
         sortMode: "manual",
-        theme: "auto" // auto | dark | light
+        theme: "auto",        // auto | dark | light
+        categoryFilter: "all" // all | categoryId
       };
 
       const Icons = {
@@ -741,6 +1074,19 @@
             <path d="M19 6l-1 16H6L5 6"></path>
             <path d="M10 11v6"></path>
             <path d="M14 11v6"></path>
+          </svg>`,
+        chevronDown: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9l6 6 6-6"></path>
+          </svg>`,
+        chevronRight: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M9 6l6 6-6 6"></path>
+          </svg>`,
+        plus: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
           </svg>`
       };
 
@@ -749,6 +1095,9 @@
       const searchEl = $("search");
       const clearSearchEl = $("clearSearch");
       const sortEl = $("sort");
+      const catFilterEl = $("catFilter");
+      const catBtnEl = $("catBtn");
+
       const newNoteEl = $("newNote");
       const exportJsonEl = $("exportJson");
       const exportTxtEl = $("exportTxt");
@@ -763,10 +1112,21 @@
       const emptyEl = $("empty");
       const toastEl = $("toast");
 
+      const catDialogEl = $("catDialog");
+      const catCloseEl = $("catClose");
+      const catTableEl = $("catTable");
+      const catNewNameEl = $("catNewName");
+      const catNewColorEl = $("catNewColor");
+      const catAddBtnEl = $("catAddBtn");
+
       let notes = [];
+      let categories = [];
       let settings = { ...DEFAULT_SETTINGS };
       let undoState = null;
+
+      /* Drag state */
       let dragId = null;
+      let dragCtx = null; // { id, pinned, categoryId }
 
       /* ✅ drag táctil */
       let pendingPress = null; // { pointerId, timer, startX, startY, lastX, lastY, noteEl, container }
@@ -774,21 +1134,47 @@
       const isCoarsePointer = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
       const supportsPointer = "PointerEvent" in window;
 
-      document.addEventListener("DOMContentLoaded", () => {
-        const loaded = loadState();
-        notes = loaded.notes;
-        settings = { ...DEFAULT_SETTINGS, ...loaded.settings };
+      /* Auto-sync snapshot (para detectar cambios reales en Sheets) */
+      let lastSnapshot = "";
 
-        const savedTheme = localStorage.getItem(THEME_KEY);
-        if (savedTheme && ["auto","dark","light"].includes(savedTheme)) settings.theme = savedTheme;
+      document.addEventListener("DOMContentLoaded", () => { init(); });
 
-        applyTheme(settings.theme);
-        sortEl.value = settings.sortMode;
+      async function init() {
+        try {
+          const remote = await gsRun("getState");
+          notes = Array.isArray(remote?.notes) ? remote.notes : [];
+          categories = Array.isArray(remote?.categories) ? remote.categories : [];
 
-        computeFixedButtonWidth();
-        bindEvents();
-        renderAll();
-      });
+          const localSettings = safeParse(localStorage.getItem(SETTINGS_KEY), {}) || {};
+          settings = { ...DEFAULT_SETTINGS, ...(remote?.settings || {}), ...localSettings };
+
+          const savedTheme = localStorage.getItem(THEME_KEY);
+          if (savedTheme && ["auto","dark","light"].includes(savedTheme)) settings.theme = savedTheme;
+
+          ensureGeneralCategory();
+          sanitizeNotesCategoryIds();
+
+          applyTheme(settings.theme);
+          sortEl.value = settings.sortMode;
+
+          computeFixedButtonWidth();
+          bindEvents();
+
+          renderCategoryFilter();
+          renderAll();
+
+          // “Siembra” Sheets si venía vacío: crea "General" en la pestaña Categories
+          if ((categories?.length || 0) === 0 && (notes?.length || 0) === 0) {
+            saveDebounced();
+          }
+
+          lastSnapshot = makeSnapshot_(categories, notes);
+          startAutoSync();
+        } catch (err) {
+          toast("Error cargando datos (revisa despliegue)");
+          console.error(err);
+        }
+      }
 
       function bindEvents() {
         const onSearch = debounce(() => applySearchAndHighlights(), 60);
@@ -802,15 +1188,45 @@
 
         sortEl.addEventListener("change", () => {
           settings.sortMode = sortEl.value;
-          saveDebounced();
+          saveUISettings_();
           renderAll();
           toast("Orden actualizado");
         });
 
+        catFilterEl.addEventListener("change", () => {
+          settings.categoryFilter = catFilterEl.value;
+          saveUISettings_();
+          renderAll();
+          toast("Filtro actualizado");
+        });
+
+        catBtnEl.addEventListener("click", () => {
+          openCatDialog();
+        });
+
+        catCloseEl.addEventListener("click", () => closeCatDialog());
+        catDialogEl.addEventListener("click", (e) => {
+          const rect = catDialogEl.getBoundingClientRect();
+          const inDialog = (
+            e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top  && e.clientY <= rect.bottom
+          );
+          if (!inDialog) closeCatDialog();
+        });
+
+        catAddBtnEl.addEventListener("click", () => addCategoryFromForm());
+        catNewNameEl.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); addCategoryFromForm(); }
+        });
+
         newNoteEl.addEventListener("click", () => {
-          const n = createNote({ afterId: null, pinned: false });
+          const catId = (settings.categoryFilter && settings.categoryFilter !== "all")
+            ? settings.categoryFilter
+            : GENERAL_CATEGORY_ID;
+
+          const n = createNote({ afterId: null, pinned: false, categoryId: catId });
           notes.push(n);
-          if (settings.sortMode === "manual") renormalizeOrders(false);
+          if (settings.sortMode === "manual") renormalizeOrders(false, catId);
           saveDebounced();
           renderAll();
           focusNote(n.id);
@@ -835,24 +1251,39 @@
           toast(`Tema: ${themeLabel(settings.theme)}`);
         });
 
-        [pinnedListEl, notesListEl].forEach(container => {
-          container.addEventListener("click", onNoteClick);
-          container.addEventListener("keydown", onNoteKeydown);
-          container.addEventListener("input", onNoteInput);
-          container.addEventListener("focusin", onNoteFocusIn);
-          container.addEventListener("focusout", onNoteFocusOut);
+        /* Delegación de eventos (listas dinámicas) */
+        [pinnedListEl, notesListEl].forEach(root => {
+          root.addEventListener("click", onListClick);
+          root.addEventListener("keydown", onListKeydown);
+          root.addEventListener("input", onListInput);
+          root.addEventListener("change", onListChange);
+          root.addEventListener("focusin", onListFocusIn);
+          root.addEventListener("focusout", onListFocusOut);
 
           /* Desktop: drag & drop */
-          container.addEventListener("dragstart", onDragStart);
-          container.addEventListener("dragover", onDragOver);
-          container.addEventListener("drop", onDrop);
-          container.addEventListener("dragend", onDragEnd);
+          root.addEventListener("dragstart", onDragStart);
+          root.addEventListener("dragover", onDragOver);
+          root.addEventListener("drop", onDrop);
+          root.addEventListener("dragend", onDragEnd);
 
           /* Móvil: pointer drag */
-          if (supportsPointer) container.addEventListener("pointerdown", onHandlePointerDown);
+          if (supportsPointer) root.addEventListener("pointerdown", onHandlePointerDown);
         });
 
         window.addEventListener("beforeunload", saveNow);
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && catDialogEl.open) closeCatDialog();
+        });
+      }
+
+      function saveUISettings_() {
+        try {
+          localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+            sortMode: settings.sortMode,
+            categoryFilter: settings.categoryFilter,
+            theme: settings.theme
+          }));
+        } catch {}
       }
 
       function safeParse(json, fallback) { try { return JSON.parse(json); } catch { return fallback; } }
@@ -959,74 +1390,331 @@
         return String(s).replace(/["\\]/g, "\\$&");
       }
 
-      function migrateNotesArray(arr) {
-        const now = Date.now();
-        const out = [];
+      /* =========================
+         Categories
+      ========================== */
+      function ensureGeneralCategory() {
+        if (!categories || !Array.isArray(categories)) categories = [];
+        const hasGeneral = categories.some(c => String(c.id) === GENERAL_CATEGORY_ID);
+        if (!hasGeneral) categories.unshift({ ...DEFAULT_GENERAL_CATEGORY });
 
-        for (let i = 0; i < arr.length; i++) {
-          const x = arr[i];
+        // Normaliza
+        categories.forEach((c, i) => {
+          if (!c || typeof c !== "object") return;
+          c.id = String(c.id ?? makeId());
+          c.name = String(c.name ?? "Categoría");
+          c.color = String(c.color ?? "#64748B");
+          c.order = Number.isFinite(Number(c.order)) ? Number(c.order) : i * 1000;
+          c.collapsed = Boolean(c.collapsed ?? false);
+        });
 
-          if (typeof x === "string") {
-            out.push({ id: makeId(), text: x, createdAt: now, updatedAt: now, pinned: false, order: i * 1000 });
-            continue;
-          }
-
-          if (x && typeof x === "object") {
-            const createdAt = Number(x.createdAt ?? now);
-            const updatedAt = Number(x.updatedAt ?? createdAt);
-            out.push({
-              id: String(x.id ?? makeId()),
-              text: String(x.text ?? ""),
-              createdAt: isFinite(createdAt) ? createdAt : now,
-              updatedAt: isFinite(updatedAt) ? updatedAt : now,
-              pinned: Boolean(x.pinned ?? false),
-              order: isFinite(Number(x.order)) ? Number(x.order) : i * 1000
-            });
-          }
-        }
-
-        return out;
+        const general = categories.find(c => c.id === GENERAL_CATEGORY_ID);
+        if (general) general.order = Math.min(general.order, -100000);
+        categories = sortCategories(categories);
       }
 
-      function loadState() {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const data = safeParse(raw, null);
-          if (data && typeof data === "object") {
-            const loadedNotes = Array.isArray(data.notes) ? migrateNotesArray(data.notes) : [];
-            const loadedSettings = (data.settings && typeof data.settings === "object") ? data.settings : {};
-            return { notes: loadedNotes, settings: loadedSettings };
+      function sortCategories(list) {
+        return (list || []).slice().sort((a, b) => {
+          const ao = Number(a.order ?? 0), bo = Number(b.order ?? 0);
+          if (ao !== bo) return ao - bo;
+          return String(a.name || "").localeCompare(String(b.name || ""), "es", { sensitivity: "base" });
+        });
+      }
+
+      function getCategoryById(id) {
+        return categories.find(c => c.id === id) || null;
+      }
+
+      function sanitizeNotesCategoryIds() {
+        const ids = new Set(categories.map(c => c.id));
+        for (const n of notes) {
+          if (!n.categoryId || !ids.has(n.categoryId)) n.categoryId = GENERAL_CATEGORY_ID;
+        }
+      }
+
+      function renderCategoryFilter() {
+        const current = settings.categoryFilter || "all";
+        catFilterEl.innerHTML = "";
+
+        const optAll = document.createElement("option");
+        optAll.value = "all";
+        optAll.textContent = "Todas";
+        catFilterEl.appendChild(optAll);
+
+        const sorted = sortCategories(categories);
+        for (const c of sorted) {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = c.name;
+          catFilterEl.appendChild(opt);
+        }
+
+        if (current !== "all" && !getCategoryById(current)) settings.categoryFilter = "all";
+        catFilterEl.value = settings.categoryFilter || "all";
+      }
+
+      function openCatDialog() {
+        renderCatManager();
+        if (typeof catDialogEl.showModal === "function") catDialogEl.showModal();
+        else catDialogEl.setAttribute("open", "open");
+        catNewNameEl.focus();
+      }
+
+      function closeCatDialog() {
+        if (typeof catDialogEl.close === "function") catDialogEl.close();
+        else catDialogEl.removeAttribute("open");
+      }
+
+      function renderCatManager() {
+        ensureGeneralCategory();
+        categories = sortCategories(categories);
+        catTableEl.innerHTML = "";
+
+        for (let i = 0; i < categories.length; i++) {
+          const c = categories[i];
+          const row = document.createElement("div");
+          row.className = "cat-row";
+          row.dataset.catId = c.id;
+
+          const name = document.createElement("input");
+          name.type = "text";
+          name.value = c.name;
+          name.placeholder = "Nombre";
+          name.setAttribute("aria-label", "Nombre de categoría");
+          name.disabled = (c.id === GENERAL_CATEGORY_ID);
+
+          const color = document.createElement("input");
+          color.type = "color";
+          color.value = normalizeColor(c.color) || "#64748B";
+          color.setAttribute("aria-label", "Color de categoría");
+
+          const up = document.createElement("button");
+          up.className = "mini-btn";
+          up.type = "button";
+          up.innerHTML = "↑";
+          up.title = "Subir";
+          up.setAttribute("aria-label", "Subir");
+          up.disabled = (i === 0);
+
+          const down = document.createElement("button");
+          down.className = "mini-btn";
+          down.type = "button";
+          down.innerHTML = "↓";
+          down.title = "Bajar";
+          down.setAttribute("aria-label", "Bajar");
+          down.disabled = (i === categories.length - 1);
+
+          const del = document.createElement("button");
+          del.className = "btn btn-danger";
+          del.type = "button";
+          del.title = "Eliminar";
+          del.setAttribute("aria-label", "Eliminar");
+          del.innerHTML = `${Icons.trash}<span class="sr-only">Eliminar</span>`;
+          del.disabled = (c.id === GENERAL_CATEGORY_ID);
+
+          name.addEventListener("input", () => {
+            c.name = name.value.trim() || c.name;
+            saveDebounced();
+            renderCategoryFilter();
+            renderAllDebounced();
+          });
+
+          color.addEventListener("input", () => {
+            c.color = color.value;
+            saveDebounced();
+            renderAllDebounced();
+          });
+
+          up.addEventListener("click", () => {
+            swapCategoryOrder(i, i - 1);
+            toast("Categoría movida");
+          });
+
+          down.addEventListener("click", () => {
+            swapCategoryOrder(i, i + 1);
+            toast("Categoría movida");
+          });
+
+          del.addEventListener("click", () => {
+            if (!confirm(`¿Eliminar la categoría "${c.name}"?\nLas notas pasarán a "General".`)) return;
+            deleteCategory(c.id);
+          });
+
+          row.appendChild(name);
+          row.appendChild(color);
+          row.appendChild(up);
+          row.appendChild(down);
+          row.appendChild(del);
+
+          catTableEl.appendChild(row);
+        }
+      }
+
+      const renderAllDebounced = debounce(() => renderAll(), 120);
+
+      function normalizeColor(col) {
+        const s = String(col || "").trim();
+        if (!s) return "";
+        if (/^#[0-9a-fA-F]{6}$/.test(s)) return s;
+        if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+          return "#" + s.slice(1).split("").map(x => x + x).join("");
+        }
+        return s;
+      }
+
+      function swapCategoryOrder(i, j) {
+        categories = sortCategories(categories);
+        if (j < 0 || j >= categories.length) return;
+        const a = categories[i], b = categories[j];
+        const tmp = a.order;
+        a.order = b.order;
+        b.order = tmp;
+
+        renormalizeCategoryOrders();
+        categories = sortCategories(categories);
+        saveDebounced();
+        renderCategoryFilter();
+        renderCatManager();
+        renderAll();
+      }
+
+      function renormalizeCategoryOrders() {
+        categories = sortCategories(categories);
+        for (let i = 0; i < categories.length; i++) {
+          categories[i].order = i * 1000;
+        }
+        const general = categories.find(c => c.id === GENERAL_CATEGORY_ID);
+        if (general) general.order = -100000;
+      }
+
+      function deleteCategory(catId) {
+        if (catId === GENERAL_CATEGORY_ID) return;
+
+        for (const n of notes) {
+          if (n.categoryId === catId) {
+            n.categoryId = GENERAL_CATEGORY_ID;
+            if (settings.sortMode === "manual") {
+              n.order = lastOrder(n.pinned, GENERAL_CATEGORY_ID) + 1000;
+            }
+            n.updatedAt = Date.now();
           }
         }
 
-        const legacy = localStorage.getItem(LEGACY_KEY);
-        if (legacy) {
-          const data = safeParse(legacy, []);
-          const migrated = { notes: migrateNotesArray(Array.isArray(data) ? data : []), settings: { ...DEFAULT_SETTINGS } };
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 2, notes: migrated.notes, settings: migrated.settings }));
-          return migrated;
+        categories = categories.filter(c => c.id !== catId);
+        ensureGeneralCategory();
+
+        if (settings.sortMode === "manual") {
+          renormalizeOrders(true, GENERAL_CATEGORY_ID);
+          renormalizeOrders(false, GENERAL_CATEGORY_ID);
         }
 
-        return { notes: [], settings: { ...DEFAULT_SETTINGS } };
+        if (settings.categoryFilter === catId) settings.categoryFilter = "all";
+
+        saveDebounced();
+        renderCategoryFilter();
+        renderCatManager();
+        renderAll();
+        toast("Categoría eliminada");
       }
 
+      function addCategoryFromForm() {
+        const name = (catNewNameEl.value || "").trim();
+        const color = normalizeColor(catNewColorEl.value) || "#64748B";
+
+        if (!name) { toast("Escribe un nombre"); catNewNameEl.focus(); return; }
+
+        const exists = categories.find(c => norm(c.name) === norm(name));
+        if (exists) {
+          toast("Ya existe una categoría con ese nombre");
+          catNewNameEl.select();
+          return;
+        }
+
+        const maxOrder = categories.reduce((m, c) => Math.max(m, Number(c.order ?? 0)), 0);
+        const c = { id: makeId(), name, color, order: maxOrder + 1000, collapsed: false };
+        categories.push(c);
+        ensureGeneralCategory();
+
+        catNewNameEl.value = "";
+        catNewColorEl.value = "#64748B";
+
+        saveDebounced();
+        renderCategoryFilter();
+        renderCatManager();
+        renderAll();
+        toast("Categoría creada");
+      }
+
+      /* =========================
+         Serialize + Save (Sheets)
+      ========================== */
       function serializeState() {
         return {
-          v: 2,
+          v: 3,
           savedAt: Date.now(),
           notes,
-          settings: { sortMode: settings.sortMode, theme: settings.theme }
+          categories,
+          settings: {
+            sortMode: settings.sortMode,
+            theme: settings.theme,
+            categoryFilter: settings.categoryFilter
+          }
         };
       }
 
       const saveDebounced = debounce(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState()));
-      }, 250);
+        // actualiza snapshot local para evitar “rebotes” en auto-sync
+        lastSnapshot = makeSnapshot_(categories, notes);
+
+        gsRun("saveAll", serializeState())
+          .catch(() => toast("No pude guardar (revisa permisos)"));
+      }, 600);
 
       function saveNow() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(serializeState()));
+        try {
+          lastSnapshot = makeSnapshot_(categories, notes);
+          google.script.run.saveAll(serializeState());
+        } catch {}
       }
 
+      function makeSnapshot_(cats, nts) {
+        try {
+          return JSON.stringify({
+            categories: Array.isArray(cats) ? cats : [],
+            notes: Array.isArray(nts) ? nts : []
+          });
+        } catch {
+          return String(Date.now());
+        }
+      }
+
+      function startAutoSync() {
+        setInterval(async () => {
+          // si estás editando, no “pisar” el editor
+          if (document.querySelector(".note.editing")) return;
+
+          try {
+            const remote = await gsRun("getState");
+            const snap = makeSnapshot_(remote?.categories, remote?.notes);
+            if (snap !== lastSnapshot) {
+              notes = Array.isArray(remote?.notes) ? remote.notes : [];
+              categories = Array.isArray(remote?.categories) ? remote.categories : [];
+
+              ensureGeneralCategory();
+              sanitizeNotesCategoryIds();
+
+              renderCategoryFilter();
+              renderAll();
+
+              lastSnapshot = snap;
+            }
+          } catch {}
+        }, 15000);
+      }
+
+      /* =========================
+         Theme + Helpers
+      ========================== */
       function applyTheme(theme) {
         let t = theme;
         if (theme === "auto") {
@@ -1042,31 +1730,47 @@
         document.documentElement.style.setProperty("--btn-fixed-width", "44px");
       }
 
-      function createNote({ afterId = null, pinned = false }) {
+      function lastOrder(pinned, categoryId) {
+        const group = notes
+          .filter(n => !!n.pinned === !!pinned && (n.categoryId || GENERAL_CATEGORY_ID) === categoryId)
+          .slice()
+          .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        return group.length ? (group[group.length - 1].order ?? 0) : -1000;
+      }
+
+      function createNote({ afterId = null, pinned = false, categoryId = GENERAL_CATEGORY_ID }) {
         const now = Date.now();
 
         const group = notes
-          .filter(n => n.pinned === pinned)
+          .filter(n => !!n.pinned === !!pinned && (n.categoryId || GENERAL_CATEGORY_ID) === categoryId)
           .slice()
           .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-        let order = group.length ? group[group.length - 1].order + 1000 : 0;
+        let order = group.length ? (group[group.length - 1].order ?? 0) + 1000 : 0;
 
         if (afterId) {
           const idx = group.findIndex(n => n.id === afterId);
           if (idx !== -1) {
             const after = group[idx];
             const next = group[idx + 1];
-            order = next ? (after.order + next.order) / 2 : after.order + 1000;
+            order = next ? (Number(after.order ?? 0) + Number(next.order ?? 0)) / 2 : Number(after.order ?? 0) + 1000;
           }
         }
 
-        return { id: makeId(), text: "", createdAt: now, updatedAt: now, pinned, order };
+        return {
+          id: makeId(),
+          text: "",
+          createdAt: now,
+          updatedAt: now,
+          pinned: !!pinned,
+          order,
+          categoryId
+        };
       }
 
-      function renormalizeOrders(pinned) {
+      function renormalizeOrders(pinned, categoryId) {
         const group = notes
-          .filter(n => n.pinned === pinned)
+          .filter(n => !!n.pinned === !!pinned && (n.categoryId || GENERAL_CATEGORY_ID) === categoryId)
           .slice()
           .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
@@ -1075,10 +1779,7 @@
 
       function getNoteById(id) { return notes.find(n => n.id === id) || null; }
 
-      function getSortedNotes() {
-        const pinned = notes.filter(n => n.pinned);
-        const normal = notes.filter(n => !n.pinned);
-
+      function getSorter() {
         const mode = settings.sortMode;
         const sorters = {
           manual: (a, b) => (a.order ?? 0) - (b.order ?? 0),
@@ -1086,32 +1787,31 @@
           created_desc: (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0),
           alpha_asc: (a, b) => (a.text || "").localeCompare((b.text || ""), "es", { sensitivity: "base" })
         };
-
-        const s = sorters[mode] || sorters.manual;
-        return { pinned: pinned.slice().sort(s), normal: normal.slice().sort(s) };
+        return sorters[mode] || sorters.manual;
       }
 
-      function renderAll() {
-        const { pinned, normal } = getSortedNotes();
-
-        pinnedListEl.innerHTML = "";
-        notesListEl.innerHTML = "";
-
-        if (pinned.length) {
-          pinnedSectionEl.hidden = false;
-          pinnedListEl.appendChild(buildFragment(pinned));
-        } else {
-          pinnedSectionEl.hidden = true;
+      function groupNotesByCategory(list) {
+        const map = new Map();
+        for (const n of list) {
+          const catId = n.categoryId || GENERAL_CATEGORY_ID;
+          if (!map.has(catId)) map.set(catId, []);
+          map.get(catId).push(n);
         }
-
-        notesListEl.appendChild(buildFragment(normal));
-        applySearchAndHighlights();
+        return map;
       }
 
-      function buildFragment(list) {
-        const frag = document.createDocumentFragment();
-        for (const note of list) frag.appendChild(buildNoteEl(note));
-        return frag;
+      function getSortedNotesByCategory() {
+        const sorter = getSorter();
+        const pinned = notes.filter(n => !!n.pinned);
+        const normal = notes.filter(n => !n.pinned);
+
+        const pinnedByCat = groupNotesByCategory(pinned);
+        const normalByCat = groupNotesByCategory(normal);
+
+        for (const [k, arr] of pinnedByCat) pinnedByCat.set(k, arr.slice().sort(sorter));
+        for (const [k, arr] of normalByCat) normalByCat.set(k, arr.slice().sort(sorter));
+
+        return { pinnedByCat, normalByCat };
       }
 
       function currentTerms() {
@@ -1124,11 +1824,43 @@
         return `${icon}<span class="sr-only">${label}</span>`;
       }
 
+      function categoryBadgeHTML(catId) {
+        const c = getCategoryById(catId) || DEFAULT_GENERAL_CATEGORY;
+        const col = normalizeColor(c.color) || "#64748B";
+        return `<span class="badge" title="Categoría">
+          <span class="dot" style="background:${escapeHTML(col)}"></span>
+          📁 ${escapeHTML(c.name)}
+        </span>`;
+      }
+
+      function pinnedBadgeHTML(pinned) {
+        return pinned ? `<span class="badge" title="Fijada">📌 Fijada</span>` : "";
+      }
+
+      function buildCategorySelect(note) {
+        const sel = document.createElement("select");
+        sel.className = "cat-select";
+        sel.dataset.role = "catSelect";
+        sel.setAttribute("aria-label", "Cambiar categoría");
+
+        const sorted = sortCategories(categories);
+        for (const c of sorted) {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = c.name;
+          sel.appendChild(opt);
+        }
+        sel.value = note.categoryId || GENERAL_CATEGORY_ID;
+        return sel;
+      }
+
       function buildNoteEl(note) {
         const el = document.createElement("article");
         el.className = "note";
         el.dataset.id = note.id;
         el.dataset.norm = norm(note.text);
+        el.dataset.categoryId = note.categoryId || GENERAL_CATEGORY_ID;
+        el.dataset.pinned = String(!!note.pinned);
         el.draggable = false;
 
         const drag = document.createElement("button");
@@ -1137,7 +1869,7 @@
         drag.title = "Arrastrar para reordenar (modo manual). En móvil: mantén presionado y arrastra.";
         drag.setAttribute("aria-label", "Arrastrar para reordenar");
         drag.textContent = "≡";
-        drag.draggable = true; // se ajusta luego según dispositivo
+        drag.draggable = true;
 
         const content = document.createElement("div");
         content.className = "content";
@@ -1159,8 +1891,18 @@
 
         const meta = document.createElement("div");
         meta.className = "meta";
-        meta.hidden = !note.pinned;
-        meta.innerHTML = note.pinned ? `<span class="badge">📌 Fijada</span>` : "";
+
+        const catSel = buildCategorySelect(note);
+
+        const wrapBadges = document.createElement("div");
+        wrapBadges.style.display = "flex";
+        wrapBadges.style.gap = "8px";
+        wrapBadges.style.flexWrap = "wrap";
+        wrapBadges.style.alignItems = "center";
+        wrapBadges.innerHTML = `${categoryBadgeHTML(note.categoryId)}${pinnedBadgeHTML(note.pinned)}`;
+
+        meta.appendChild(wrapBadges);
+        meta.appendChild(catSel);
 
         content.appendChild(view);
         content.appendChild(edit);
@@ -1211,12 +1953,203 @@
         return el;
       }
 
+      function buildCatGroupEl({ cat, pinned, notesInCat, showEmpty }) {
+        const group = document.createElement("div");
+        group.className = "cat-group" + (cat.collapsed ? " collapsed" : "");
+        group.dataset.catId = cat.id;
+        group.dataset.pinned = String(!!pinned);
+
+        const head = document.createElement("div");
+        head.className = "cat-head";
+
+        const left = document.createElement("div");
+        left.className = "cat-left";
+
+        const toggle = document.createElement("button");
+        toggle.className = "cat-toggle";
+        toggle.type = "button";
+        toggle.dataset.action = "toggleCat";
+        toggle.dataset.catId = cat.id;
+        toggle.dataset.pinned = String(!!pinned);
+        toggle.title = "Contraer/Expandir";
+        toggle.setAttribute("aria-label", "Contraer/Expandir");
+        toggle.setAttribute("aria-expanded", String(!cat.collapsed));
+        toggle.innerHTML = cat.collapsed ? Icons.chevronRight : Icons.chevronDown;
+
+        const pill = document.createElement("span");
+        pill.className = "cat-pill";
+        pill.title = "Categoría";
+        pill.innerHTML = `<span class="cat-dot" style="background:${escapeHTML(normalizeColor(cat.color) || "#64748B")}"></span>
+                          <span class="cat-name">${escapeHTML(cat.name)}</span>
+                          <span class="cat-count" data-role="catCount">${notesInCat.length}</span>`;
+
+        left.appendChild(toggle);
+        left.appendChild(pill);
+
+        const right = document.createElement("div");
+        right.className = "cat-right";
+
+        if (!pinned) {
+          const add = document.createElement("button");
+          add.className = "btn btn-ghost";
+          add.type = "button";
+          add.dataset.action = "newInCat";
+          add.dataset.catId = cat.id;
+          add.title = "Nueva nota en esta categoría";
+          add.setAttribute("aria-label", "Nueva nota en esta categoría");
+          add.innerHTML = `${Icons.plus}<span class="sr-only">Nueva</span>`;
+          right.appendChild(add);
+        }
+
+        head.appendChild(left);
+        head.appendChild(right);
+
+        const list = document.createElement("div");
+        list.className = "cat-list";
+        list.setAttribute("role", "list");
+        list.dataset.role = "catList";
+        list.dataset.categoryId = cat.id;
+        list.dataset.pinned = String(!!pinned);
+
+        if (notesInCat.length) {
+          const frag = document.createDocumentFragment();
+          for (const n of notesInCat) frag.appendChild(buildNoteEl(n));
+          list.appendChild(frag);
+        } else if (showEmpty) {
+          const empty = document.createElement("div");
+          empty.className = "cat-empty";
+          empty.textContent = "Sin notas en esta categoría";
+          list.appendChild(empty);
+        }
+
+        group.appendChild(head);
+        group.appendChild(list);
+        return group;
+      }
+
+      function renderAll() {
+        ensureGeneralCategory();
+        renderCategoryFilter();
+
+        const { pinnedByCat, normalByCat } = getSortedNotesByCategory();
+        const sortedCats = sortCategories(categories);
+
+        const filter = settings.categoryFilter || "all";
+        const terms = currentTerms();
+        const isSearching = terms.length > 0;
+
+        pinnedListEl.innerHTML = "";
+        notesListEl.innerHTML = "";
+
+        let pinnedHasAnything = false;
+        for (const cat of sortedCats) {
+          if (filter !== "all" && cat.id !== filter) continue;
+          const list = pinnedByCat.get(cat.id) || [];
+          if (!list.length) continue;
+
+          pinnedHasAnything = true;
+          pinnedListEl.appendChild(buildCatGroupEl({
+            cat,
+            pinned: true,
+            notesInCat: list,
+            showEmpty: false
+          }));
+        }
+        pinnedSectionEl.hidden = !pinnedHasAnything;
+
+        for (const cat of sortedCats) {
+          if (filter !== "all" && cat.id !== filter) continue;
+
+          const list = normalByCat.get(cat.id) || [];
+          const showEmpty = (!isSearching);
+
+          notesListEl.appendChild(buildCatGroupEl({
+            cat,
+            pinned: false,
+            notesInCat: list,
+            showEmpty
+          }));
+        }
+
+        applySearchAndHighlights();
+      }
+
       function applySearchAndHighlights() {
         const terms = currentTerms();
+        const filter = settings.categoryFilter || "all";
+        const isSearching = terms.length > 0;
+
+        const total = (filter === "all")
+          ? notes.length
+          : notes.filter(n => (n.categoryId || GENERAL_CATEGORY_ID) === filter).length;
+
         let visible = 0;
 
-        visible += applyToContainer(pinnedListEl, terms);
-        visible += applyToContainer(notesListEl, terms);
+        const roots = [pinnedListEl, notesListEl];
+        for (const root of roots) {
+          const items = root.querySelectorAll(".note");
+          items.forEach(el => {
+            const id = el.dataset.id;
+            const note = getNoteById(id);
+            if (!note) return;
+
+            const t = el.dataset.norm || "";
+            const matchText = terms.every(term => t.includes(term));
+
+            const catId = note.categoryId || GENERAL_CATEGORY_ID;
+            const matchCat = (filter === "all") ? true : (catId === filter);
+
+            const match = matchText && matchCat;
+            el.hidden = !match;
+            if (match) visible++;
+
+            const view = el.querySelector(".note-view");
+            if (view) view.innerHTML = makeHighlightedHTML(note.text, terms, true);
+
+            const cpBtn = el.querySelector('[data-action="copyPaste"]');
+            if (cpBtn) setCopyPasteUI(cpBtn, note.text);
+
+            const pinBtn = el.querySelector('[data-action="pin"]');
+            if (pinBtn) {
+              pinBtn.innerHTML = pinHTML(note.pinned);
+              pinBtn.title = note.pinned ? "Soltar" : "Fijar";
+              pinBtn.setAttribute("aria-label", note.pinned ? "Soltar" : "Fijar");
+            }
+
+            const meta = el.querySelector(".meta");
+            if (meta) {
+              const badgeWrap = meta.firstElementChild;
+              const sel = meta.querySelector('select[data-role="catSelect"]');
+
+              if (badgeWrap) {
+                badgeWrap.innerHTML = `${categoryBadgeHTML(catId)}${pinnedBadgeHTML(note.pinned)}`;
+              }
+              if (sel) sel.value = catId;
+            }
+
+            el.dataset.categoryId = catId;
+            el.dataset.pinned = String(!!note.pinned);
+          });
+        }
+
+        for (const root of roots) {
+          const groups = root.querySelectorAll(".cat-group");
+          groups.forEach(group => {
+            const list = group.querySelector(".cat-list");
+            const countEl = group.querySelector('[data-role="catCount"]');
+
+            const visibleNotes = list ? list.querySelectorAll(".note:not([hidden])").length : 0;
+            if (countEl) countEl.textContent = String(visibleNotes);
+
+            if (isSearching) group.classList.remove("collapsed");
+
+            if (isSearching) {
+              group.hidden = (visibleNotes === 0);
+            } else {
+              group.hidden = false;
+            }
+          });
+        }
 
         const anyPinnedVisible = pinnedListEl.querySelector(".note:not([hidden])");
         pinnedSectionEl.hidden = !anyPinnedVisible;
@@ -1224,7 +2157,7 @@
         const anyNormalVisible = notesListEl.querySelector(".note:not([hidden])");
         emptyEl.hidden = (anyPinnedVisible || anyNormalVisible);
 
-        updateCount(visible, notes.length);
+        updateCount(visible, total);
 
         const dragEnabled = (settings.sortMode === "manual");
         document.querySelectorAll(".drag-handle").forEach(b => {
@@ -1233,56 +2166,50 @@
             ? "Arrastrar para reordenar (modo manual). En móvil: mantén presionado y arrastra."
             : "Reordenar solo disponible en modo Manual";
 
-          /* ✅ evita conflicto: HTML5 drag solo en no-táctil */
           b.draggable = dragEnabled && !isCoarsePointer;
         });
       }
 
-      function applyToContainer(container, terms) {
-        const items = container.querySelectorAll(".note");
-        let visible = 0;
-
-        items.forEach(el => {
-          const id = el.dataset.id;
-          const note = getNoteById(id);
-          if (!note) return;
-
-          const t = el.dataset.norm || "";
-          const match = terms.every(term => t.includes(term));
-          el.hidden = !match;
-          if (match) visible++;
-
-          const view = el.querySelector(".note-view");
-          if (view) view.innerHTML = makeHighlightedHTML(note.text, terms, true);
-
-          const cpBtn = el.querySelector('[data-action="copyPaste"]');
-          if (cpBtn) setCopyPasteUI(cpBtn, note.text);
-
-          const pinBtn = el.querySelector('[data-action="pin"]');
-          if (pinBtn) {
-            pinBtn.innerHTML = pinHTML(note.pinned);
-            pinBtn.title = note.pinned ? "Soltar" : "Fijar";
-            pinBtn.setAttribute("aria-label", note.pinned ? "Soltar" : "Fijar");
-          }
-
-          const meta = el.querySelector(".meta");
-          if (meta) {
-            meta.hidden = !note.pinned;
-            meta.innerHTML = note.pinned ? `<span class="badge">📌 Fijada</span>` : "";
-          }
-        });
-
-        return visible;
-      }
-
-      /* ✅ "2 de 2" */
       function updateCount(visible, total) {
         countEl.textContent = `${visible} de ${total}`;
       }
 
+      /* =========================
+         List events
+      ========================== */
       function findNoteEl(target) { return target.closest(".note"); }
 
-      function onNoteClick(e) {
+      function onListClick(e) {
+        const catBtn = e.target.closest("[data-action]");
+        if (catBtn && catBtn.dataset.action === "toggleCat") {
+          const catId = catBtn.dataset.catId;
+          const c = getCategoryById(catId);
+          if (!c) return;
+
+          c.collapsed = !c.collapsed;
+          saveDebounced();
+
+          const group = catBtn.closest(".cat-group");
+          if (group) {
+            group.classList.toggle("collapsed", c.collapsed);
+            catBtn.innerHTML = c.collapsed ? Icons.chevronRight : Icons.chevronDown;
+            catBtn.setAttribute("aria-expanded", String(!c.collapsed));
+          }
+          return;
+        }
+
+        if (catBtn && catBtn.dataset.action === "newInCat") {
+          const catId = catBtn.dataset.catId || GENERAL_CATEGORY_ID;
+          const n = createNote({ afterId: null, pinned: false, categoryId: catId });
+          notes.push(n);
+          if (settings.sortMode === "manual") renormalizeOrders(false, catId);
+          saveDebounced();
+          renderAll();
+          focusNote(n.id);
+          toast("Nota creada");
+          return;
+        }
+
         const noteEl = findNoteEl(e.target);
         if (!noteEl) return;
 
@@ -1301,17 +2228,15 @@
         const action = actionBtn.dataset.action;
 
         if (action === "pin") {
+          const prevPinned = !!note.pinned;
           note.pinned = !note.pinned;
           note.updatedAt = Date.now();
 
           if (settings.sortMode === "manual") {
-            const group = notes
-              .filter(n => n.pinned === note.pinned && n.id !== note.id)
-              .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-            const lastOrder = group.length ? group[group.length - 1].order : -1000;
-            note.order = lastOrder + 1000;
-            renormalizeOrders(note.pinned);
-            renormalizeOrders(!note.pinned);
+            const catId = note.categoryId || GENERAL_CATEGORY_ID;
+            note.order = lastOrder(note.pinned, catId) + 1000;
+            renormalizeOrders(prevPinned, catId);
+            renormalizeOrders(note.pinned, catId);
           }
 
           saveDebounced();
@@ -1360,7 +2285,7 @@
         }
       }
 
-      function onNoteKeydown(e) {
+      function onListKeydown(e) {
         const noteEl = findNoteEl(e.target);
         if (!noteEl) return;
 
@@ -1384,7 +2309,7 @@
         }
       }
 
-      function onNoteInput(e) {
+      function onListInput(e) {
         if (!e.target.classList.contains("note-edit")) return;
 
         const noteEl = findNoteEl(e.target);
@@ -1398,18 +2323,73 @@
         note.updatedAt = Date.now();
         noteEl.dataset.norm = norm(note.text);
 
+        maybeAssignCategoryFromPrefix(note);
+
         autoResize(e.target);
 
         saveDebounced();
         applySearchAndHighlights();
       }
 
-      function onNoteFocusIn(e) {
+      function onListChange(e) {
+        const sel = e.target.closest('select[data-role="catSelect"]');
+        if (!sel) return;
+
+        const noteEl = findNoteEl(sel);
+        if (!noteEl) return;
+
+        const id = noteEl.dataset.id;
+        const note = getNoteById(id);
+        if (!note) return;
+
+        const oldCat = note.categoryId || GENERAL_CATEGORY_ID;
+        const newCat = sel.value || GENERAL_CATEGORY_ID;
+        if (newCat === oldCat) return;
+
+        note.categoryId = newCat;
+        note.updatedAt = Date.now();
+
+        if (settings.sortMode === "manual") {
+          note.order = lastOrder(note.pinned, newCat) + 1000;
+          renormalizeOrders(note.pinned, oldCat);
+          renormalizeOrders(note.pinned, newCat);
+        }
+
+        saveDebounced();
+        renderAll();
+        toast("Categoría cambiada");
+      }
+
+      function maybeAssignCategoryFromPrefix(note) {
+        const txt = String(note.text || "");
+        const m = txt.match(/^\s*@([^\s\r\n\t]+)\s+/);
+        if (!m) return;
+
+        const token = m[1];
+        const found = categories.find(c => norm(c.name) === norm(token));
+        if (!found) return;
+
+        const oldCat = note.categoryId || GENERAL_CATEGORY_ID;
+        const newCat = found.id;
+
+        if (newCat !== oldCat) {
+          note.categoryId = newCat;
+          if (settings.sortMode === "manual") {
+            note.order = lastOrder(note.pinned, newCat) + 1000;
+            renormalizeOrders(note.pinned, oldCat);
+            renormalizeOrders(note.pinned, newCat);
+          }
+        }
+
+        note.text = txt.replace(/^\s*@([^\s\r\n\t]+)\s+/, "");
+      }
+
+      function onListFocusIn(e) {
         if (!e.target.classList.contains("note-edit")) return;
         autoResize(e.target);
       }
 
-      function onNoteFocusOut(e) {
+      function onListFocusOut(e) {
         if (!e.target.classList.contains("note-edit")) return;
 
         const noteEl = findNoteEl(e.target);
@@ -1499,7 +2479,7 @@
         if (idx === -1) return;
 
         const [removed] = notes.splice(idx, 1);
-        undoState = { note: removed, index: idx, pinned: removed.pinned };
+        undoState = { note: removed, index: idx };
 
         saveDebounced();
         renderAll();
@@ -1507,7 +2487,12 @@
         toastWithAction("Nota eliminada", "Deshacer", () => {
           if (!undoState) return;
           notes.splice(undoState.index, 0, undoState.note);
-          if (settings.sortMode === "manual") renormalizeOrders(undoState.pinned);
+
+          if (settings.sortMode === "manual") {
+            const catId = undoState.note.categoryId || GENERAL_CATEGORY_ID;
+            renormalizeOrders(!!undoState.note.pinned, catId);
+          }
+
           saveDebounced();
           renderAll();
           undoState = null;
@@ -1515,20 +2500,52 @@
         }, 4500);
       }
 
+      /* =========================
+         Export / Import
+      ========================== */
       function exportJSON() {
-        const payload = { v: 2, exportedAt: Date.now(), notes, settings: { sortMode: settings.sortMode, theme: settings.theme } };
+        const payload = {
+          v: 3,
+          exportedAt: Date.now(),
+          notes,
+          categories,
+          settings: {
+            sortMode: settings.sortMode,
+            theme: settings.theme,
+            categoryFilter: settings.categoryFilter
+          }
+        };
         downloadFile("notas.json", JSON.stringify(payload, null, 2), "application/json");
         toast("Exportado JSON ✅");
       }
 
       function exportTXT() {
-        const { pinned, normal } = getSortedNotes();
+        const sortedCats = sortCategories(categories);
+        const { pinnedByCat, normalByCat } = getSortedNotesByCategory();
+
         const blocks = [];
 
-        if (pinned.length) blocks.push("=== FIJADAS ===\n" + pinned.map(n => n.text || "").join("\n\n---\n\n"));
-        blocks.push("=== NOTAS ===\n" + normal.map(n => n.text || "").join("\n\n---\n\n"));
+        blocks.push("=== FIJADAS ===");
+        for (const cat of sortedCats) {
+          const arr = pinnedByCat.get(cat.id) || [];
+          if (!arr.length) continue;
 
-        downloadFile("notas.txt", blocks.join("\n\n\n"), "text/plain;charset=utf-8");
+          blocks.push(`=== CATEGORIA: ${cat.name} ===`);
+          blocks.push(arr.map(n => n.text || "").join("\n\n---\n\n"));
+          blocks.push("");
+        }
+
+        blocks.push("=== NOTAS ===");
+        for (const cat of sortedCats) {
+          const arr = normalByCat.get(cat.id) || [];
+          if (!arr.length) continue;
+
+          blocks.push(`=== CATEGORIA: ${cat.name} ===`);
+          blocks.push(arr.map(n => n.text || "").join("\n\n---\n\n"));
+          blocks.push("");
+        }
+
+        downloadFile("notas.txt", blocks.join("\n"), "text/plain;charset=utf-8");
         toast("Exportado TXT ✅");
       }
 
@@ -1540,34 +2557,76 @@
           const data = safeParse(text, null);
           if (!data) { toast("JSON inválido ❌"); return; }
 
-          const incomingNotes = Array.isArray(data.notes) ? migrateNotesArray(data.notes)
-            : Array.isArray(data) ? migrateNotesArray(data)
-            : [];
+          const incomingCats = Array.isArray(data.categories) ? data.categories : [];
+          const incomingNotes = Array.isArray(data.notes) ? data.notes : [];
 
-          if (!incomingNotes.length) { toast("No encontré notas en el JSON"); return; }
+          // Merge simple por nombre normalizado
+          ensureGeneralCategory();
+          const byNormName = new Map(categories.map(c => [norm(c.name), c]));
+          const idMap = new Map();
 
+          for (const ic of incomingCats) {
+            if (!ic || !ic.name) continue;
+            const k = norm(ic.name);
+            if (byNormName.has(k)) {
+              idMap.set(String(ic.id), byNormName.get(k).id);
+              continue;
+            }
+            const newId = makeId();
+            categories.push({
+              id: newId,
+              name: String(ic.name),
+              color: normalizeColor(ic.color) || "#64748B",
+              order: categories.reduce((m, c) => Math.max(m, Number(c.order ?? 0)), 0) + 1000,
+              collapsed: !!ic.collapsed
+            });
+            byNormName.set(k, categories[categories.length - 1]);
+            idMap.set(String(ic.id), newId);
+          }
+
+          ensureGeneralCategory();
+          categories = sortCategories(categories);
+
+          const catIds = new Set(categories.map(c => c.id));
           const existing = new Set(notes.map(n => n.id));
+
           for (const n of incomingNotes) {
-            if (existing.has(n.id)) n.id = makeId();
-            existing.add(n.id);
-            notes.push(n);
+            const nn = { ...n };
+            if (!nn.id || existing.has(nn.id)) nn.id = makeId();
+            existing.add(nn.id);
+
+            if (idMap.has(String(nn.categoryId))) nn.categoryId = idMap.get(String(nn.categoryId));
+            if (!catIds.has(nn.categoryId)) nn.categoryId = GENERAL_CATEGORY_ID;
+
+            const now = Date.now();
+            nn.createdAt = Number(nn.createdAt || now);
+            nn.updatedAt = Number(nn.updatedAt || nn.createdAt);
+            nn.pinned = !!nn.pinned;
+            nn.order = Number.isFinite(Number(nn.order)) ? Number(nn.order) : (notes.length * 1000);
+
+            notes.push(nn);
           }
 
           if (settings.sortMode === "manual") {
-            renormalizeOrders(true);
-            renormalizeOrders(false);
+            for (const catId of catIds) {
+              renormalizeOrders(true, catId);
+              renormalizeOrders(false, catId);
+            }
           }
 
           saveDebounced();
+          renderCategoryFilter();
           renderAll();
           toast(`Importadas ${incomingNotes.length} notas ✅`);
           return;
         }
 
+        // TXT -> General
         const cleaned = text
           .replace(/\r/g, "")
           .replace(/^===\s*FIJADAS\s*===\s*\n?/im, "")
           .replace(/^===\s*NOTAS\s*===\s*\n?/im, "")
+          .replace(/^===\s*CATEGORIA:\s*.*?===\s*\n?/gim, "")
           .split(/\n\s*---\s*\n/g)
           .join("\n\n");
 
@@ -1579,10 +2638,18 @@
         if (!blocks.length) { toast("TXT vacío"); return; }
 
         const now = Date.now();
-        const created = blocks.map((b, i) => ({ id: makeId(), text: b, createdAt: now, updatedAt: now, pinned: false, order: i * 1000 }));
+        const created = blocks.map((b, i) => ({
+          id: makeId(),
+          text: b,
+          createdAt: now,
+          updatedAt: now,
+          pinned: false,
+          categoryId: GENERAL_CATEGORY_ID,
+          order: i * 1000
+        }));
 
         notes.push(...created);
-        if (settings.sortMode === "manual") renormalizeOrders(false);
+        if (settings.sortMode === "manual") renormalizeOrders(false, GENERAL_CATEGORY_ID);
 
         saveDebounced();
         renderAll();
@@ -1601,6 +2668,9 @@
         URL.revokeObjectURL(url);
       }
 
+      /* =========================
+         Toast
+      ========================== */
       function toast(message, ms = 1400) {
         toastEl.textContent = message;
         toastEl.classList.add("show");
@@ -1630,12 +2700,18 @@
         toast._t = setTimeout(() => toastEl.classList.remove("show"), ms);
       }
 
+      /* =========================
+         Drag & Drop (manual)
+      ========================== */
       function canDrag() { return settings.sortMode === "manual"; }
 
-      /* Desktop: HTML5 Drag */
+      function getNoteContainerFromEventTarget(target) {
+        return target.closest('.cat-list[data-role="catList"]');
+      }
+
       function onDragStart(e) {
         if (!canDrag()) { e.preventDefault(); return; }
-        if (isCoarsePointer) { e.preventDefault(); return; } // móvil usa pointer drag
+        if (isCoarsePointer) { e.preventDefault(); return; }
 
         const handle = e.target.closest(".drag-handle");
         if (!handle) { e.preventDefault(); return; }
@@ -1643,7 +2719,16 @@
         const noteEl = handle.closest(".note");
         if (!noteEl) { e.preventDefault(); return; }
 
-        dragId = noteEl.dataset.id;
+        const id = noteEl.dataset.id;
+        const note = getNoteById(id);
+        if (!note) { e.preventDefault(); return; }
+
+        const container = noteEl.closest(".cat-list");
+        if (!container) { e.preventDefault(); return; }
+
+        dragId = id;
+        dragCtx = { id, pinned: !!note.pinned, categoryId: note.categoryId || GENERAL_CATEGORY_ID };
+
         noteEl.classList.add("dragging");
 
         e.dataTransfer.effectAllowed = "move";
@@ -1653,11 +2738,20 @@
       }
 
       function onDragOver(e) {
-        if (!canDrag() || !dragId) return;
+        if (!canDrag() || !dragId || !dragCtx) return;
+
+        const container = getNoteContainerFromEventTarget(e.target);
+        if (!container) return;
+
+        const pinned = container.dataset.pinned === "true";
+        const catId = container.dataset.categoryId;
+
+        if (pinned !== dragCtx.pinned) return;
+        if (catId !== dragCtx.categoryId) return;
+
         e.preventDefault();
 
-        const container = e.currentTarget;
-        const draggingEl = container.querySelector(`.note[data-id="${cssEscape(dragId)}"]`);
+        const draggingEl = document.querySelector(`.note[data-id="${cssEscape(dragId)}"]`);
         if (!draggingEl) return;
 
         const afterEl = getDragAfterElement(container, e.clientY);
@@ -1666,13 +2760,23 @@
       }
 
       function onDrop(e) {
-        if (!canDrag() || !dragId) return;
+        if (!canDrag() || !dragId || !dragCtx) return;
+
+        const container = getNoteContainerFromEventTarget(e.target);
+        if (!container) return;
+
+        const pinned = container.dataset.pinned === "true";
+        const catId = container.dataset.categoryId;
+
+        if (pinned !== dragCtx.pinned) return;
+        if (catId !== dragCtx.categoryId) return;
+
         e.preventDefault();
 
-        const container = e.currentTarget;
         saveManualOrderFromContainer(container);
 
         dragId = null;
+        dragCtx = null;
         renderAll();
         toast("Orden guardado");
       }
@@ -1680,6 +2784,7 @@
       function onDragEnd() {
         document.querySelectorAll(".note.dragging").forEach(el => el.classList.remove("dragging"));
         dragId = null;
+        dragCtx = null;
       }
 
       function getDragAfterElement(container, y) {
@@ -1695,10 +2800,11 @@
       }
 
       function saveManualOrderFromContainer(container) {
-        const isPinnedContainer = (container === pinnedListEl);
+        const pinned = container.dataset.pinned === "true";
+        const categoryId = container.dataset.categoryId || GENERAL_CATEGORY_ID;
 
-        const ids = [...container.querySelectorAll(".note")].map(el => el.dataset.id);
-        const groupNotes = notes.filter(n => n.pinned === isPinnedContainer);
+        const ids = [...container.querySelectorAll(".note:not(.placeholder)")].map(el => el.dataset.id);
+        const groupNotes = notes.filter(n => !!n.pinned === pinned && (n.categoryId || GENERAL_CATEGORY_ID) === categoryId);
 
         const byId = new Map(groupNotes.map(n => [n.id, n]));
         for (let i = 0; i < ids.length; i++) {
@@ -1709,7 +2815,7 @@
         saveDebounced();
       }
 
-      /* ✅ Móvil: drag táctil (long press en ≡) */
+      /* ✅ Móvil: drag táctil */
       function onHandlePointerDown(e) {
         if (!isCoarsePointer) return;
         if (!canDrag()) return;
@@ -1721,8 +2827,8 @@
         const noteEl = handle.closest(".note");
         if (!noteEl) return;
 
-        const container = noteEl.parentElement;
-        if (container !== pinnedListEl && container !== notesListEl) return;
+        const container = noteEl.closest(".cat-list");
+        if (!container) return;
 
         if (noteEl.classList.contains("editing")) return;
 
@@ -1860,6 +2966,7 @@
         if (clientY < margin) window.scrollBy({ top: -speed, left: 0, behavior: "auto" });
         else if (clientY > window.innerHeight - margin) window.scrollBy({ top: speed, left: 0, behavior: "auto" });
       }
+
     })();
   </script>
 </body>

@@ -1,0 +1,107 @@
+/** **CONFIG:** */
+const SPREADSHEET_ID = "165NRNY-vHFiR5-pJ54TrPRrQrjADdXdNdGshszwLnww";
+const SHEET_CATS = "Categories";
+const SHEET_NOTES = "Notes";
+
+const CAT_HEADERS = ["id", "name", "color", "order", "collapsed"];
+const NOTE_HEADERS = ["id", "text", "createdAt", "updatedAt", "pinned", "order", "categoryId"];
+
+/** **WEB:** sirve tu página */
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile("index")
+    .setTitle("Notas")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/** **API:** obtener estado (categorías + notas) */
+function getState() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  const shCats = ensureSheetWithHeaders_(ss, SHEET_CATS, CAT_HEADERS);
+  const shNotes = ensureSheetWithHeaders_(ss, SHEET_NOTES, NOTE_HEADERS);
+
+  const categories = readObjects_(shCats, CAT_HEADERS);
+  const notes = readObjects_(shNotes, NOTE_HEADERS);
+
+  return {
+    v: 3,
+    savedAt: Date.now(),
+    categories,
+    notes,
+    settings: {} // si quieres, luego guardamos settings en otra pestaña
+  };
+}
+
+/** **API:** guardar TODO (la página envía el estado completo) */
+function saveAll(state) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  const shCats = ensureSheetWithHeaders_(ss, SHEET_CATS, CAT_HEADERS);
+  const shNotes = ensureSheetWithHeaders_(ss, SHEET_NOTES, NOTE_HEADERS);
+
+  const categories = Array.isArray(state?.categories) ? state.categories : [];
+  const notes = Array.isArray(state?.notes) ? state.notes : [];
+
+  writeObjects_(shCats, CAT_HEADERS, categories);
+  writeObjects_(shNotes, NOTE_HEADERS, notes);
+
+  return { ok: true, savedAt: Date.now() };
+}
+
+/** =========================
+ *  **ENCABEZADOS AUTO-REPARABLES**
+ *  - Si falta una pestaña: la crea
+ *  - Si borras un encabezado: lo reescribe
+ *  - Si faltan columnas: las inserta
+ * ========================= */
+function ensureSheetWithHeaders_(ss, sheetName, headers) {
+  let sh = ss.getSheetByName(sheetName);
+  if (!sh) sh = ss.insertSheet(sheetName);
+
+  // Asegura columnas suficientes
+  const needCols = headers.length;
+  const haveCols = sh.getMaxColumns();
+  if (haveCols < needCols) sh.insertColumnsAfter(haveCols, needCols - haveCols);
+
+  // Lee fila 1 y repara si hay diferencias (incluye celdas vacías)
+  const current = sh.getRange(1, 1, 1, headers.length).getValues()[0].map(v => String(v || "").trim());
+  let mismatch = false;
+  for (let i = 0; i < headers.length; i++) {
+    if (current[i] !== headers[i]) { mismatch = true; break; }
+  }
+  if (mismatch) {
+    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+  }
+
+  return sh;
+}
+
+/** **UTIL:** lee filas como objetos */
+function readObjects_(sh, headers) {
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+
+  const values = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  const out = [];
+  for (const row of values) {
+    if (row.every(v => String(v || "").trim() === "")) continue;
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = row[i]);
+    out.push(obj);
+  }
+  return out;
+}
+
+/** **UTIL:** escribe objetos (limpia filas debajo de encabezados y reescribe) */
+function writeObjects_(sh, headers, objects) {
+  const lastRow = sh.getLastRow();
+  if (lastRow > 1) sh.getRange(2, 1, lastRow - 1, sh.getMaxColumns()).clearContent();
+
+  if (!objects.length) return;
+
+  // Normaliza a columnas esperadas
+  const data = objects.map(o => headers.map(h => o?.[h] ?? ""));
+  sh.getRange(2, 1, data.length, headers.length).setValues(data);
+}
