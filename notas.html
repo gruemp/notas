@@ -35,7 +35,16 @@
 
       --mark: rgba(255, 210, 0, .24);
 
-      --btn-fixed-width: 44px;
+      /* ✅ NUEVO: alturas y tamaños */
+      --row-h: 44px;              /* altura de la barra de nota */
+      --btn-fixed-width: 44px;    /* ancho botones por defecto */
+      --btn-icon: 20px;           /* tamaño iconos botones */
+      --top-btn-w: 160px;         /* ancho controles superiores (categorías/orden/nueva cat) */
+      --note-cat-w: 140px;        /* ancho selector categoría por nota */
+
+      /* ✅ Categorías: un solo color */
+      --cat-blue: #4F46E5;
+
       --radius: 12px;
     }
 
@@ -79,53 +88,29 @@
       padding: 14px;
     }
 
-    /* ✅ Header simplificado: contador + búsqueda + controles EN LA MISMA FILA (desktop) */
-    .header{
-      margin-bottom: 12px;
-    }
+    /* ✅ Header: móvil en UNA SOLA FILA (search + categorías + orden + nueva categoría) */
+    .header{ margin-bottom: 12px; }
 
     .topbar{
       display:flex;
-      gap:12px;
-      align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-    }
-
-    .countbox{
-      display:flex;
-      align-items:center;
-      flex: 0 0 auto;
-      min-width: 90px;
-    }
-
-    .count{
-      color: var(--muted);
-      font-size: 13px;
-      white-space:nowrap;
-    }
-
-    .search{
-      display:flex;
       gap:10px;
       align-items:center;
-      flex: 1 1 420px;
       justify-content:flex-start;
-      min-width: 260px;
+      flex-wrap:nowrap;             /* ✅ nunca se parte en 2 filas */
+      overflow-x:auto;              /* ✅ si no cabe, scroll horizontal manteniendo 1 fila */
+      -webkit-overflow-scrolling: touch;
+      padding-bottom: 2px;
     }
 
-    .search label{
-      color: var(--muted);
-      font-size: 13px;
-      user-select:none;
-      white-space:nowrap;
-    }
+    .topbar::-webkit-scrollbar{ height: 6px; }
+    .topbar::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.12); border-radius: 999px; }
 
     .searchbox{
       display:flex;
       align-items:stretch;
-      width: 100%;
-      max-width: 560px;
+      flex: 1 1 auto;
+      min-width: 220px;
+      height: var(--row-h);
       border-radius: 10px;
       border: 1px solid var(--line);
       background: rgba(0,0,0,.18);
@@ -136,7 +121,7 @@
       background: rgba(255,255,255,.8);
     }
 
-    .search input{
+    .searchbox input{
       width: 100%;
       padding: 10px 12px;
       border: none;
@@ -151,7 +136,8 @@
     }
 
     .icon-btn{
-      width: 44px;
+      width: var(--btn-fixed-width);
+      min-width: var(--btn-fixed-width);
       border: none;
       cursor:pointer;
       background: transparent;
@@ -161,42 +147,83 @@
     }
     .icon-btn:hover{ color: var(--text); }
 
-    .toolbar{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:flex-end;
-      flex: 0 0 auto;
-      flex-wrap:wrap;
-    }
-
-    .select{
-      padding: 9px 10px;
+    /* ✅ “select” con apariencia de botón (incluye icono + chevron) */
+    .selectwrap{
+      position: relative;
+      width: var(--top-btn-w);
+      min-width: var(--top-btn-w);
+      height: var(--row-h);
       border-radius: 10px;
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,.18);
+      border: 1px solid rgba(255,255,255,.14);
+      background: linear-gradient(180deg, var(--btn2), var(--btn));
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      box-shadow: none;
+      flex: 0 0 auto;
+    }
+
+    [data-theme="light"] .selectwrap{
+      border-color: rgba(16,20,40,.14);
+    }
+
+    .selectwrap svg{
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
       color: var(--text);
+      opacity: .95;
+      pointer-events:none;
+      position:absolute;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .selectwrap .icon-left{ left: 10px; opacity: .92; }
+    .selectwrap .icon-right{ right: 10px; opacity: .85; }
+
+    .selectwrap select{
+      width: 100%;
+      height: 100%;
+      border: none;
       outline:none;
+      background: transparent;
+      color: var(--text);
+      font-weight: 750;
+      letter-spacing: .2px;
+      cursor:pointer;
+      appearance:none;
+      -webkit-appearance:none;
+      -moz-appearance:none;
+
+      padding: 0 34px 0 34px; /* deja espacio a iconos */
+      text-align: center;
+      text-align-last: center;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
     }
 
-    [data-theme="light"] .select{
-      background: rgba(255,255,255,.8);
-    }
-
-    .select:focus{
-      border-color: rgba(0,183,255,.55);
-      box-shadow: 0 0 0 3px rgba(0,183,255,.18);
-    }
-
-    .select option{
+    .selectwrap select option{
       color: #000;
       background: #fff;
     }
 
+    .selectwrap:focus-within{
+      border-color: rgba(0,183,255,.55);
+      box-shadow: 0 0 0 3px rgba(0,183,255,.18);
+    }
+
+    /* ✅ Botones base */
     .btn{
       width: var(--btn-fixed-width);
       min-width: var(--btn-fixed-width);
-      height: 44px;
+      height: var(--row-h);
       border: 1px solid rgba(255,255,255,.14);
       background: linear-gradient(180deg, var(--btn2), var(--btn));
       color: var(--text);
@@ -212,13 +239,14 @@
       justify-content:center;
       white-space:nowrap;
       overflow:hidden;
+      flex: 0 0 auto;
     }
     .btn:active{ transform: translateY(1px); }
     .btn:hover{ filter: brightness(1.08); }
 
     .btn svg{
-      width: 20px;
-      height: 20px;
+      width: var(--btn-icon);
+      height: var(--btn-icon);
       stroke: currentColor;
       fill: none;
       stroke-width: 2;
@@ -232,6 +260,19 @@
       background: linear-gradient(180deg, var(--fluor-blue2), var(--fluor-blue));
       color: #ffffff;
       box-shadow: 0 0 18px rgba(79,70,229,.22);
+    }
+
+    .btn-wide{
+      width: var(--top-btn-w);
+      min-width: var(--top-btn-w);
+      gap: 10px;
+      padding: 0 12px;
+      justify-content:center;
+    }
+
+    .btn-wide span{
+      font-weight: 800;
+      letter-spacing: .2px;
     }
 
     .btn-copy{
@@ -265,6 +306,30 @@
       background: rgba(255,255,255,.55);
     }
 
+    /* ✅ Barra secundaria (acciones extra) */
+    .subbar{
+      margin-top: 10px;
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content:space-between;
+      flex-wrap:wrap;
+    }
+
+    .count{
+      color: var(--muted);
+      font-size: 13px;
+      white-space:nowrap;
+    }
+
+    .toolbar2{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
     .list{
       background: var(--panel);
       border: 1px solid var(--line);
@@ -279,7 +344,7 @@
 
     .section-title{
       padding: 10px 12px;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing:.2px;
       color: var(--muted);
       background: var(--panel2);
@@ -296,7 +361,7 @@
       gap:12px;
     }
 
-    /* ✅ Categorías */
+    /* ✅ Categorías (SIEMPRE color azul y contraídas al inicio) */
     .cat-group{
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -340,7 +405,7 @@
     .cat-toggle svg{ width: 18px; height: 18px; }
 
     .cat-name{
-      font-weight: 750;
+      font-weight: 800;
       letter-spacing: .2px;
       white-space:nowrap;
       overflow:hidden;
@@ -359,7 +424,7 @@
       background: rgba(0,0,0,.12);
       flex: 0 0 auto;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 800;
     }
 
     .cat-dot{
@@ -368,6 +433,7 @@
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,.22);
       flex: 0 0 auto;
+      background: var(--cat-blue);
     }
     [data-theme="light"] .cat-dot{ border-color: rgba(16,20,40,.18); }
 
@@ -402,11 +468,12 @@
       background: rgba(255,255,255,.45);
     }
 
+    /* ✅ Nota: controles EN LA MISMA FILA (PC y móvil) */
     .note{
       display:grid;
       grid-template-columns: 34px 1fr auto;
       gap: 10px;
-      align-items:stretch;
+      align-items:center;
       padding: 10px;
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -420,6 +487,7 @@
     .note[hidden]{ display:none; }
 
     .drag-handle{
+      height: var(--row-h);               /* ✅ misma altura que la barra */
       border: 1px solid var(--line);
       background: rgba(0,0,0,.12);
       border-radius: 10px;
@@ -431,7 +499,6 @@
       justify-content:center;
       user-select:none;
 
-      /* ✅ móvil */
       touch-action: none;
       -webkit-touch-callout: none;
     }
@@ -457,13 +524,11 @@
     }
 
     .content{
-      display:flex;
-      flex-direction:column;
-      gap:6px;
-      min-width: 220px;
+      min-width: 0;
     }
 
     .note-view{
+      height: var(--row-h);              /* ✅ misma altura que iconos */
       padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid var(--line);
@@ -475,6 +540,8 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      display:flex;
+      align-items:center;
     }
 
     [data-theme="light"] .note-view{
@@ -494,6 +561,7 @@
     .note-edit{
       display:none;
       width:100%;
+      height: var(--row-h);              /* ✅ fija: mantiene controles alineados */
       padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid var(--line);
@@ -501,9 +569,10 @@
       color: var(--text);
       outline:none;
       resize:none;
-      overflow:hidden;
+      overflow:auto;                     /* ✅ permite scroll dentro sin crecer */
       line-height: 1.4;
-      min-height: 44px;
+      min-height: var(--row-h);
+      max-height: var(--row-h);
     }
 
     [data-theme="light"] .note-edit{
@@ -518,54 +587,6 @@
       box-shadow: 0 0 0 3px rgba(0,255,153,.12);
     }
 
-    .meta{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex-wrap:wrap;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,.14);
-      color: var(--text);
-      font-weight: 700;
-    }
-    [data-theme="light"] .badge{ background: rgba(255,255,255,.65); }
-
-    .badge .dot{
-      width: 10px;
-      height: 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.22);
-    }
-    [data-theme="light"] .badge .dot{ border-color: rgba(16,20,40,.18); }
-
-    .cat-select{
-      padding: 6px 8px;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,.18);
-      color: var(--text);
-      outline:none;
-      font-size: 12px;
-      max-width: 240px;
-    }
-    [data-theme="light"] .cat-select{
-      background: rgba(255,255,255,.8);
-    }
-    .cat-select option{
-      color:#000;
-      background:#fff;
-    }
-
     mark{
       background: var(--mark);
       color: inherit;
@@ -573,7 +594,9 @@
       padding: 0 .12em;
     }
 
+    /* ✅ Acciones por nota: misma fila + scroll horizontal si hace falta */
     .actions{
+      height: var(--row-h);
       display:flex;
       flex-direction:row;
       gap:8px;
@@ -582,10 +605,29 @@
       flex-wrap:nowrap;
       overflow-x:auto;
       -webkit-overflow-scrolling: touch;
+      max-width: 60vw;
     }
 
-    .actions .btn{
-      flex: 0 0 auto;
+    .actions::-webkit-scrollbar{ height: 6px; }
+    .actions::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.12); border-radius: 999px; }
+
+    /* ✅ Selector de categoría por nota: botón + lista */
+    .selectwrap.note-select{
+      width: var(--note-cat-w);
+      min-width: var(--note-cat-w);
+      height: var(--row-h);
+    }
+
+    .selectwrap.note-select select{
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .btn-pin{
+      border-color: rgba(129,140,248,.85);
+      background: linear-gradient(180deg, rgba(129,140,248,.95), rgba(79,70,229,.95));
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(79,70,229,.18);
     }
 
     .toast{
@@ -638,7 +680,7 @@
     }
 
     .empty-title{
-      font-weight: 750;
+      font-weight: 800;
       color: var(--text);
       margin-bottom: 4px;
     }
@@ -684,7 +726,7 @@
       background: var(--panel2);
     }
     .modal-title{
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: .2px;
     }
     .modal-body{
@@ -700,9 +742,10 @@
       gap:10px;
     }
 
+    /* ✅ SIN selector de color (color fijo azul) */
     .cat-row{
       display:grid;
-      grid-template-columns: 1fr 120px 34px 34px 44px;
+      grid-template-columns: 1fr 34px 34px 44px;
       gap:10px;
       align-items:center;
       padding: 10px;
@@ -725,16 +768,6 @@
     }
     [data-theme="light"] .cat-row input[type="text"]{
       background: rgba(255,255,255,.9);
-    }
-
-    .cat-row input[type="color"]{
-      width: 100%;
-      height: 40px;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      background: transparent;
-      padding: 2px;
-      cursor:pointer;
     }
 
     .mini-btn{
@@ -775,75 +808,33 @@
       background: rgba(255,255,255,.9);
     }
 
-    /* ✅ PC: fuerza misma fila si hay espacio */
-    @media (min-width: 861px){
-      .topbar{ flex-wrap:nowrap; }
-      .toolbar{ flex-wrap:nowrap; }
-    }
-
-    /* ✅ MÓVIL: todo centrado */
+    /* ✅ MÓVIL: iconos más pequeños para que todo encaje */
     @media (max-width: 860px){
-      .topbar{
-        flex-direction:column;
-        align-items:center;
+      :root{
+        --btn-fixed-width: 36px;
+        --btn-icon: 16px;
+        --top-btn-w: 120px;
+        --note-cat-w: 110px;
+      }
+
+      .app{ margin: 12px auto; padding: 12px; }
+
+      .searchbox{ min-width: 180px; }
+
+      .subbar{
         justify-content:center;
-        text-align:center;
-        gap: 10px;
       }
 
-      .countbox{
+      .toolbar2{
         justify-content:center;
-      }
-
-      .search{
-        flex: 1 1 100%;
-        justify-content:center;
-        align-items:center;
-        flex-direction:column;
-        gap: 8px;
-        min-width: auto;
-      }
-
-      .search label{
-        text-align:center;
-      }
-
-      .searchbox{
-        width: min(560px, 100%);
-        margin: 0 auto;
-      }
-
-      .toolbar{
-        width: 100%;
-        justify-content:center;
-        align-items:center;
-      }
-
-      .select{
-        width: min(320px, 100%);
-        text-align-last: center;
-      }
-
-      .btn{
-        width: var(--btn-fixed-width);
-        min-width: var(--btn-fixed-width);
       }
 
       .note{
-        grid-template-columns: 34px 1fr;
-        grid-template-rows: auto auto;
+        grid-template-columns: 34px 1fr auto;
       }
 
       .actions{
-        grid-column: 1 / -1;
-        flex-direction:row;
-        flex-wrap:nowrap;
-        justify-content:flex-end;
-        overflow-x:auto;
-      }
-
-      .cat-row{
-        grid-template-columns: 1fr 120px 34px 34px 44px;
+        max-width: 56vw;
       }
     }
 
@@ -856,32 +847,63 @@
 <body>
   <div class="app">
     <header class="header">
-      <div class="topbar">
+      <!-- ✅ MÓVIL: una sola fila -->
+      <div class="topbar" aria-label="Barra superior">
+        <div class="searchbox" role="search">
+          <label class="sr-only" for="search">Buscar</label>
+          <input id="search" type="text" autocomplete="off" placeholder="Buscar… (ignora tildes)" />
+          <button id="clearSearch" class="icon-btn" type="button" aria-label="Limpiar búsqueda" title="Limpiar">×</button>
+        </div>
+
+        <div class="selectwrap" aria-label="Filtro de categoría">
+          <svg class="icon-left" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M4 6h16"></path>
+            <path d="M7 12h10"></path>
+            <path d="M10 18h4"></path>
+          </svg>
+          <select id="catFilter" aria-label="Filtrar por categoría"></select>
+          <svg class="icon-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9l6 6 6-6"></path>
+          </svg>
+        </div>
+
+        <div class="selectwrap" aria-label="Ordenar">
+          <svg class="icon-left" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M11 5h10"></path>
+            <path d="M11 9h7"></path>
+            <path d="M11 13h5"></path>
+            <path d="M11 17h3"></path>
+            <path d="M3 7l2-2 2 2"></path>
+            <path d="M5 5v14"></path>
+          </svg>
+          <select id="sort" aria-label="Ordenar notas">
+            <option value="manual">Manual</option>
+            <option value="updated_desc">Actualizadas</option>
+            <option value="created_desc">Creadas</option>
+            <option value="alpha_asc">A-Z</option>
+          </select>
+          <svg class="icon-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9l6 6 6-6"></path>
+          </svg>
+        </div>
+
+        <button id="newCatTop" class="btn btn-add btn-wide" type="button" aria-label="Crear nueva categoría" title="Nueva categoría">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+          <span>Nueva</span>
+        </button>
+      </div>
+
+      <!-- ✅ Barra secundaria (acciones extra) -->
+      <div class="subbar" aria-label="Acciones secundarias">
         <div class="countbox">
           <span id="count" class="count"></span>
         </div>
 
-        <div class="search">
-          <label for="search">Buscar</label>
-          <div class="searchbox">
-            <input id="search" type="text" autocomplete="off" placeholder="Escribe para filtrar… (ignora tildes)" />
-            <button id="clearSearch" class="icon-btn" type="button" aria-label="Limpiar búsqueda" title="Limpiar">×</button>
-          </div>
-        </div>
-
-        <div class="toolbar" role="group" aria-label="Acciones">
-          <label class="sr-only" for="catFilter">Categoría</label>
-          <select id="catFilter" class="select" aria-label="Filtrar por categoría"></select>
-
-          <label class="sr-only" for="sort">Orden</label>
-          <select id="sort" class="select" aria-label="Ordenar notas">
-            <option value="manual">Manual (arrastrar)</option>
-            <option value="updated_desc">Actualizadas (más recientes)</option>
-            <option value="created_desc">Creadas (más recientes)</option>
-            <option value="alpha_asc">A-Z</option>
-          </select>
-
-          <button id="catBtn" class="btn btn-ghost" type="button" aria-label="Categorías" title="Categorías">
+        <div class="toolbar2" role="group" aria-label="Acciones">
+          <button id="catBtn" class="btn btn-ghost" type="button" aria-label="Administrar categorías" title="Administrar categorías">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
               <path d="M3 9h18"></path>
@@ -982,7 +1004,6 @@
 
       <div class="cat-add">
         <input id="catNewName" type="text" placeholder="Nueva categoría (ej. Trabajo)" aria-label="Nombre de la nueva categoría" />
-        <input id="catNewColor" type="color" value="#64748B" aria-label="Color de la nueva categoría" />
         <button id="catAddBtn" class="btn btn-add" type="button" aria-label="Agregar categoría" title="Agregar categoría">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M12 5v14"></path>
@@ -1006,11 +1027,7 @@
          - ✅ SIN TOKEN (abierto)
       ========================== */
 
-      // ✅ Pega aquí tu URL /exec del despliegue (Web App)
-      // Ejemplo: https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxx/exec
       const API_URL = "https://script.google.com/macros/s/AKfycbyNE12DPGcX6w9zTQRjCAej-bxeQM4GDCpTrVhlERhj_cptdO7uFXlDJ4aDgt_230_V/exec";
-
-      // ✅ Si quieres cambiar el intervalo de auto-sync
       const AUTOSYNC_MS = 15000;
 
       function isLikelyBadApiUrl_(u) {
@@ -1029,7 +1046,7 @@
           const url = new URL(API_URL);
           const q = new URLSearchParams(params || {});
           q.set("callback", cb);
-          q.set("t", String(Date.now())); // evita cache
+          q.set("t", String(Date.now()));
           url.search = q.toString();
 
           let done = false;
@@ -1058,7 +1075,7 @@
       }
 
       async function apiGetState_() {
-        const data = await jsonp_({ action: "getState" }); // ✅ sin token
+        const data = await jsonp_({ action: "getState" });
         if (data && data.ok === false) throw new Error(data.error || "Error getState");
         return data;
       }
@@ -1077,12 +1094,8 @@
       function ensureSaveBridge_() {
         if (saveBridgeReady) return;
 
-        if (isLikelyBadApiUrl_(API_URL)) {
-          // No lanzamos error aquí para no romper la UI, solo evitamos guardar.
-          return;
-        }
+        if (isLikelyBadApiUrl_(API_URL)) return;
 
-        // iframe oculto
         saveIframeEl = document.createElement("iframe");
         saveIframeEl.name = SAVE_IFRAME_NAME;
         saveIframeEl.style.position = "fixed";
@@ -1092,7 +1105,6 @@
         saveIframeEl.style.height = "1px";
         saveIframeEl.setAttribute("aria-hidden", "true");
 
-        // form oculto
         saveFormEl = document.createElement("form");
         saveFormEl.method = "POST";
         saveFormEl.action = API_URL;
@@ -1133,7 +1145,6 @@
       }
 
       function apiSaveAll_(state) {
-        // cola: siempre guarda el último estado
         saveQueuedState = state;
 
         if (saveBusy) return Promise.resolve({ ok: true, queued: true });
@@ -1151,7 +1162,6 @@
 
             saveBusy = true;
 
-            // escuchar respuesta del iframe
             const onMsg = (ev) => {
               const d = ev && ev.data;
               if (!d || d.type !== "notas_saveAll") return;
@@ -1170,7 +1180,6 @@
 
             window.addEventListener("message", onMsg);
 
-            // timeout: si no llega postMessage, no bloqueamos la app
             const t = setTimeout(() => {
               window.removeEventListener("message", onMsg);
               if (saveQueuedState) return runOne();
@@ -1178,7 +1187,6 @@
               resolve({ ok: true, timeout: true });
             }, 12000);
 
-            // submit
             try {
               inPayloadEl.value = JSON.stringify(payloadState);
               saveFormEl.submit();
@@ -1204,18 +1212,20 @@
          Model
       ========================== */
       const GENERAL_CATEGORY_ID = "general";
+      const CATEGORY_COLOR = "#4F46E5"; // ✅ color único para categorías
+
       const DEFAULT_GENERAL_CATEGORY = {
         id: GENERAL_CATEGORY_ID,
         name: "General",
-        color: "#64748B",
+        color: CATEGORY_COLOR,
         order: 0,
-        collapsed: false
+        collapsed: true
       };
 
       const DEFAULT_SETTINGS = {
         sortMode: "manual",
-        theme: "auto",        // auto | dark | light
-        categoryFilter: "all" // all | categoryId
+        theme: "auto",
+        categoryFilter: "all"
       };
 
       const Icons = {
@@ -1267,6 +1277,11 @@
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M12 5v14"></path>
             <path d="M5 12h14"></path>
+          </svg>`,
+        tag: `
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M20 13l-7 7-10-10V3h7z"></path>
+            <path d="M7 7h.01"></path>
           </svg>`
       };
 
@@ -1276,8 +1291,9 @@
       const clearSearchEl = $("clearSearch");
       const sortEl = $("sort");
       const catFilterEl = $("catFilter");
-      const catBtnEl = $("catBtn");
+      const newCatTopEl = $("newCatTop");
 
+      const catBtnEl = $("catBtn");
       const newNoteEl = $("newNote");
       const exportJsonEl = $("exportJson");
       const exportTxtEl = $("exportTxt");
@@ -1296,7 +1312,6 @@
       const catCloseEl = $("catClose");
       const catTableEl = $("catTable");
       const catNewNameEl = $("catNewName");
-      const catNewColorEl = $("catNewColor");
       const catAddBtnEl = $("catAddBtn");
 
       let notes = [];
@@ -1306,15 +1321,15 @@
 
       /* Drag state */
       let dragId = null;
-      let dragCtx = null; // { id, pinned, categoryId }
+      let dragCtx = null;
 
       /* ✅ drag táctil */
-      let pendingPress = null; // { pointerId, timer, startX, startY, lastX, lastY, noteEl, container }
-      let pointerDrag = null;  // { pointerId, noteEl, container, placeholder, offsetX, offsetY }
+      let pendingPress = null;
+      let pointerDrag = null;
       const isCoarsePointer = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
       const supportsPointer = "PointerEvent" in window;
 
-      /* Auto-sync snapshot (para detectar cambios reales en Sheets) */
+      /* Auto-sync snapshot */
       let lastSnapshot = "";
 
       document.addEventListener("DOMContentLoaded", () => { init(); });
@@ -1338,18 +1353,17 @@
           if (savedTheme && ["auto","dark","light"].includes(savedTheme)) settings.theme = savedTheme;
 
           ensureGeneralCategory();
+          forceCategoriesStartCollapsed_();    // ✅ Inicio: categorías contraídas
           sanitizeNotesCategoryIds();
 
           applyTheme(settings.theme);
           sortEl.value = settings.sortMode;
 
-          computeFixedButtonWidth();
           bindEvents();
 
           renderCategoryFilter();
           renderAll();
 
-          // “Siembra” Sheets si venía vacío: crea "General" en la pestaña Categories
           if ((categories?.length || 0) === 0 && (notes?.length || 0) === 0) {
             saveDebounced();
           }
@@ -1386,8 +1400,14 @@
           toast("Filtro actualizado");
         });
 
+        // ✅ Botón superior: nueva categoría
+        newCatTopEl.addEventListener("click", () => {
+          openCatDialog({ focusNew: true });
+        });
+
+        // ✅ Administrar categorías (barra secundaria)
         catBtnEl.addEventListener("click", () => {
-          openCatDialog();
+          openCatDialog({ focusNew: false });
         });
 
         catCloseEl.addEventListener("click", () => closeCatDialog());
@@ -1443,7 +1463,6 @@
           root.addEventListener("keydown", onListKeydown);
           root.addEventListener("input", onListInput);
           root.addEventListener("change", onListChange);
-          root.addEventListener("focusin", onListFocusIn);
           root.addEventListener("focusout", onListFocusOut);
 
           /* Desktop: drag & drop */
@@ -1456,7 +1475,6 @@
           if (supportsPointer) root.addEventListener("pointerdown", onHandlePointerDown);
         });
 
-        // ✅ mejora: intenta guardar también en eventos más confiables en móviles
         window.addEventListener("beforeunload", saveNow);
         window.addEventListener("pagehide", saveNow);
         document.addEventListener("visibilitychange", () => {
@@ -1590,19 +1608,28 @@
         const hasGeneral = categories.some(c => String(c.id) === GENERAL_CATEGORY_ID);
         if (!hasGeneral) categories.unshift({ ...DEFAULT_GENERAL_CATEGORY });
 
-        // Normaliza
         categories.forEach((c, i) => {
           if (!c || typeof c !== "object") return;
           c.id = String(c.id ?? makeId());
           c.name = String(c.name ?? "Categoría");
-          c.color = String(c.color ?? "#64748B");
+          c.color = CATEGORY_COLOR;                 // ✅ color fijo azul
           c.order = Number.isFinite(Number(c.order)) ? Number(c.order) : i * 1000;
-          c.collapsed = Boolean(c.collapsed ?? false);
+          c.collapsed = Boolean(c.collapsed ?? true); // ✅ por defecto contraída
         });
 
         const general = categories.find(c => c.id === GENERAL_CATEGORY_ID);
-        if (general) general.order = Math.min(general.order, -100000);
+        if (general) {
+          general.order = Math.min(general.order, -100000);
+          general.color = CATEGORY_COLOR;
+          general.collapsed = true;
+        }
+
         categories = sortCategories(categories);
+      }
+
+      function forceCategoriesStartCollapsed_() {
+        // ✅ “Inicio”: todas contraídas (sin forzar guardado inmediato)
+        categories.forEach(c => { c.collapsed = true; c.color = CATEGORY_COLOR; });
       }
 
       function sortCategories(list) {
@@ -1645,11 +1672,14 @@
         catFilterEl.value = settings.categoryFilter || "all";
       }
 
-      function openCatDialog() {
+      function openCatDialog({ focusNew } = {}) {
         renderCatManager();
         if (typeof catDialogEl.showModal === "function") catDialogEl.showModal();
         else catDialogEl.setAttribute("open", "open");
-        catNewNameEl.focus();
+
+        if (focusNew) {
+          setTimeout(() => catNewNameEl.focus(), 0);
+        }
       }
 
       function closeCatDialog() {
@@ -1674,11 +1704,6 @@
           name.placeholder = "Nombre";
           name.setAttribute("aria-label", "Nombre de categoría");
           name.disabled = (c.id === GENERAL_CATEGORY_ID);
-
-          const color = document.createElement("input");
-          color.type = "color";
-          color.value = normalizeColor(c.color) || "#64748B";
-          color.setAttribute("aria-label", "Color de categoría");
 
           const up = document.createElement("button");
           up.className = "mini-btn";
@@ -1711,12 +1736,6 @@
             renderAllDebounced();
           });
 
-          color.addEventListener("input", () => {
-            c.color = color.value;
-            saveDebounced();
-            renderAllDebounced();
-          });
-
           up.addEventListener("click", () => {
             swapCategoryOrder(i, i - 1);
             toast("Categoría movida");
@@ -1733,7 +1752,6 @@
           });
 
           row.appendChild(name);
-          row.appendChild(color);
           row.appendChild(up);
           row.appendChild(down);
           row.appendChild(del);
@@ -1743,16 +1761,6 @@
       }
 
       const renderAllDebounced = debounce(() => renderAll(), 120);
-
-      function normalizeColor(col) {
-        const s = String(col || "").trim();
-        if (!s) return "";
-        if (/^#[0-9a-fA-F]{6}$/.test(s)) return s;
-        if (/^#[0-9a-fA-F]{3}$/.test(s)) {
-          return "#" + s.slice(1).split("").map(x => x + x).join("");
-        }
-        return s;
-      }
 
       function swapCategoryOrder(i, j) {
         categories = sortCategories(categories);
@@ -1774,6 +1782,7 @@
         categories = sortCategories(categories);
         for (let i = 0; i < categories.length; i++) {
           categories[i].order = i * 1000;
+          categories[i].color = CATEGORY_COLOR;
         }
         const general = categories.find(c => c.id === GENERAL_CATEGORY_ID);
         if (general) general.order = -100000;
@@ -1811,8 +1820,6 @@
 
       function addCategoryFromForm() {
         const name = (catNewNameEl.value || "").trim();
-        const color = normalizeColor(catNewColorEl.value) || "#64748B";
-
         if (!name) { toast("Escribe un nombre"); catNewNameEl.focus(); return; }
 
         const exists = categories.find(c => norm(c.name) === norm(name));
@@ -1823,12 +1830,11 @@
         }
 
         const maxOrder = categories.reduce((m, c) => Math.max(m, Number(c.order ?? 0)), 0);
-        const c = { id: makeId(), name, color, order: maxOrder + 1000, collapsed: false };
+        const c = { id: makeId(), name, color: CATEGORY_COLOR, order: maxOrder + 1000, collapsed: true };
         categories.push(c);
         ensureGeneralCategory();
 
         catNewNameEl.value = "";
-        catNewColorEl.value = "#64748B";
 
         saveDebounced();
         renderCategoryFilter();
@@ -1891,6 +1897,7 @@
               categories = Array.isArray(remote?.categories) ? remote.categories : [];
 
               ensureGeneralCategory();
+              forceCategoriesStartCollapsed_(); // ✅ siempre contraídas al iniciar sesión
               sanitizeNotesCategoryIds();
 
               renderCategoryFilter();
@@ -1915,10 +1922,6 @@
 
       function nextTheme(theme) { return theme === "auto" ? "dark" : theme === "dark" ? "light" : "auto"; }
       function themeLabel(theme) { return theme === "auto" ? "Auto" : theme === "dark" ? "Oscuro" : theme === "light" ? "Claro" : "Auto"; }
-
-      function computeFixedButtonWidth() {
-        document.documentElement.style.setProperty("--btn-fixed-width", "44px");
-      }
 
       function lastOrder(pinned, categoryId) {
         const group = notes
@@ -2014,24 +2017,16 @@
         return `${icon}<span class="sr-only">${label}</span>`;
       }
 
-      function categoryBadgeHTML(catId) {
-        const c = getCategoryById(catId) || DEFAULT_GENERAL_CATEGORY;
-        const col = normalizeColor(c.color) || "#64748B";
-        return `<span class="badge" title="Categoría">
-          <span class="dot" style="background:${escapeHTML(col)}"></span>
-          📁 ${escapeHTML(c.name)}
-        </span>`;
-      }
+      function buildCategorySelectWrap(note) {
+        const wrap = document.createElement("div");
+        wrap.className = "selectwrap note-select";
+        wrap.innerHTML = `
+          ${Icons.tag.replace('<svg ', '<svg class="icon-left" ')}
+          <select data-role="catSelect" aria-label="Cambiar categoría"></select>
+          ${Icons.chevronDown.replace('<svg ', '<svg class="icon-right" ')}
+        `;
 
-      function pinnedBadgeHTML(pinned) {
-        return pinned ? `<span class="badge" title="Fijada">📌 Fijada</span>` : "";
-      }
-
-      function buildCategorySelect(note) {
-        const sel = document.createElement("select");
-        sel.className = "cat-select";
-        sel.dataset.role = "catSelect";
-        sel.setAttribute("aria-label", "Cambiar categoría");
+        const sel = wrap.querySelector('select[data-role="catSelect"]');
 
         const sorted = sortCategories(categories);
         for (const c of sorted) {
@@ -2041,7 +2036,7 @@
           sel.appendChild(opt);
         }
         sel.value = note.categoryId || GENERAL_CATEGORY_ID;
-        return sel;
+        return wrap;
       }
 
       function buildNoteEl(note) {
@@ -2079,30 +2074,17 @@
         edit.placeholder = "Escribe aquí…";
         edit.setAttribute("aria-label", "Editor de nota");
 
-        const meta = document.createElement("div");
-        meta.className = "meta";
-
-        const catSel = buildCategorySelect(note);
-
-        const wrapBadges = document.createElement("div");
-        wrapBadges.style.display = "flex";
-        wrapBadges.style.gap = "8px";
-        wrapBadges.style.flexWrap = "wrap";
-        wrapBadges.style.alignItems = "center";
-        wrapBadges.innerHTML = `${categoryBadgeHTML(note.categoryId)}${pinnedBadgeHTML(note.pinned)}`;
-
-        meta.appendChild(wrapBadges);
-        meta.appendChild(catSel);
-
         content.appendChild(view);
         content.appendChild(edit);
-        content.appendChild(meta);
 
         const actions = document.createElement("div");
         actions.className = "actions";
 
+        // ✅ Selector categoría (apariencia botón) + 4 botones en la misma fila
+        const catSelWrap = buildCategorySelectWrap(note);
+
         const pinBtn = document.createElement("button");
-        pinBtn.className = "btn btn-ghost";
+        pinBtn.className = "btn btn-pin";
         pinBtn.type = "button";
         pinBtn.dataset.action = "pin";
         pinBtn.title = note.pinned ? "Soltar" : "Fijar";
@@ -2131,6 +2113,7 @@
         delBtn.setAttribute("aria-label", "Eliminar");
         delBtn.innerHTML = `${Icons.trash}<span class="sr-only">Eliminar</span>`;
 
+        actions.appendChild(catSelWrap);
         actions.appendChild(pinBtn);
         actions.appendChild(cpBtn);
         actions.appendChild(clearBtn);
@@ -2169,9 +2152,11 @@
         const pill = document.createElement("span");
         pill.className = "cat-pill";
         pill.title = "Categoría";
-        pill.innerHTML = `<span class="cat-dot" style="background:${escapeHTML(normalizeColor(cat.color) || "#64748B")}"></span>
-                          <span class="cat-name">${escapeHTML(cat.name)}</span>
-                          <span class="cat-count" data-role="catCount">${notesInCat.length}</span>`;
+        pill.innerHTML = `
+          <span class="cat-dot"></span>
+          <span class="cat-name">${escapeHTML(cat.name)}</span>
+          <span class="cat-count" data-role="catCount">${notesInCat.length}</span>
+        `;
 
         left.appendChild(toggle);
         left.appendChild(pill);
@@ -2306,16 +2291,8 @@
               pinBtn.setAttribute("aria-label", note.pinned ? "Soltar" : "Fijar");
             }
 
-            const meta = el.querySelector(".meta");
-            if (meta) {
-              const badgeWrap = meta.firstElementChild;
-              const sel = meta.querySelector('select[data-role="catSelect"]');
-
-              if (badgeWrap) {
-                badgeWrap.innerHTML = `${categoryBadgeHTML(catId)}${pinnedBadgeHTML(note.pinned)}`;
-              }
-              if (sel) sel.value = catId;
-            }
+            const sel = el.querySelector('select[data-role="catSelect"]');
+            if (sel) sel.value = catId;
 
             el.dataset.categoryId = catId;
             el.dataset.pinned = String(!!note.pinned);
@@ -2515,8 +2492,6 @@
 
         maybeAssignCategoryFromPrefix(note);
 
-        autoResize(e.target);
-
         saveDebounced();
         applySearchAndHighlights();
       }
@@ -2574,11 +2549,6 @@
         note.text = txt.replace(/^\s*@([^\s\r\n\t]+)\s+/, "");
       }
 
-      function onListFocusIn(e) {
-        if (!e.target.classList.contains("note-edit")) return;
-        autoResize(e.target);
-      }
-
       function onListFocusOut(e) {
         if (!e.target.classList.contains("note-edit")) return;
 
@@ -2597,7 +2567,6 @@
         if (ta) {
           ta.focus();
           ta.selectionStart = ta.selectionEnd = ta.value.length;
-          autoResize(ta);
         }
       }
 
@@ -2611,11 +2580,6 @@
         if (!noteEl) return;
         enterEdit(noteEl);
         noteEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
-      }
-
-      function autoResize(ta) {
-        ta.style.height = "auto";
-        ta.style.height = (ta.scrollHeight) + "px";
       }
 
       async function copyToClipboard(text) {
@@ -2750,7 +2714,6 @@
           const incomingCats = Array.isArray(data.categories) ? data.categories : [];
           const incomingNotes = Array.isArray(data.notes) ? data.notes : [];
 
-          // Merge simple por nombre normalizado
           ensureGeneralCategory();
           const byNormName = new Map(categories.map(c => [norm(c.name), c]));
           const idMap = new Map();
@@ -2766,9 +2729,9 @@
             categories.push({
               id: newId,
               name: String(ic.name),
-              color: normalizeColor(ic.color) || "#64748B",
+              color: CATEGORY_COLOR,
               order: categories.reduce((m, c) => Math.max(m, Number(c.order ?? 0)), 0) + 1000,
-              collapsed: !!ic.collapsed
+              collapsed: true
             });
             byNormName.set(k, categories[categories.length - 1]);
             idMap.set(String(ic.id), newId);
