@@ -629,12 +629,6 @@
       background: rgba(10,14,28,.92);
       box-shadow: 0 24px 70px rgba(0,0,0,.55);
       overflow:hidden;
-
-      /* ✅ NUEVO: nunca tocar fondo (margen visible) + scroll interno */
-      max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-      margin: calc(16px + env(safe-area-inset-top)) auto calc(16px + env(safe-area-inset-bottom));
-      display: flex;
-      flex-direction: column;
     }
     [data-theme="light"] dialog.modal{
       background: rgba(245,247,255,.96);
@@ -650,21 +644,13 @@
       padding: 12px 14px;
       border-bottom: 1px solid var(--line);
       background: var(--panel2);
-      flex: 0 0 auto;
     }
     .modal-title{ font-weight: 900; letter-spacing: .2px; }
-
     .modal-body{
       padding: 14px;
       display:flex;
       flex-direction:column;
       gap: 12px;
-
-      /* ✅ NUEVO: que el contenido haga scroll dentro del modal */
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
     }
 
     /* ✅ Modal categorías */
@@ -760,8 +746,7 @@
 
     .note-editor{
       width:100%;
-      /* ✅ NUEVO: altura controlada para que el modal no “toque fondo” */
-      height: clamp(240px, 52dvh, 560px);
+      min-height: min(62vh, 560px);
       resize: vertical;
       padding: 12px 12px;
       border-radius: 12px;
@@ -782,13 +767,23 @@
       box-shadow: 0 0 0 3px rgba(0,255,153,.12);
     }
 
-    /* ✅ MÓVIL */
+    /* ✅ MÓVIL: filas de botones 7 + 3 centradas */
     @media (max-width: 860px){
       :root{
         --btn-fixed-width: 36px;
         --btn-icon: 16px;
         --row-h: 40px;
       }
+	  
+@media (max-width: 860px){
+
+  /* ...todo lo que ya tienes... */
+
+  /* ✅ Orden correcto en móvil */
+  .searchbox{ order: 1; }
+  .toolbar2{ order: 2; }      /* 1ra fila (7) */
+  .top-controls{ order: 3; }  /* 2da fila (3) */
+}	  
 
       .app{ margin: 12px auto; padding: 12px; }
 
@@ -802,11 +797,6 @@
       .searchbox{
         flex: 1 1 100%;
       }
-
-      /* ✅ Orden correcto en móvil: 1) buscador 2) acciones(7) 3) controles(3) */
-      .searchbox{ order: 1; }
-      .toolbar2{ order: 2; }
-      .top-controls{ order: 3; }
 
       /* ✅ 1ra fila: 7 elementos (toolbar2), centrada */
       .toolbar2{
@@ -831,24 +821,9 @@
         justify-content:flex-end;
       }
 
-      /* ✅ Meta de fechas: que NO se recorte y se vea completa */
-      .note-meta{
-        flex-wrap: wrap;
-        align-items: flex-start;
-        gap: 8px;
-      }
-      .note-meta .meta-text{
-        white-space: normal;
-        overflow: visible;
-        text-overflow: clip;
-        line-height: 1.25;
-        font-size: 12px;
-      }
-
-      /* ✅ El editor no debe forzar el modal al fondo */
       .note-editor{
-        height: clamp(200px, 42dvh, 420px);
-        resize: none; /* evita que el usuario lo estire y “rompa” la altura */
+        min-height: min(66vh, 560px);
+        font-size: 16px;
       }
     }
 
@@ -1041,7 +1016,7 @@
     <div class="modal-body">
       <div class="note-meta" aria-label="Información de la nota">
         <div id="noteMeta" class="meta-text"></div>
-        <button id="noteInsertDate" class="btn btn-ghost" type="button" aria-label="Insertar fecha" title="Insertar fecha (aaaa-mm-dd)">
+        <button id="noteInsertDate" class="btn btn-ghost" type="button" aria-label="Insertar fecha" title="Insertar fecha (aaaa-mm-dd hh-mm)">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M8 2v3"></path>
             <path d="M16 2v3"></path>
@@ -1555,9 +1530,8 @@
           }
         });
 
-        /* ✅ NUEVO: insertar SOLO fecha (aaaa-mm-dd) */
         noteInsertDateEl.addEventListener("click", () => {
-          const stamp = formatDate_(Date.now());
+          const stamp = formatDateTime_(Date.now());
           insertAtCursor_(noteEditorEl, stamp);
           noteEditorEl.dispatchEvent(new Event("input", { bubbles: true }));
           toast("Fecha insertada");
@@ -1701,16 +1675,10 @@
 
       function pad2_(n){ return String(n).padStart(2,"0"); }
 
-      /* ✅ Formato fecha+hora para meta: aaaa-mm-dd hh-mm */
+      /* ✅ Formato fecha: aaaa-mm-dd hh-mm */
       function formatDateTime_(ms) {
         const d = new Date(ms);
         return `${d.getFullYear()}-${pad2_(d.getMonth()+1)}-${pad2_(d.getDate())} ${pad2_(d.getHours())}-${pad2_(d.getMinutes())}`;
-      }
-
-      /* ✅ NUEVO: solo fecha para insertar: aaaa-mm-dd */
-      function formatDate_(ms) {
-        const d = new Date(ms);
-        return `${d.getFullYear()}-${pad2_(d.getMonth()+1)}-${pad2_(d.getDate())}`;
       }
 
       function insertAtCursor_(ta, text) {
@@ -1749,6 +1717,7 @@
         if (general) {
           general.order = Math.min(general.order, -100000);
           general.color = CATEGORY_COLOR;
+          // ✅ NO forzamos collapsed aquí (para que no se "contraiga sola")
           if (typeof general.collapsed !== "boolean") general.collapsed = true;
         }
 
@@ -1905,6 +1874,7 @@
         for (let i = 0; i < categories.length; i++) {
           categories[i].order = i * 1000;
           categories[i].color = CATEGORY_COLOR;
+          // ✅ NO tocar collapsed aquí
         }
         const general = categories.find(c => c.id === GENERAL_CATEGORY_ID);
         if (general) general.order = -100000;
@@ -2009,6 +1979,7 @@
 
       function startAutoSync() {
         setInterval(async () => {
+          // ✅ No pisar cambios si el modal de nota está abierto o en drag táctil
           const noteOpen = !!(noteDialogEl?.open || noteDialogEl?.hasAttribute("open"));
           if (noteOpen || pointerDrag) return;
 
@@ -2425,6 +2396,7 @@
             const visibleNotes = list ? list.querySelectorAll(".note:not([hidden])").length : 0;
             if (countEl2) countEl2.textContent = String(visibleNotes);
 
+            // ✅ NO contraer automáticamente. Si hay búsqueda, solo mostramos/ocultamos.
             if (isSearching) group.hidden = (visibleNotes === 0);
             else group.hidden = false;
           });
@@ -2481,15 +2453,10 @@
         else noteDialogEl.removeAttribute("open");
       }
 
-      /* ✅ NUEVO: meta compacto en móvil: c:... - m:... */
       function updateNoteMeta_(note) {
         const created = formatDateTime_(note.createdAt || Date.now());
         const updated = formatDateTime_(note.updatedAt || note.createdAt || Date.now());
-
-        const isMobile = window.matchMedia && window.matchMedia("(max-width: 860px)").matches;
-        noteMetaEl.textContent = isMobile
-          ? `c:${created} - m:${updated}`
-          : `Creada: ${created}  ·  Actualizada: ${updated}`;
+        noteMetaEl.textContent = `Creada: ${created}  ·  Actualizada: ${updated}`;
       }
 
       function syncNoteRowDataset_(noteId) {
@@ -2518,7 +2485,7 @@
           const c = getCategoryById(catId);
           if (!c) return;
 
-          c.collapsed = !c.collapsed;
+          c.collapsed = !c.collapsed;  // ✅ solo por acción del usuario
           saveDebounced();
 
           const group = catBtn.closest(".cat-group");
@@ -2549,6 +2516,7 @@
         const note = getNoteById(id);
         if (!note) return;
 
+        // ✅ abrir editor modal al tocar la nota (solo lectura en lista)
         if (e.target.closest(".note-view")) {
           openNoteDialog_(note.id);
           return;
@@ -2866,6 +2834,7 @@
             nn.pinned = !!nn.pinned;
             nn.order = Number.isFinite(Number(nn.order)) ? Number(nn.order) : (notes.length * 1000);
 
+            // collapsed por categoría ya viene en categorías importadas; no tocar aquí
             notes.push(nn);
           }
 
