@@ -502,13 +502,14 @@
 
     .content{ min-width: 0; }
 
+    /* ✅ Vista (solo lectura en la lista). Edición: modal */
     .note-view{
       height: var(--row-h);
       padding: 10px 12px;
       border-radius: 10px;
       border: 1px solid var(--line);
       background: rgba(0,0,0,.18);
-      cursor:text;
+      cursor: pointer;
       line-height: 1.4;
       word-break: break-word;
 
@@ -528,31 +529,6 @@
 
     .note-view .placeholder{ color: var(--muted); }
 
-    .note-edit{
-      display:none;
-      width:100%;
-      height: var(--row-h);
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      background: rgba(0,0,0,.18);
-      color: var(--text);
-      outline:none;
-      resize:none;
-      overflow:auto;
-      line-height: 1.4;
-      min-height: var(--row-h);
-      max-height: var(--row-h);
-    }
-    [data-theme="light"] .note-edit{ background: rgba(255,255,255,.75); }
-    .note.editing .note-view{ display:none; }
-    .note.editing .note-edit{ display:block; }
-
-    .note-edit:focus{
-      border-color: rgba(0,255,153,.40);
-      box-shadow: 0 0 0 3px rgba(0,255,153,.12);
-    }
-
     mark{
       background: var(--mark);
       color: inherit;
@@ -568,8 +544,8 @@
       gap:8px;
       align-items:center;
       justify-content:flex-end;
-      flex-wrap:nowrap;     /* ✅ PC: 1 fila */
-      overflow: hidden;     /* ✅ sin barra horizontal */
+      flex-wrap:nowrap;
+      overflow: hidden;
       max-width: none;
     }
 
@@ -643,7 +619,7 @@
       border:0;
     }
 
-    /* ✅ Modal categorías */
+    /* ✅ Modales */
     dialog.modal{
       border: none;
       padding: 0;
@@ -677,6 +653,7 @@
       gap: 12px;
     }
 
+    /* ✅ Modal categorías */
     .cat-table{
       display:flex;
       flex-direction:column;
@@ -742,7 +719,55 @@
     }
     [data-theme="light"] .cat-add input[type="text"]{ background: rgba(255,255,255,.9); }
 
-    /* ✅ MÓVIL: sin scroll horizontal, se acomoda por filas */
+    /* ✅ Modal nota */
+    .note-meta{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 13px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.10);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    [data-theme="light"] .note-meta{
+      background: rgba(255,255,255,.7);
+    }
+
+    .note-meta .meta-text{
+      min-width:0;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .note-editor{
+      width:100%;
+      min-height: min(62vh, 560px);
+      resize: vertical;
+      padding: 12px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      outline:none;
+      font-size: 16px;
+      line-height: 1.45;
+      letter-spacing: .1px;
+      white-space: pre-wrap;
+    }
+    [data-theme="light"] .note-editor{
+      background: rgba(255,255,255,.85);
+    }
+    .note-editor:focus{
+      border-color: rgba(0,255,153,.40);
+      box-shadow: 0 0 0 3px rgba(0,255,153,.12);
+    }
+
+    /* ✅ MÓVIL: filas de botones 7 + 3 centradas */
     @media (max-width: 860px){
       :root{
         --btn-fixed-width: 36px;
@@ -753,7 +778,9 @@
       .app{ margin: 12px auto; padding: 12px; }
 
       .topbar{
-        flex-wrap:wrap;           /* ✅ permite filas */
+        flex-direction: column;
+        align-items: stretch;
+        flex-wrap: nowrap;
         overflow: visible;
       }
 
@@ -761,21 +788,32 @@
         flex: 1 1 100%;
       }
 
-      .top-controls{
-        flex: 1 1 100%;
-        justify-content:flex-start;
-        flex-wrap:wrap;
+      /* ✅ 1ra fila: 7 elementos (toolbar2), centrada */
+      .toolbar2{
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(7, var(--btn-fixed-width));
+        justify-content: center;
+        gap: 10px;
+        overflow: visible;
       }
 
-      .toolbar2{
-        flex: 1 1 100%;
-        justify-content:flex-start;
-        flex-wrap:wrap;
+      /* ✅ 2da fila: 3 elementos (top-controls), centrada */
+      .top-controls{
+        width: 100%;
+        justify-content: center;
+        flex-wrap: nowrap;
+        overflow: visible;
       }
 
       .actions{
-        flex-wrap:wrap;           /* ✅ evita scroll en acciones de nota */
+        flex-wrap:wrap;
         justify-content:flex-end;
+      }
+
+      .note-editor{
+        min-height: min(66vh, 560px);
+        font-size: 16px;
       }
     }
 
@@ -788,7 +826,6 @@
 <body>
   <div class="app">
     <header class="header">
-      <!-- ✅ TODO EN UNA SOLA FILA (PC) / sin scroll y fijo en móvil -->
       <div class="topbar" aria-label="Barra superior">
 
         <div class="searchbox" role="search">
@@ -802,8 +839,8 @@
           </button>
         </div>
 
+        <!-- ✅ 2da fila móvil (3 elementos): categoría, orden, conteo -->
         <div class="top-controls" role="group" aria-label="Controles superiores">
-
           <div class="selectwrap" aria-label="Filtro de categoría" title="Categoría">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M4 6h16"></path>
@@ -830,17 +867,10 @@
             </select>
           </div>
 
-          <button id="newCatTop" class="btn btn-add" type="button" aria-label="Crear nueva categoría" title="Nueva categoría">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M12 5v14"></path>
-              <path d="M5 12h14"></path>
-            </svg>
-            <span class="sr-only">Nueva categoría</span>
-          </button>
-
           <span id="count" class="count-pill" aria-label="Conteo"></span>
         </div>
 
+        <!-- ✅ 1ra fila móvil (7 elementos): acciones -->
         <div class="toolbar2" role="group" aria-label="Acciones">
           <button id="catBtn" class="btn btn-ghost" type="button" aria-label="Administrar categorías" title="Administrar categorías">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -848,6 +878,14 @@
               <path d="M3 9h18"></path>
             </svg>
             <span class="sr-only">Categorías</span>
+          </button>
+
+          <button id="newCatTop" class="btn btn-add" type="button" aria-label="Crear nueva categoría" title="Nueva categoría">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+            <span class="sr-only">Nueva categoría</span>
           </button>
 
           <button id="newNote" class="btn btn-add" type="button" aria-label="Nueva nota" title="Nueva nota">
@@ -928,6 +966,7 @@
     </main>
   </div>
 
+  <!-- ✅ Modal categorías -->
   <dialog id="catDialog" class="modal" aria-label="Gestión de categorías">
     <div class="modal-head">
       <div class="modal-title">Categorías</div>
@@ -950,6 +989,35 @@
           </svg>
         </button>
       </div>
+    </div>
+  </dialog>
+
+  <!-- ✅ Modal edición de nota (autoguardado) -->
+  <dialog id="noteDialog" class="modal" aria-label="Editar nota">
+    <div class="modal-head">
+      <div class="modal-title">Editar nota</div>
+      <button id="noteClose" class="btn btn-ghost" type="button" aria-label="Cerrar" title="Cerrar">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M6 6l12 12"></path>
+          <path d="M18 6l-12 12"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="note-meta" aria-label="Información de la nota">
+        <div id="noteMeta" class="meta-text"></div>
+        <button id="noteInsertDate" class="btn btn-ghost" type="button" aria-label="Insertar fecha" title="Insertar fecha (aaaa-mm-dd hh-mm)">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M8 2v3"></path>
+            <path d="M16 2v3"></path>
+            <path d="M3 7h18"></path>
+            <path d="M5 5h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"></path>
+            <path d="M8 11h4"></path>
+            <path d="M8 15h8"></path>
+          </svg>
+        </button>
+      </div>
+      <textarea id="noteEditor" class="note-editor" spellcheck="false" placeholder="Escribe aquí… (se guarda automáticamente)"></textarea>
     </div>
   </dialog>
 
@@ -1032,7 +1100,6 @@
 
       function ensureSaveBridge_() {
         if (saveBridgeReady) return;
-
         if (isLikelyBadApiUrl_(API_URL)) return;
 
         saveIframeEl = document.createElement("iframe");
@@ -1074,7 +1141,6 @@
       function apiSaveAllFireAndForget_(state) {
         try {
           if (isLikelyBadApiUrl_(API_URL)) return;
-
           ensureSaveBridge_();
           if (!saveBridgeReady) return;
 
@@ -1253,6 +1319,12 @@
       const catNewNameEl = $("catNewName");
       const catAddBtnEl = $("catAddBtn");
 
+      const noteDialogEl = $("noteDialog");
+      const noteCloseEl = $("noteClose");
+      const noteMetaEl = $("noteMeta");
+      const noteEditorEl = $("noteEditor");
+      const noteInsertDateEl = $("noteInsertDate");
+
       let notes = [];
       let categories = [];
       let settings = { ...DEFAULT_SETTINGS };
@@ -1270,6 +1342,10 @@
 
       /* Auto-sync snapshot */
       let lastSnapshot = "";
+
+      /* Modal nota */
+      let activeNoteId = null;
+      const refreshPreviewDebounced = debounce(() => applySearchAndHighlights(), 80);
 
       document.addEventListener("DOMContentLoaded", () => { init(); });
 
@@ -1292,7 +1368,6 @@
           if (savedTheme && ["auto","dark","light"].includes(savedTheme)) settings.theme = savedTheme;
 
           ensureGeneralCategory();
-          forceCategoriesStartCollapsed_();
           sanitizeNotesCategoryIds();
 
           applyTheme(settings.theme);
@@ -1301,7 +1376,7 @@
           bindEvents();
 
           renderCategoryFilter();
-          syncTopSelectTitles_();      /* ✅ tooltip con valor actual */
+          syncTopSelectTitles_();
           renderAll();
 
           if ((categories?.length || 0) === 0 && (notes?.length || 0) === 0) {
@@ -1397,12 +1472,11 @@
           toast(`Tema: ${themeLabel(settings.theme)}`);
         });
 
+        // Lista
         [pinnedListEl, notesListEl].forEach(root => {
           root.addEventListener("click", onListClick);
           root.addEventListener("keydown", onListKeydown);
-          root.addEventListener("input", onListInput);
           root.addEventListener("change", onListChange);
-          root.addEventListener("focusout", onListFocusOut);
 
           root.addEventListener("dragstart", onDragStart);
           root.addEventListener("dragover", onDragOver);
@@ -1410,6 +1484,47 @@
           root.addEventListener("dragend", onDragEnd);
 
           if (supportsPointer) root.addEventListener("pointerdown", onHandlePointerDown);
+        });
+
+        // Modal nota
+        noteCloseEl.addEventListener("click", () => closeNoteDialog_());
+        noteDialogEl.addEventListener("click", (e) => {
+          const rect = noteDialogEl.getBoundingClientRect();
+          const inDialog = (
+            e.clientX >= rect.left && e.clientX <= rect.right &&
+            e.clientY >= rect.top  && e.clientY <= rect.bottom
+          );
+          if (!inDialog) closeNoteDialog_();
+        });
+
+        noteEditorEl.addEventListener("input", () => {
+          if (!activeNoteId) return;
+          const note = getNoteById(activeNoteId);
+          if (!note) return;
+
+          note.text = noteEditorEl.value;
+          note.updatedAt = Date.now();
+          maybeAssignCategoryFromPrefix(note);
+
+          // Actualiza meta y preview (sin edición en lista)
+          updateNoteMeta_(note);
+          syncNoteRowDataset_(note.id);
+          saveDebounced();
+          refreshPreviewDebounced();
+        });
+
+        noteEditorEl.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            closeNoteDialog_();
+          }
+        });
+
+        noteInsertDateEl.addEventListener("click", () => {
+          const stamp = formatDateTime_(Date.now());
+          insertAtCursor_(noteEditorEl, stamp);
+          noteEditorEl.dispatchEvent(new Event("input", { bubbles: true }));
+          toast("Fecha insertada");
         });
 
         window.addEventListener("beforeunload", saveNow);
@@ -1481,7 +1596,7 @@
       }
 
       function makeHighlightedHTML(text, terms, preview = false) {
-        if (!text) return `<span class="placeholder">Escribe una nota…</span>`;
+        if (!text) return `<span class="placeholder">Toca para editar…</span>`;
 
         const cleanTerms = (terms || []).filter(Boolean);
         const baseText = preview
@@ -1548,6 +1663,29 @@
         return String(s).replace(/["\\]/g, "\\$&");
       }
 
+      function pad2_(n){ return String(n).padStart(2,"0"); }
+
+      /* ✅ Formato fecha: aaaa-mm-dd hh-mm */
+      function formatDateTime_(ms) {
+        const d = new Date(ms);
+        return `${d.getFullYear()}-${pad2_(d.getMonth()+1)}-${pad2_(d.getDate())} ${pad2_(d.getHours())}-${pad2_(d.getMinutes())}`;
+      }
+
+      function insertAtCursor_(ta, text) {
+        try {
+          const start = ta.selectionStart ?? ta.value.length;
+          const end = ta.selectionEnd ?? ta.value.length;
+          const v = ta.value ?? "";
+          ta.value = v.slice(0, start) + text + v.slice(end);
+          const pos = start + text.length;
+          ta.selectionStart = ta.selectionEnd = pos;
+          ta.focus();
+        } catch {
+          ta.value = (ta.value || "") + text;
+          ta.focus();
+        }
+      }
+
       /* =========================
          Categories
       ========================== */
@@ -1569,14 +1707,11 @@
         if (general) {
           general.order = Math.min(general.order, -100000);
           general.color = CATEGORY_COLOR;
-          general.collapsed = true;
+          // ✅ NO forzamos collapsed aquí (para que no se "contraiga sola")
+          if (typeof general.collapsed !== "boolean") general.collapsed = true;
         }
 
         categories = sortCategories(categories);
-      }
-
-      function forceCategoriesStartCollapsed_() {
-        categories.forEach(c => { c.collapsed = true; c.color = CATEGORY_COLOR; });
       }
 
       function sortCategories(list) {
@@ -1729,6 +1864,7 @@
         for (let i = 0; i < categories.length; i++) {
           categories[i].order = i * 1000;
           categories[i].color = CATEGORY_COLOR;
+          // ✅ NO tocar collapsed aquí
         }
         const general = categories.find(c => c.id === GENERAL_CATEGORY_ID);
         if (general) general.order = -100000;
@@ -1790,7 +1926,7 @@
       }
 
       /* =========================
-         Serialize + Save (Sheets)
+         Serialize + Save
       ========================== */
       function serializeState() {
         return {
@@ -1833,7 +1969,9 @@
 
       function startAutoSync() {
         setInterval(async () => {
-          if (document.querySelector(".note.editing")) return;
+          // ✅ No pisar cambios si el modal de nota está abierto o en drag táctil
+          const noteOpen = !!(noteDialogEl?.open || noteDialogEl?.hasAttribute("open"));
+          if (noteOpen || pointerDrag) return;
 
           try {
             const remote = await apiGetState_();
@@ -1843,7 +1981,6 @@
               categories = Array.isArray(remote?.categories) ? remote.categories : [];
 
               ensureGeneralCategory();
-              forceCategoriesStartCollapsed_();
               sanitizeNotesCategoryIds();
 
               renderCategoryFilter();
@@ -1982,7 +2119,6 @@
         }
         sel.value = note.categoryId || GENERAL_CATEGORY_ID;
 
-        // ✅ tooltip con categoría seleccionada
         wrap.title = `Categoría: ${sel.options[sel.selectedIndex]?.textContent || "—"}`;
         return wrap;
       }
@@ -2011,19 +2147,10 @@
         view.className = "note-view";
         view.tabIndex = 0;
         view.setAttribute("role", "button");
-        view.setAttribute("aria-label", "Editar nota (Enter o clic)");
+        view.setAttribute("aria-label", "Abrir editor");
         view.innerHTML = makeHighlightedHTML(note.text, currentTerms(), true);
 
-        const edit = document.createElement("textarea");
-        edit.className = "note-edit";
-        edit.value = note.text;
-        edit.rows = 1;
-        edit.spellcheck = false;
-        edit.placeholder = "Escribe aquí…";
-        edit.setAttribute("aria-label", "Editor de nota");
-
         content.appendChild(view);
-        content.appendChild(edit);
 
         const actions = document.createElement("div");
         actions.className = "actions";
@@ -2259,8 +2386,7 @@
             const visibleNotes = list ? list.querySelectorAll(".note:not([hidden])").length : 0;
             if (countEl2) countEl2.textContent = String(visibleNotes);
 
-            if (isSearching) group.classList.remove("collapsed");
-
+            // ✅ NO contraer automáticamente. Si hay búsqueda, solo mostramos/ocultamos.
             if (isSearching) group.hidden = (visibleNotes === 0);
             else group.hidden = false;
           });
@@ -2290,6 +2416,54 @@
       }
 
       /* =========================
+         Modal nota (edición)
+      ========================== */
+      function openNoteDialog_(id) {
+        const note = getNoteById(id);
+        if (!note) return;
+
+        activeNoteId = id;
+
+        noteEditorEl.value = note.text || "";
+        updateNoteMeta_(note);
+
+        if (typeof noteDialogEl.showModal === "function") noteDialogEl.showModal();
+        else noteDialogEl.setAttribute("open", "open");
+
+        setTimeout(() => {
+          noteEditorEl.focus();
+          const len = noteEditorEl.value.length;
+          noteEditorEl.selectionStart = noteEditorEl.selectionEnd = len;
+        }, 0);
+      }
+
+      function closeNoteDialog_() {
+        activeNoteId = null;
+        if (typeof noteDialogEl.close === "function") noteDialogEl.close();
+        else noteDialogEl.removeAttribute("open");
+      }
+
+      function updateNoteMeta_(note) {
+        const created = formatDateTime_(note.createdAt || Date.now());
+        const updated = formatDateTime_(note.updatedAt || note.createdAt || Date.now());
+        noteMetaEl.textContent = `Creada: ${created}  ·  Actualizada: ${updated}`;
+      }
+
+      function syncNoteRowDataset_(noteId) {
+        const el = document.querySelector(`.note[data-id="${cssEscape(noteId)}"]`);
+        const note = getNoteById(noteId);
+        if (!el || !note) return;
+        el.dataset.norm = norm(note.text);
+      }
+
+      function focusNote(id) {
+        const safeId = cssEscape(id);
+        const noteEl = document.querySelector(`.note[data-id="${safeId}"]`);
+        if (noteEl) noteEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        openNoteDialog_(id);
+      }
+
+      /* =========================
          List events
       ========================== */
       function findNoteEl(target) { return target.closest(".note"); }
@@ -2301,7 +2475,7 @@
           const c = getCategoryById(catId);
           if (!c) return;
 
-          c.collapsed = !c.collapsed;
+          c.collapsed = !c.collapsed;  // ✅ solo por acción del usuario
           saveDebounced();
 
           const group = catBtn.closest(".cat-group");
@@ -2332,8 +2506,9 @@
         const note = getNoteById(id);
         if (!note) return;
 
+        // ✅ abrir editor modal al tocar la nota (solo lectura en lista)
         if (e.target.closest(".note-view")) {
-          enterEdit(noteEl);
+          openNoteDialog_(note.id);
           return;
         }
 
@@ -2371,9 +2546,11 @@
               note.updatedAt = Date.now();
               saveDebounced();
 
-              noteEl.dataset.norm = norm(note.text);
-              const edit = noteEl.querySelector(".note-edit");
-              if (edit) edit.value = note.text;
+              syncNoteRowDataset_(note.id);
+              if (activeNoteId === note.id) {
+                noteEditorEl.value = note.text;
+                updateNoteMeta_(note);
+              }
               applySearchAndHighlights();
               toast("Pegado ✅");
             }
@@ -2386,9 +2563,11 @@
           note.updatedAt = Date.now();
           saveDebounced();
 
-          noteEl.dataset.norm = "";
-          const edit = noteEl.querySelector(".note-edit");
-          if (edit) edit.value = "";
+          syncNoteRowDataset_(note.id);
+          if (activeNoteId === note.id) {
+            noteEditorEl.value = "";
+            updateNoteMeta_(note);
+          }
           applySearchAndHighlights();
           toast("Nota limpiada");
           return;
@@ -2404,44 +2583,11 @@
         const noteEl = findNoteEl(e.target);
         if (!noteEl) return;
 
-        if (e.target.classList.contains("note-view") && e.key === "Enter") {
+        if (e.target.classList.contains("note-view") && (e.key === "Enter" || e.key === " ")) {
           e.preventDefault();
-          enterEdit(noteEl);
+          openNoteDialog_(noteEl.dataset.id);
           return;
         }
-
-        if (e.target.classList.contains("note-edit")) {
-          if (e.key === "Escape") {
-            e.preventDefault();
-            e.target.blur();
-            return;
-          }
-
-          if (e.ctrlKey && e.key === "Enter") {
-            e.preventDefault();
-            return;
-          }
-        }
-      }
-
-      function onListInput(e) {
-        if (!e.target.classList.contains("note-edit")) return;
-
-        const noteEl = findNoteEl(e.target);
-        if (!noteEl) return;
-
-        const id = noteEl.dataset.id;
-        const note = getNoteById(id);
-        if (!note) return;
-
-        note.text = e.target.value;
-        note.updatedAt = Date.now();
-        noteEl.dataset.norm = norm(note.text);
-
-        maybeAssignCategoryFromPrefix(note);
-
-        saveDebounced();
-        applySearchAndHighlights();
       }
 
       function onListChange(e) {
@@ -2468,7 +2614,6 @@
           renormalizeOrders(note.pinned, newCat);
         }
 
-        // ✅ tooltip actualizado
         const wrap = sel.closest(".selectwrap");
         if (wrap) wrap.title = `Categoría: ${sel.options[sel.selectedIndex]?.textContent || "—"}`;
 
@@ -2499,39 +2644,7 @@
         }
 
         note.text = txt.replace(/^\s*@([^\s\r\n\t]+)\s+/, "");
-      }
-
-      function onListFocusOut(e) {
-        if (!e.target.classList.contains("note-edit")) return;
-
-        const noteEl = findNoteEl(e.target);
-        if (!noteEl) return;
-
-        exitEdit(noteEl);
-
-        if (settings.sortMode !== "manual") renderAll();
-        else applySearchAndHighlights();
-      }
-
-      function enterEdit(noteEl) {
-        noteEl.classList.add("editing");
-        const ta = noteEl.querySelector(".note-edit");
-        if (ta) {
-          ta.focus();
-          ta.selectionStart = ta.selectionEnd = ta.value.length;
-        }
-      }
-
-      function exitEdit(noteEl) {
-        noteEl.classList.remove("editing");
-      }
-
-      function focusNote(id) {
-        const safeId = cssEscape(id);
-        const noteEl = document.querySelector(`.note[data-id="${safeId}"]`);
-        if (!noteEl) return;
-        enterEdit(noteEl);
-        noteEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        if (activeNoteId === note.id) noteEditorEl.value = note.text;
       }
 
       async function copyToClipboard(text) {
@@ -2586,6 +2699,8 @@
 
         const [removed] = notes.splice(idx, 1);
         undoState = { note: removed, index: idx };
+
+        if (activeNoteId === id) closeNoteDialog_();
 
         saveDebounced();
         renderAll();
@@ -2709,6 +2824,7 @@
             nn.pinned = !!nn.pinned;
             nn.order = Number.isFinite(Number(nn.order)) ? Number(nn.order) : (notes.length * 1000);
 
+            // collapsed por categoría ya viene en categorías importadas; no tocar aquí
             notes.push(nn);
           }
 
@@ -2933,8 +3049,6 @@
 
         const container = noteEl.closest(".cat-list");
         if (!container) return;
-
-        if (noteEl.classList.contains("editing")) return;
 
         const startX = e.clientX;
         const startY = e.clientY;
