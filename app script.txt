@@ -1,107 +1,406 @@
-/** **CONFIG:** */
+/** =========================
+ *  CONFIG
+ * ========================= */
 const SPREADSHEET_ID = "165NRNY-vHFiR5-pJ54TrPRrQrjADdXdNdGshszwLnww";
-const SHEET_CATS = "Categories";
+
+const SHEET_CATS  = "Categories";
 const SHEET_NOTES = "Notes";
 
-const CAT_HEADERS = ["id", "name", "color", "order", "collapsed"];
+// ✅ Claves internas (NO CAMBIAR)
+const CAT_HEADERS  = ["id", "name", "color", "order", "collapsed"];
 const NOTE_HEADERS = ["id", "text", "createdAt", "updatedAt", "pinned", "order", "categoryId"];
 
-/** **WEB:** sirve tu página */
-function doGet() {
-  return HtmlService.createHtmlOutputFromFile("index")
-    .setTitle("Notas")
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+// ✅ Títulos visibles en la hoja (fila 1) — español
+const CAT_HEADERS_ES  = ["ID", "Nombre", "Color", "Orden", "Contraída"];
+const NOTE_HEADERS_ES = ["ID", "Texto", "Creada", "Actualizada", "Fijada", "Orden", "Categoría"];
+
+// ✅ Encabezados que deben verse como fecha+hora en Sheets
+const NOTE_DATE_HEADERS = ["createdAt", "updatedAt"];
+// Formato solicitado: aaaa-mm-dd hh-mm  (Sheets: yyyy-MM-dd hh-mm)
+const SHEETS_DATE_FORMAT = "yyyy-MM-dd hh-mm";
+
+/** =========================
+ *  AUTH (SIN TOKEN)
+ * ========================= */
+function assertAuthorized_(e) {
+  // ✅ Sin autenticación
+  return;
 }
 
-/** **API:** obtener estado (categorías + notas) */
-function getState() {
+/** =========================
+ *  WEB APP API
+ *  - GET  : ?action=getState&callback=... (JSONP) o sin callback (JSON)
+ *  - GET  : ?action=ping
+ *  - POST : action=saveAll&payload=... (HTML para iframe + postMessage)
+ * ========================= */
+function doGet(e) {
+  try {
+    const action = String((e && e.parameter && e.parameter.action) || "").trim();
+
+    if (action === "ping") {
+      const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      return json_({
+        ok: true,
+        spreadsheetName: ss.getName(),
+        sheets: ss.getSheets().map(s => s.getName())
+      });
+    }
+
+    if (action === "getState") {
+      assertAuthorized_(e); // abierto
+      const data = getState_();
+
+      const cb = String((e.parameter && e.parameter.callback) || "").trim();
+      if (cb) return jsonp_(cb, data); // JSONP
+      return json_(data);              // JSON normal
+    }
+
+    return json_({
+      ok: true,
+      message: "API activa. Usa GET ?action=getState o POST action=saveAll",
+      actions: ["ping", "getState"]
+    });
+  } catch (err) {
+    const cb = String((e && e.parameter && e.parameter.callback) || "").trim();
+    const payload = { ok: false, error: String(err.message || err) };
+    if (cb) return jsonp_(cb, payload);
+    return json_(payload);
+  }
+}
+
+function doPost(e) {
+  try {
+    const action = String((e && e.parameter && e.parameter.action) || "").trim();
+    if (action !== "saveAll") throw new Error("Acción inválida.");
+
+    assertAuthorized_(e); // abierto
+
+    const payload = String((e.parameter && e.parameter.payload) || "").trim();
+    if (!payload) throw new Error("Payload vacío.");
+
+    const state = JSON.parse(payload);
+
+    const lock = LockService.getScriptLock();
+    lock.waitLock(15000);
+    try {
+      const out = saveAll_(state);
+      return postMessageHtml_({
+        type: "notas_saveAll",
+        ok: true,
+        savedAt: out.savedAt || Date.now()
+      });
+    } finally {
+      lock.releaseLock();
+    }
+  } catch (err) {
+    return postMessageHtml_({
+      type: "notas_saveAll",
+      ok: false,
+      error: String(err.message || err)
+    });
+  }
+}
+
+/** =========================
+ *  Core API
+ * ========================= */
+function getState_() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
-  const shCats = ensureSheetWithHeaders_(ss, SHEET_CATS, CAT_HEADERS);
-  const shNotes = ensureSheetWithHeaders_(ss, SHEET_NOTES, NOTE_HEADERS);
+  // Encabezados visibles en español (fila 1)
+  const shCats  = ensureSheetWithHeaders_(ss, SHEET_CATS,  CAT_HEADERS,  CAT_HEADERS_ES);
+  const shNotes = ensureSheetWithHeaders_(ss, SHEET_NOTES, NOTE_HEADERS, NOTE_HEADERS_ES);
 
   const categories = readObjects_(shCats, CAT_HEADERS);
-  const notes = readObjects_(shNotes, NOTE_HEADERS);
+
+  // ✅ Lee fechas y las devuelve como epoch(ms) al frontend, aunque en la hoja se vean con formato
+  const notes = readObjects_(shNotes, NOTE_HEADERS, {
+    dateHeaders: NOTE_DATE_HEADERS
+  });
 
   return {
-    v: 3,
+    ok: true,
+    v: 4,
     savedAt: Date.now(),
     categories,
     notes,
-    settings: {} // si quieres, luego guardamos settings en otra pestaña
+    settings: {}
   };
 }
 
-/** **API:** guardar TODO (la página envía el estado completo) */
-function saveAll(state) {
+function saveAll_(state) {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
 
-  const shCats = ensureSheetWithHeaders_(ss, SHEET_CATS, CAT_HEADERS);
-  const shNotes = ensureSheetWithHeaders_(ss, SHEET_NOTES, NOTE_HEADERS);
+  const shCats  = ensureSheetWithHeaders_(ss, SHEET_CATS,  CAT_HEADERS,  CAT_HEADERS_ES);
+  const shNotes = ensureSheetWithHeaders_(ss, SHEET_NOTES, NOTE_HEADERS, NOTE_HEADERS_ES);
 
-  const categories = Array.isArray(state?.categories) ? state.categories : [];
-  const notes = Array.isArray(state?.notes) ? state.notes : [];
+  const categories = Array.isArray(state && state.categories) ? state.categories : [];
+  const notes      = Array.isArray(state && state.notes) ? state.notes : [];
 
-  writeObjects_(shCats, CAT_HEADERS, categories);
-  writeObjects_(shNotes, NOTE_HEADERS, notes);
+  const now = Date.now();
+
+  const normCats = categories.map((c, i) => ({
+    id: String((c && c.id) ?? "").trim(),
+    name: String((c && c.name) ?? "Categoría"),
+    color: String((c && c.color) ?? "#64748B"),
+    order: isFiniteNumber_((c && c.order)) ? Number(c.order) : (i * 1000),
+    collapsed: toBool_((c && c.collapsed))
+  })).filter(c => c.id);
+
+  // ✅ createdAt/updatedAt se mantienen como epoch(ms) en API,
+  // pero al escribir a la hoja se convierten a Date para ver yyyy-MM-dd hh-mm
+  const normNotes = notes.map((n, i) => ({
+    id: String((n && n.id) ?? "").trim(),
+    text: String((n && n.text) ?? ""),
+    createdAt: isFiniteNumber_((n && n.createdAt)) ? Number(n.createdAt) : now,
+    updatedAt: isFiniteNumber_((n && n.updatedAt)) ? Number(n.updatedAt) : now,
+    pinned: toBool_((n && n.pinned)),
+    order: isFiniteNumber_((n && n.order)) ? Number(n.order) : (i * 1000),
+    categoryId: String((n && n.categoryId) ?? "general")
+  })).filter(n => n.id);
+
+  writeObjects_(shCats,  CAT_HEADERS,  normCats);
+
+  // ✅ Escribe fechas como Date + aplica formato yyyy-MM-dd hh-mm en esas columnas
+  writeObjects_(shNotes, NOTE_HEADERS, normNotes, {
+    dateHeaders: NOTE_DATE_HEADERS,
+    dateFormat: SHEETS_DATE_FORMAT
+  });
 
   return { ok: true, savedAt: Date.now() };
 }
 
 /** =========================
- *  **ENCABEZADOS AUTO-REPARABLES**
- *  - Si falta una pestaña: la crea
- *  - Si borras un encabezado: lo reescribe
- *  - Si faltan columnas: las inserta
+ *  Outputs
  * ========================= */
-function ensureSheetWithHeaders_(ss, sheetName, headers) {
+function json_(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsonp_(callbackName, obj) {
+  const cb = String(callbackName || "").trim();
+  if (!/^[a-zA-Z_$][0-9a-zA-Z_$]*$/.test(cb)) {
+    throw new Error("Callback inválida.");
+  }
+  const js = `${cb}(${JSON.stringify(obj)});`;
+  return ContentService
+    .createTextOutput(js)
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
+function postMessageHtml_(messageObj) {
+  const msg = JSON.stringify(messageObj || {});
+  const html =
+`<!doctype html>
+<meta charset="utf-8">
+<title>OK</title>
+<script>
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(${msg}, "*");
+    }
+  } catch (e) {}
+</script>
+<body>ok</body>`;
+
+  return HtmlService
+    .createHtmlOutput(html)
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/** =========================
+ *  ENCABEZADOS AUTO-REPARABLES (fila 1)
+ * ========================= */
+function ensureSheetWithHeaders_(ss, sheetName, headers, headerRowValues) {
   let sh = ss.getSheetByName(sheetName);
+  const created = !sh;
   if (!sh) sh = ss.insertSheet(sheetName);
 
-  // Asegura columnas suficientes
   const needCols = headers.length;
   const haveCols = sh.getMaxColumns();
   if (haveCols < needCols) sh.insertColumnsAfter(haveCols, needCols - haveCols);
 
-  // Lee fila 1 y repara si hay diferencias (incluye celdas vacías)
-  const current = sh.getRange(1, 1, 1, headers.length).getValues()[0].map(v => String(v || "").trim());
-  let mismatch = false;
-  for (let i = 0; i < headers.length; i++) {
-    if (current[i] !== headers[i]) { mismatch = true; break; }
+  const current = sh.getRange(1, 1, 1, needCols).getValues()[0].map(v => String(v || "").trim());
+
+  const row = [];
+  for (let i = 0; i < needCols; i++) {
+    const v = (headerRowValues && headerRowValues[i] != null) ? headerRowValues[i] : headers[i];
+    row.push(String(v || "").trim());
   }
+
+  let mismatch = false;
+  for (let i = 0; i < needCols; i++) {
+    if (current[i] !== row[i]) { mismatch = true; break; }
+  }
+
   if (mismatch) {
-    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sh.getRange(1, 1, 1, needCols).setValues([row]);
     sh.setFrozenRows(1);
-    sh.getRange(1, 1, 1, headers.length).setFontWeight("bold");
+    sh.getRange(1, 1, 1, needCols).setFontWeight("bold");
+  } else if (created) {
+    sh.setFrozenRows(1);
+    sh.getRange(1, 1, 1, needCols).setFontWeight("bold");
   }
 
   return sh;
 }
 
-/** **UTIL:** lee filas como objetos */
-function readObjects_(sh, headers) {
+/** =========================
+ *  LECTURA: filas -> objetos
+ *  - Si viene Date o string con formato, lo devuelve como epoch(ms) al frontend
+ * ========================= */
+function readObjects_(sh, headers, opts) {
   const lastRow = sh.getLastRow();
   if (lastRow < 2) return [];
 
   const values = sh.getRange(2, 1, lastRow - 1, headers.length).getValues();
   const out = [];
+
+  const dateHeaders = (opts && Array.isArray(opts.dateHeaders)) ? opts.dateHeaders : [];
+  const dateSet = new Set(dateHeaders);
+
   for (const row of values) {
     if (row.every(v => String(v || "").trim() === "")) continue;
+
     const obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
+    headers.forEach((h, i) => {
+      let v = row[i];
+
+      if (dateSet.has(h)) {
+        v = normalizeDateValueToMs_(v);
+      }
+
+      obj[h] = v;
+    });
+
     out.push(obj);
   }
+
   return out;
 }
 
-/** **UTIL:** escribe objetos (limpia filas debajo de encabezados y reescribe) */
-function writeObjects_(sh, headers, objects) {
+/** =========================
+ *  ESCRITURA: limpia y reescribe
+ *  - Si header está en dateHeaders, escribe Date y aplica formato yyyy-MM-dd hh-mm
+ * ========================= */
+function writeObjects_(sh, headers, objects, opts) {
   const lastRow = sh.getLastRow();
-  if (lastRow > 1) sh.getRange(2, 1, lastRow - 1, sh.getMaxColumns()).clearContent();
+  if (lastRow > 1) {
+    // clearContent mantiene formatos (incluido el de fecha)
+    sh.getRange(2, 1, lastRow - 1, headers.length).clearContent();
+  }
 
-  if (!objects.length) return;
+  if (!objects || objects.length === 0) return;
 
-  // Normaliza a columnas esperadas
-  const data = objects.map(o => headers.map(h => o?.[h] ?? ""));
+  const dateHeaders = (opts && Array.isArray(opts.dateHeaders)) ? opts.dateHeaders : [];
+  const dateSet = new Set(dateHeaders);
+  const dateFormat = (opts && opts.dateFormat) ? String(opts.dateFormat) : "yyyy-MM-dd hh-mm";
+
+  const data = objects.map(o => headers.map(h => {
+    let v = (o && o[h] != null) ? o[h] : "";
+
+    if (dateSet.has(h)) {
+      const ms = normalizeDateValueToMs_(v);
+      v = ms ? new Date(ms) : "";
+    }
+
+    return v;
+  }));
+
   sh.getRange(2, 1, data.length, headers.length).setValues(data);
+
+  // ✅ Aplica formato a columnas de fecha (con hora)
+  if (dateHeaders.length) {
+    for (const h of dateHeaders) {
+      const idx = headers.indexOf(h);
+      if (idx === -1) continue;
+      const col = idx + 1;
+      sh.getRange(2, col, data.length, 1).setNumberFormat(dateFormat);
+    }
+  }
+}
+
+/** =========================
+ *  Date helpers
+ * ========================= */
+function normalizeDateValueToMs_(v) {
+  if (v == null || v === "") return 0;
+
+  // Date real de Sheets
+  if (Object.prototype.toString.call(v) === "[object Date]" && !isNaN(v.getTime())) {
+    return v.getTime();
+  }
+
+  // Número (epoch ms)
+  if (isFiniteNumber_(v)) return Number(v);
+
+  const s = String(v).trim();
+
+  // String "yyyy-mm-dd" o "yyyy-mm-dd hh-mm" (también acepta hh:mm y separador T)
+  // Ej: 2026-02-28 14-35
+  // Ej: 2026-02-28 14:35
+  // Ej: 2026-02-28T14-35
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2})[-:](\d{2})(?:[-:](\d{2}))?)?$/);
+  if (m) {
+    const y  = Number(m[1]);
+    const mo = Number(m[2]);
+    const d  = Number(m[3]);
+    const hh = m[4] != null ? Number(m[4]) : 0;
+    const mi = m[5] != null ? Number(m[5]) : 0;
+    const ss = m[6] != null ? Number(m[6]) : 0;
+    const dt = new Date(y, mo - 1, d, hh, mi, ss); // hora local
+    return dt.getTime();
+  }
+
+  // Último recurso: parse nativo
+  const parsed = new Date(s);
+  if (!isNaN(parsed.getTime())) return parsed.getTime();
+
+  return 0;
+}
+
+/** =========================
+ *  Helpers
+ * ========================= */
+function isFiniteNumber_(v) {
+  const n = Number(v);
+  return Number.isFinite(n);
+}
+
+function toBool_(v) {
+  if (v === true || v === false) return v;
+  const s = String(v || "").trim().toLowerCase();
+  if (s === "true" || s === "1" || s === "yes" || s === "si") return true;
+  if (s === "false" || s === "0" || s === "no") return false;
+  return false;
+}
+
+/** =========================
+ *  Utilidad opcional: aplicar formato a toda la columna (si ya había datos viejos)
+ *  - Ejecuta esto UNA vez si quieres forzar el formato en toda la hoja Notes.
+ * ========================= */
+function applyNotesDateFormat_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh = ss.getSheetByName(SHEET_NOTES);
+  if (!sh) throw new Error("No existe la hoja Notes.");
+
+  const maxRows = sh.getMaxRows();
+  for (const h of NOTE_DATE_HEADERS) {
+    const idx = NOTE_HEADERS.indexOf(h);
+    if (idx === -1) continue;
+    const col = idx + 1;
+    sh.getRange(2, col, Math.max(1, maxRows - 1), 1).setNumberFormat(SHEETS_DATE_FORMAT);
+  }
+}
+
+/** =========================
+ *  Test manual (Logs)
+ * ========================= */
+function testOpenSheet_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  console.log("Nombre:", ss.getName());
+  console.log("URL:", ss.getUrl());
+  console.log("Hojas:", ss.getSheets().map(s => s.getName()).join(", "));
 }
