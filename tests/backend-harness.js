@@ -5,8 +5,9 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 // Deliberately small Sheets service double; no network or production credentials.
 module.exports = function backend() {
-  let held = false, fail = null;
+  let held = false, fail = null, created = 0;
   const sheets = new Map();
+  const properties = new Map([["NOTAS_API_TOKEN", "a".repeat(64)]]);
   class Sheet {
     constructor(name) { this.name=name; this.rows=10; this.cols=10; this.data=[]; }
     getName(){return this.name;}
@@ -38,19 +39,21 @@ module.exports = function backend() {
       };
     }
   }
-  const ss={getSheetByName:n=>sheets.get(n),insertSheet:n=>{const s=new Sheet(n);sheets.set(n,s);return s;},getSheets:()=>[...sheets.values()],getName:()=> 'Isolated test'};
+  const ss={getSheetByName:n=>sheets.get(n),insertSheet:n=>{const s=new Sheet(n);sheets.set(n,s);return s;},getSheets:()=>[...sheets.values()],getName:()=> 'Isolated test',getId:()=> 'isolated-test-sheet'};
   const output = data => ({data,setMimeType(){return this;},setXFrameOptionsMode(){return this;}});
   const context=vm.createContext({console,Date,JSON,Set,Map,
-    SpreadsheetApp:{openById:()=>ss,flush(){}},
-    Utilities:{DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()]},
+    SpreadsheetApp:{openById:()=>ss,create:()=>{created++;return ss;},flush(){}},
+    Session:{getScriptTimeZone:()=>'UTC',getActiveUser:()=>({getEmail:()=>'owner@example.test'}),getEffectiveUser:()=>({getEmail:()=>'owner@example.test'})},
+    PropertiesService:{getScriptProperties:()=>({getProperty:k=>properties.get(k)||null,setProperty:(k,v)=>properties.set(k,v)})},
+    Utilities:{DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},getUuid:()=>crypto.randomUUID(),formatDate:()=> '2026-10-28',computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()]},
     LockService:{getScriptLock:()=>({waitLock(){if(held)throw Error('Concurrent access');held=true;},releaseLock(){held=false;}})},
     ContentService:{createTextOutput:output,MimeType:{JSON:'json',JAVASCRIPT:'js'}},
     HtmlService:{createHtmlOutput:output,XFrameOptionsMode:{ALLOWALL:1}}
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../app script.txt'),'utf8'),context);
-  return {context,sheets,failOnce:f=>{fail=f;},get:()=>JSON.parse(context.doGet({parameter:{action:'getState'}}).data),
-    post(state,requestId='test'){
-      const html=context.doPost({parameter:{action:'saveAll',payload:JSON.stringify(state),requestId}}).data;
+  return {context,sheets,properties,created:()=>created,failOnce:f=>{fail=f;},get:()=>JSON.parse(context.doGet({parameter:{action:'getState',auth:'a'.repeat(64)}}).data),
+    post(state,requestId='test',auth='a'.repeat(64)){
+      const html=context.doPost({parameter:{action:'saveAll',payload:JSON.stringify(state),requestId,auth}}).data;
       const match=html.match(/window.top.postMessage\((.*), "https:\/\/gruemp.github.io"\);/);
       if(!match)throw Error('Invalid save response');return JSON.parse(match[1]);
     }};
