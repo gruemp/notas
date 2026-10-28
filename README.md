@@ -34,7 +34,7 @@ Actualizar el TXT en GitHub no despliega Apps Script. Si se recupera el acceso a
 
 ## Apariencia e importaciones
 
-Se conservan CSS, colores, fuentes, botones, iconos, tamaños, espacios, marcado visual y reglas de adaptación originales. Una prueba comprueba la huella exacta del CSS y del marcado estático de la versión original de `main`; las pruebas de navegador comparan también capturas píxel por píxel en escritorio y móvil emulado.
+Se conservan CSS, colores, fuentes, botones, iconos, tamaños, espacios, marcado visual y reglas de adaptación originales. Una prueba comprueba la huella exacta del CSS y del marcado estático de la versión original de `main`; las pruebas de navegador comparan también capturas con una tolerancia inferior al 0,002 % para diferencias de rasterización de bordes nativos, además de exigir los mismos SVG en escritorio y móvil emulado.
 
 La importación JSON evita duplicar registros equivalentes y normaliza booleanos y fechas. Si un mismo ID contiene otra versión, conserva ambas. La exportación JSON incluye las variantes pendientes recuperables. TXT mantiene sus secciones legibles e incorpora un anexo JSON para reimportar notas vacías, espacios, párrafos y separadores literales sin pérdidas. Sigue admitiendo el TXT antiguo, cuyo formato no puede representar esos casos sin ambigüedad.
 

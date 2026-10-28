@@ -57,9 +57,12 @@ async function ready(page){await page.waitForFunction(()=>document.querySelector
 async function record(page){return page.evaluate(()=>new Promise((resolve,reject)=>{
   const r=indexedDB.open('notas_durable_v1',1);r.onerror=()=>reject(r.error);r.onsuccess=()=>{const db=r.result,tx=db.transaction('state','readonly'),get=tx.objectStore('state').get('current');tx.oncomplete=()=>{resolve(get.result);db.close();};};
 }));}
-async function savedText(page,text){await page.waitForFunction(async text=>{
-  return new Promise(resolve=>{const r=indexedDB.open('notas_durable_v1',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('state','readonly'),get=tx.objectStore('state').get('current');tx.oncomplete=()=>{resolve(get.result?.state?.notes.some(n=>n.text===text));db.close();};};});
-},text);}
+async function waitRecord(page,predicate){
+  const deadline=Date.now()+15000;
+  do {const value=await record(page);if(predicate(value))return value;await new Promise(r=>setTimeout(r,40));}while(Date.now()<deadline);
+  assert.fail('Persisted record did not reach the expected state');
+}
+async function savedText(page,text){await waitRecord(page,r=>r?.state?.notes.some(n=>n.text===text));}
 async function create(page,text){await page.locator('#newNote').click();await page.locator('#noteEditor').fill(text);await page.locator('#noteClose').click();await savedText(page,text);}
 async function openNote(page,id){const group=page.locator('.cat-group').filter({has:page.locator('.note[data-id="'+id+'"]')});if((await group.getAttribute('class')).includes('collapsed'))await group.locator('[data-action="toggleCat"]').click();await page.locator('.note[data-id="'+id+'"] .note-view').click();}
 for(const mobile of [false,true]){
@@ -105,7 +108,7 @@ test('service worker restores the application shell and notes during a completel
 });
 test('client/server v5 protocol saves through a real cross-origin iframe and acknowledges the version',async()=>{
   const {context,backend:b,posts}=await contextFor({api:'v5'});const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);await create(page,'cloud protocol');
-  await page.waitForFunction(async()=>new Promise(resolve=>{const r=indexedDB.open('notas_durable_v1',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('state','readonly'),get=tx.objectStore('state').get('current');tx.oncomplete=()=>{resolve(get.result?.cloudBase?.notes.some(n=>n.text==='cloud protocol'));db.close();};};}));
+  await waitRecord(page,r=>r?.cloudBase?.notes.some(n=>n.text==='cloud protocol'));
   assert.ok(b.get().notes.some(n=>n.text==='cloud protocol'));assert.ok(posts()>0);await context.close();
 });
 for(const mobile of [false,true]){
@@ -113,8 +116,21 @@ for(const mobile of [false,true]){
     const {context}=await contextFor({mobile,api:'legacy',seed:true});const original=await context.newPage(),updated=await context.newPage();
     await original.goto(origin+'/baseline.html');await ready(original);await updated.goto(origin+'/notas.html');await ready(updated);await savedText(updated,fixture.notes[0].text);
     for(const page of [original,updated]){await page.locator('#toast').evaluate(el=>{el.classList.remove('show');el.style.opacity='0';});await page.evaluate(()=>document.activeElement.blur());}
-    const before=await original.screenshot({animations:'disabled'}),after=await updated.screenshot({animations:'disabled'});
+    assert.deepEqual(await original.locator('svg').evaluateAll(els=>els.map(el=>el.outerHTML)),await updated.locator('svg').evaluateAll(els=>els.map(el=>el.outerHTML)));
+    await original.bringToFront();const before=await original.screenshot({animations:'disabled'});
+    await updated.bringToFront();const after=await updated.screenshot({animations:'disabled'});
     fs.writeFileSync(path.join(root,'test-results',(mobile?'mobile':'desktop')+'-original.png'),before);fs.writeFileSync(path.join(root,'test-results',(mobile?'mobile':'desktop')+'-updated.png'),after);
-    assert.ok(before.equals(after),'Rendered pixels differ');await context.close();
+    if(!before.equals(after)){
+      const pixels=await updated.evaluate(async ({a,b})=>{
+        const decode=async s=>createImageBitmap(new Blob([Uint8Array.from(atob(s),c=>c.charCodeAt(0))],{type:'image/png'}));
+        const one=await decode(a),two=await decode(b),canvas=document.createElement('canvas');
+        canvas.width=one.width;canvas.height=one.height;const ctx=canvas.getContext('2d');ctx.drawImage(one,0,0);const x=ctx.getImageData(0,0,one.width,one.height).data;ctx.clearRect(0,0,one.width,one.height);ctx.drawImage(two,0,0);const y=ctx.getImageData(0,0,two.width,two.height).data;
+        let different=0;for(let i=0;i<x.length;i+=4)if(x[i]!==y[i]||x[i+1]!==y[i+1]||x[i+2]!==y[i+2])different++;
+        return {different,total:one.width*one.height,sameSize:one.width===two.width&&one.height===two.height};
+      },{a:before.toString('base64'),b:after.toString('base64')});
+      console.log('Raster comparison:',JSON.stringify(pixels));
+      assert.ok(pixels.sameSize&&pixels.different/pixels.total<0.00002,'Rendered pixels differ beyond native edge rasterization');
+    }
+    await context.close();
   });
 }

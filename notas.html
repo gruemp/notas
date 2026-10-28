@@ -2386,6 +2386,7 @@
       function flushCloudSave_() {
         if (flushPromise) return flushPromise;
         if (!hasCloudChanges_() && baseState) return Promise.resolve();
+        let cloudCommitted = false;
         flushPromise = (async () => {
           const revision = localRevision;
           const snapshot = cloneState_(serializeState());
@@ -2419,6 +2420,7 @@
           adoptLocalModel_(next);
           if (revision === localRevision && stateEqual_(next, record.state)) localSavedRevision = revision;
           confirmedRevision = revision;
+          cloudCommitted = true;
           cacheLocal_(record);
           notifyLocal_();
           if (hasCloudChanges_()) stagePending_();
@@ -2431,7 +2433,10 @@
             toast(localRevision <= localSavedRevision ? "Notas guardadas en este dispositivo. Nube no disponible" :
               backedUp ? "Copia de recuperación guardada en este dispositivo. Nube no disponible" : "No se pudo confirmar el guardado: exporta tus notas", 5000);
           }
-        }).finally(() => { flushPromise = null; });
+        }).finally(() => {
+          flushPromise = null;
+          if (cloudCommitted && hasCloudChanges_()) setTimeout(flushCloudSave_, 0);
+        });
         return flushPromise;
       }
 
