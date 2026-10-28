@@ -1142,11 +1142,14 @@
       let saveBridgeReady = false;
       let saveBusy = false;
       let saveQueuedState = null;
+      let activeSavePromise = null;
+      let saveRequestSeq = 0;
 
       let saveIframeEl = null;
       let saveFormEl = null;
       let inActionEl = null;
       let inPayloadEl = null;
+      let inRequestIdEl = null;
 
       function ensureSaveBridge_() {
         if (saveBridgeReady) return;
@@ -1179,6 +1182,10 @@
         inPayloadEl.type = "hidden";
         inPayloadEl.name = "payload";
 
+        inRequestIdEl = document.createElement("input");
+        inRequestIdEl.type = "hidden";
+        inRequestIdEl.name = "requestId";
+        saveFormEl.appendChild(inRequestIdEl);
         saveFormEl.appendChild(inActionEl);
         saveFormEl.appendChild(inPayloadEl);
 
@@ -1194,67 +1201,60 @@
           ensureSaveBridge_();
           if (!saveBridgeReady) return;
 
+          if (saveBusy) return;
+          inRequestIdEl.value = 'unload_' + Date.now();
           inPayloadEl.value = JSON.stringify(state);
           saveFormEl.submit();
         } catch {}
       }
 
       function apiSaveAll_(state) {
-        saveQueuedState = state;
-
-        if (saveBusy) return Promise.resolve({ ok: true, queued: true });
-
-        return new Promise((resolve, reject) => {
-          if (isLikelyBadApiUrl_(API_URL)) { reject(new Error("Configura API_URL")); return; }
-
-          ensureSaveBridge_();
-          if (!saveBridgeReady) { reject(new Error("No se pudo inicializar puente de guardado.")); return; }
-
-          const runOne = () => {
-            if (!saveQueuedState) { saveBusy = false; resolve({ ok: true, empty: true }); return; }
-            const payloadState = saveQueuedState;
+        if (isLikelyBadApiUrl_(API_URL)) return Promise.reject(new Error("API_URL inválida"));
+        ensureSaveBridge_();
+        if (!saveBridgeReady) return Promise.reject(new Error("No se inicializó el puente de guardado"));
+        // Se preserva la versión más reciente y se evita superponer dos POST.
+        saveQueuedState = JSON.stringify(state);
+        if (saveBusy) return activeSavePromise;
+        saveBusy = true;
+        activeSavePromise = (async () => {
+          while (saveQueuedState !== null) {
+            const payload = saveQueuedState;
             saveQueuedState = null;
-
-            saveBusy = true;
-
-            const onMsg = (ev) => {
-              const d = ev && ev.data;
-              if (!d || d.type !== "notas_saveAll") return;
-
-              window.removeEventListener("message", onMsg);
-
-              if (d.ok) {
-                if (saveQueuedState) return runOne();
-                saveBusy = false;
-                resolve(d);
-              } else {
-                saveBusy = false;
-                reject(new Error(d.error || "Error guardando"));
-              }
-            };
-
-            window.addEventListener("message", onMsg);
-
-            const t = setTimeout(() => {
-              window.removeEventListener("message", onMsg);
-              if (saveQueuedState) return runOne();
-              saveBusy = false;
-              resolve({ ok: true, timeout: true });
-            }, 12000);
-
-            try {
-              inPayloadEl.value = JSON.stringify(payloadState);
-              saveFormEl.submit();
-            } catch (e) {
-              clearTimeout(t);
-              window.removeEventListener("message", onMsg);
-              saveBusy = false;
-              reject(e);
-            }
-          };
-
-          runOne();
+            const requestId = 'save_' + (++saveRequestSeq) + '_' + Date.now();
+            await new Promise((resolve, reject) => {
+              let done = false;
+              let timer;
+              const complete = (error) => {
+                if (done) return;
+                done = true;
+                window.removeEventListener('message', onMessage);
+                clearTimeout(timer);
+                if (error) reject(error);
+                else resolve();
+              };
+              const onMessage = (ev) => {
+                const data = ev && ev.data;
+                if (!data || data.type !== 'notas_saveAll') return;
+                // Apps Script antiguo: su respuesta no incluía requestId.
+                if (ev.source !== saveIframeEl.contentWindow && data.requestId !== requestId) return;
+                if (data.requestId && data.requestId !== requestId) return;
+                complete(data.ok ? null : new Error(data.error || 'Error guardando'));
+              };
+              window.addEventListener('message', onMessage);
+              timer = setTimeout(() => complete(new Error('Guardado sin confirmación')), 12000);
+              try {
+                inRequestIdEl.value = requestId;
+                inPayloadEl.value = payload;
+                saveFormEl.submit();
+              } catch (error) { complete(error); }
+            });
+          }
+          return { ok: true };
+        })().finally(() => {
+          saveBusy = false;
+          activeSavePromise = null;
         });
+        return activeSavePromise;
       }
 
       /* =========================
@@ -1262,6 +1262,9 @@
       ========================== */
       const THEME_KEY = "notas_web_theme_v1";
       const SETTINGS_KEY = "notas_web_settings_v1";
+      const PENDING_KEY = "notas_web_pending_state_v1";
+      const CACHE_KEY = "notas_web_last_state_v1";
+      const COLLAPSE_KEY = "notas_web_category_collapse_v1";
 
       /* =========================
          Model
@@ -1419,14 +1422,25 @@
             return;
           }
 
-          const remote = await apiGetState_();
-          notes = Array.isArray(remote?.notes) ? remote.notes : [];
-          categories = Array.isArray(remote?.categories) ? remote.categories : [];
+          const staged = safeParse(safeStorageGet_(PENDING_KEY), null);
+          const restoring = !!(staged && Array.isArray(staged.notes) && Array.isArray(staged.categories));
+          let remote;
+          try {
+            remote = await apiGetState_();
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify(remote)); } catch {}
+          } catch (error) {
+            remote = safeParse(safeStorageGet_(CACHE_KEY), null);
+            if (!remote && !restoring) throw error;
+            toast("Sin conexión: notas recuperadas de este dispositivo");
+          }
+          notes = restoring ? staged.notes : (Array.isArray(remote?.notes) ? remote.notes : []);
+          categories = restoring ? staged.categories : (Array.isArray(remote?.categories) ? remote.categories : []);
+          if (restoring) localRevision = 1;
 
-          const localSettings = safeParse(localStorage.getItem(SETTINGS_KEY), {}) || {};
+          const localSettings = safeParse(safeStorageGet_(SETTINGS_KEY), {}) || {};
           settings = { ...DEFAULT_SETTINGS, ...(remote?.settings || {}), ...localSettings };
 
-          const savedTheme = localStorage.getItem(THEME_KEY);
+          const savedTheme = safeStorageGet_(THEME_KEY);
           if (savedTheme && ["auto","dark","light"].includes(savedTheme)) settings.theme = savedTheme;
 
           ensureGeneralCategory();
@@ -1447,6 +1461,7 @@
 
           lastSnapshot = makeSnapshot_(categories, notes);
           startAutoSync();
+          if (restoring) scheduleSaveDebounced_();
         } catch (err) {
           toast("Error cargando datos (revisa API_URL /exec y despliegue)");
           console.error(err);
@@ -1524,12 +1539,13 @@
           const file = importFileEl.files && importFileEl.files[0];
           importFileEl.value = "";
           if (!file) return;
-          await importFile(file);
+          try { await importFile(file); }
+          catch (error) { console.error(error); toast('No se pudo importar el archivo'); }
         });
 
         themeBtnEl.addEventListener("click", () => {
           settings.theme = nextTheme(settings.theme);
-          localStorage.setItem(THEME_KEY, settings.theme);
+          try { localStorage.setItem(THEME_KEY, settings.theme); } catch {}
           applyTheme(settings.theme);
           toast(`Tema: ${themeLabel(settings.theme)}`);
         });
@@ -1793,6 +1809,7 @@
         const hasGeneral = categories.some(c => String(c.id) === GENERAL_CATEGORY_ID);
         if (!hasGeneral) categories.unshift({ ...DEFAULT_GENERAL_CATEGORY });
 
+        const localCollapse = safeParse(safeStorageGet_(COLLAPSE_KEY), {}) || {};
         categories.forEach((c, i) => {
           if (!c || typeof c !== "object") return;
           c.id = String(c.id ?? makeId());
@@ -1803,7 +1820,11 @@
           // ✅ compatibilidad con datos antiguos:
           // - antes existía solo `collapsed`
           if (typeof c.collapsedNormal !== "boolean") c.collapsedNormal = Boolean(c.collapsed ?? true);
-          if (typeof c.collapsedPinned !== "boolean") c.collapsedPinned = Boolean(c.collapsedPinned ?? true);
+          if (typeof c.collapsedPinned !== "boolean") c.collapsedPinned = c.collapsedPinned === "" ? true : Boolean(c.collapsedPinned ?? true);
+          if (localCollapse[c.id]) {
+            c.collapsedNormal = !!localCollapse[c.id].normal;
+            c.collapsedPinned = !!localCollapse[c.id].pinned;
+          }
           // mantener `collapsed` como espejo (por si lo usas en otro lado)
           c.collapsed = c.collapsedNormal;
         });
@@ -1818,6 +1839,14 @@
         }
 
         categories = sortCategories(categories);
+      }
+
+      function saveCategoryCollapse_() {
+        const state = {};
+        categories.forEach(c => {
+          if (c && c.id) state[c.id] = { normal: !!c.collapsedNormal, pinned: !!c.collapsedPinned };
+        });
+        try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(state)); } catch {}
       }
 
       function sortCategories(list) {
@@ -2057,18 +2086,48 @@
         };
       }
 
-      const saveDebounced = debounce(() => {
-        lastSnapshot = makeSnapshot_(categories, notes);
+      let localRevision = 0;
+      let confirmedRevision = 0;
 
-        apiSaveAll_(serializeState())
-          .catch(() => toast("No pude guardar (revisa API_URL /exec y deploy)"));
-      }, 600);
+      function safeStorageGet_(key) {
+        try { return localStorage.getItem(key); } catch { return null; }
+      }
+
+      function stagePending_() {
+        try { localStorage.setItem(PENDING_KEY, JSON.stringify(serializeState())); }
+        catch { toast("No se pudo guardar una copia local"); }
+      }
+
+      function flushPendingSave_() {
+        if (localRevision <= confirmedRevision) return Promise.resolve();
+        const revision = localRevision;
+        return apiSaveAll_(serializeState()).then(() => {
+          if (revision !== localRevision) return;
+          confirmedRevision = revision;
+          lastSnapshot = makeSnapshot_(categories, notes);
+          try {
+            localStorage.removeItem(PENDING_KEY);
+            localStorage.setItem(CACHE_KEY, JSON.stringify(serializeState()));
+          } catch {}
+        }).catch(error => {
+          console.error("Error guardando notas:", error);
+          toast("Guardado pendiente: hay una copia local");
+        });
+      }
+
+      const scheduleSaveDebounced_ = debounce(flushPendingSave_, 600);
+
+      function saveDebounced() {
+        localRevision++;
+        stagePending_();
+        scheduleSaveDebounced_();
+      }
 
       function saveNow() {
-        try {
-          lastSnapshot = makeSnapshot_(categories, notes);
-          apiSaveAllFireAndForget_(serializeState());
-        } catch {}
+        if (localRevision <= confirmedRevision) return;
+        stagePending_();
+        // Guardado inmediato por la misma cola, sin un segundo POST concurrente.
+        if (!saveBusy) flushPendingSave_();
       }
 
       function makeSnapshot_(cats, nts) {
@@ -2084,25 +2143,32 @@
 
       function startAutoSync() {
         setInterval(async () => {
-          const noteOpen = !!(noteDialogEl?.open || noteDialogEl?.hasAttribute("open"));
-          if (noteOpen || pointerDrag) return;
+          const editing = !!(noteDialogEl?.open || catDialogEl?.open || pointerDrag);
+          if (editing || saveBusy || localRevision > confirmedRevision) {
+            if (!editing && !saveBusy && localRevision > confirmedRevision) scheduleSaveDebounced_();
+            return;
+          }
 
           try {
             const remote = await apiGetState_();
-            const snap = makeSnapshot_(remote?.categories, remote?.notes);
+            // Impide que una lectura vieja reemplace cambios hechos después de pedirla.
+            if (noteDialogEl?.open || catDialogEl?.open || pointerDrag ||
+                saveBusy || localRevision > confirmedRevision) return;
+
+            notes = Array.isArray(remote?.notes) ? remote.notes : [];
+            categories = Array.isArray(remote?.categories) ? remote.categories : [];
+            ensureGeneralCategory();
+            sanitizeNotesCategoryIds();
+            const snap = makeSnapshot_(categories, notes);
             if (snap !== lastSnapshot) {
-              notes = Array.isArray(remote?.notes) ? remote.notes : [];
-              categories = Array.isArray(remote?.categories) ? remote.categories : [];
-
-              ensureGeneralCategory();
-              sanitizeNotesCategoryIds();
-
+              lastSnapshot = snap;
               renderCategoryFilter();
               renderAll();
-
-              lastSnapshot = snap;
+              try { localStorage.setItem(CACHE_KEY, JSON.stringify(serializeState())); } catch {}
             }
-          } catch {}
+          } catch (error) {
+            console.warn("Sincronización no disponible:", error);
+          }
         }, AUTOSYNC_MS);
       }
 
@@ -2634,6 +2700,7 @@
             syncCatGroupsUI_(pinned);
           }
 
+          saveCategoryCollapse_();
           saveDebounced();
           return;
         }
@@ -2692,6 +2759,7 @@
               toast(ok ? "Copiado ✅" : "No pude copiar ❌");
             } else {
               const clip = await readFromClipboard();
+              if (!clip) { toast('No se pegó ningún texto'); return; }
               note.text = clip;
               note.updatedAt = Date.now();
               saveDebounced();
@@ -2848,7 +2916,7 @@
         if (idx === -1) return;
 
         const [removed] = notes.splice(idx, 1);
-        undoState = { note: removed, index: idx };
+        const undoEntry = { note: removed, index: idx };
 
         if (activeNoteId === id) closeNoteDialog_();
 
@@ -2856,17 +2924,16 @@
         renderAll();
 
         toastWithAction("Nota eliminada", "Deshacer", () => {
-          if (!undoState) return;
-          notes.splice(undoState.index, 0, undoState.note);
+          if (notes.some(n => n.id === undoEntry.note.id)) return;
+          notes.splice(Math.min(undoEntry.index, notes.length), 0, undoEntry.note);
 
           if (settings.sortMode === "manual") {
-            const catId = undoState.note.categoryId || GENERAL_CATEGORY_ID;
-            renormalizeOrders(!!undoState.note.pinned, catId);
+            const catId = undoEntry.note.categoryId || GENERAL_CATEGORY_ID;
+            renormalizeOrders(!!undoEntry.note.pinned, catId);
           }
 
           saveDebounced();
           renderAll();
-          undoState = null;
           toast("Restaurada ✅");
         }, 4500);
       }
@@ -2928,7 +2995,7 @@
 
         if (name.endsWith(".json")) {
           const data = safeParse(text, null);
-          if (!data) { toast("JSON inválido ❌"); return; }
+          if (!data || typeof data !== "object" || !Array.isArray(data.notes)) { toast("JSON de notas inválido"); return; }
 
           const incomingCats = Array.isArray(data.categories) ? data.categories : [];
           const incomingNotes = Array.isArray(data.notes) ? data.notes : [];
@@ -2965,9 +3032,12 @@
           const existing = new Set(notes.map(n => n.id));
 
           for (const n of incomingNotes) {
+            if (!n || typeof n !== "object" || Array.isArray(n)) continue;
             const nn = { ...n };
+            nn.id = String(nn.id || "");
             if (!nn.id || existing.has(nn.id)) nn.id = makeId();
             existing.add(nn.id);
+            nn.text = String(nn.text ?? "");
 
             if (idMap.has(String(nn.categoryId))) nn.categoryId = idMap.get(String(nn.categoryId));
             if (!catIds.has(nn.categoryId)) nn.categoryId = GENERAL_CATEGORY_ID;
@@ -2995,38 +3065,64 @@
           return;
         }
 
-        const cleaned = text
-          .replace(/\r/g, "")
-          .replace(/^===\s*FIJADAS\s*===\s*\n?/im, "")
-          .replace(/^===\s*NOTAS\s*===\s*\n?/im, "")
-          .replace(/^===\s*CATEGORIA:\s*.*?===\s*\n?/gim, "")
-          .split(/\n\s*---\s*\n/g)
-          .join("\n\n");
+        const normalized = text.replace(/\r\n?/g, "\n").trim();
+        const exported = /^===[ \t]*(?:FIJADAS|NOTAS)[ \t]*===[ \t]*$/im.test(normalized);
+        let imported = 0;
+        const appendImportedNote = (textValue, pinned, categoryId) => {
+          if (!textValue.trim()) return;
+          const n = createNote({ pinned, categoryId });
+          n.text = textValue.trim();
+          notes.push(n);
+          imported++;
+        };
 
-        const blocks = cleaned
-          .split(/\n\s*\n+/)
-          .map(s => s.trim())
-          .filter(Boolean);
+        if (exported) {
+          // El formato exportado identifica las secciones y categorías.
+          // Solo las líneas '---' separan notas; se conservan los párrafos.
+          const sections = normalized.split(/^[ \t]*===[ \t]*(FIJADAS|NOTAS|CATEGORIA:[^\n]*?)[ \t]*===[ \t]*$/gim);
+          let pinned = false;
+          let categoryId = GENERAL_CATEGORY_ID;
 
-        if (!blocks.length) { toast("TXT vacío"); return; }
+          for (let i = 1; i < sections.length; i += 2) {
+            const heading = sections[i].trim();
+            if (/^FIJADAS$/i.test(heading)) {
+              pinned = true;
+              categoryId = GENERAL_CATEGORY_ID;
+            } else if (/^NOTAS$/i.test(heading)) {
+              pinned = false;
+              categoryId = GENERAL_CATEGORY_ID;
+            } else if (/^CATEGORIA:/i.test(heading)) {
+              const categoryName = heading.replace(/^CATEGORIA:\s*/i, "").trim();
+              let category = categories.find(c => norm(c.name) === norm(categoryName));
+              if (!category && categoryName) {
+                category = {
+                  id: makeId(),
+                  name: categoryName,
+                  color: CATEGORY_COLOR,
+                  order: categories.reduce((m,c) => Math.max(m, Number(c.order || 0)), 0) + 1000,
+                  collapsedNormal: true,
+                  collapsedPinned: true,
+                  collapsed: true
+                };
+                categories.push(category);
+              }
+              categoryId = category?.id || GENERAL_CATEGORY_ID;
+            }
 
-        const now = Date.now();
-        const created = blocks.map((b, i) => ({
-          id: makeId(),
-          text: b,
-          createdAt: now,
-          updatedAt: now,
-          pinned: false,
-          categoryId: GENERAL_CATEGORY_ID,
-          order: i * 1000
-        }));
+            const content = (sections[i + 1] || "").trim();
+            if (!content) continue;
+            content.split(/\n[ \t]*---[ \t]*\n/).forEach(part => appendImportedNote(part, pinned, categoryId));
+          }
+        } else {
+          normalized.split(/\n[ \t]*\n+/).forEach(part => appendImportedNote(part, false, GENERAL_CATEGORY_ID));
+        }
 
-        notes.push(...created);
-        if (settings.sortMode === "manual") renormalizeOrders(false, GENERAL_CATEGORY_ID);
-
+        if (!imported) { toast("TXT vacío"); return; }
+        ensureGeneralCategory();
         saveDebounced();
+        renderCategoryFilter();
         renderAll();
-        toast(`Importadas ${created.length} notas ✅`);
+        toast("Importadas " + imported + " notas ✅");
       }
 
       function downloadFile(filename, content, mime) {
