@@ -1,0 +1,18 @@
+'use strict';
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const root = path.resolve(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'notas.html'), 'utf8');
+const backend = fs.readFileSync(path.join(root, 'app script.txt'), 'utf8');
+const match = html.match(/<script>([\s\S]*?)<\/script>/i);
+assert.ok(match, 'Falta el script principal de notas.html');
+new vm.Script(match[1], { filename: 'notas.html' });
+new vm.Script(backend, { filename: 'app script.txt' });
+assert.match(html, /function apiSaveAll_\(state\)/, 'Falta guardado remoto');
+assert.match(html, /function stagePending_\(\)/, 'Falta respaldo de cambios');
+assert.match(html, /function startAutoSync\(\)/, 'Falta sincronización');
+assert.match(html, /function importFile\(file\)/, 'Falta importación');
+assert.match(backend, /requestId/, 'Falta correlación de guardados');
+console.log('OK: HTML y Apps Script compilan; funciones esenciales presentes.');
