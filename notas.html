@@ -1464,7 +1464,7 @@
           initLocalNotifications_();
           if (navigator.serviceWorker) navigator.serviceWorker.register("./sw.js").catch(error => console.warn("Caché sin conexión no disponible:", error));
           // La carga y el guardado locales nunca esperan a Google.
-          if (hasCloudChanges_() || !baseState) flushCloudSave_();
+          flushCloudSave_();
         } catch (err) {
           toast("No se pudieron abrir los datos locales; conserva tus respaldos", 6000);
           console.error(err);
@@ -1952,19 +1952,25 @@
           del.disabled = (c.id === GENERAL_CATEGORY_ID);
 
           name.addEventListener("input", () => {
-            c.name = name.value.trim() || c.name;
+            const currentCategory = getCategoryById(c.id);
+            if (!currentCategory) { toast("La categoría ya no existe; se actualizó la lista"); renderCatManager(); return; }
+            currentCategory.name = name.value.trim() || currentCategory.name;
             saveDebounced();
             renderCategoryFilter();
             renderAllDebounced();
           });
 
           up.addEventListener("click", () => {
-            swapCategoryOrder(i, i - 1);
+            const index = sortCategories(categories).findIndex(item => item.id === c.id);
+            if (index < 0) return;
+            swapCategoryOrder(index, index - 1);
             toast("Categoría movida");
           });
 
           down.addEventListener("click", () => {
-            swapCategoryOrder(i, i + 1);
+            const index = sortCategories(categories).findIndex(item => item.id === c.id);
+            if (index < 0) return;
+            swapCategoryOrder(index, index + 1);
             toast("Categoría movida");
           });
 
@@ -2385,7 +2391,6 @@
       }
       function flushCloudSave_() {
         if (flushPromise) return flushPromise;
-        if (!hasCloudChanges_() && baseState) return Promise.resolve();
         let cloudCommitted = false;
         flushPromise = (async () => {
           const revision = localRevision;

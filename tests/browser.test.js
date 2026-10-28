@@ -150,3 +150,19 @@ test('closing the tab before the debounce finishes recovers the newest text on r
   const reopened=await context.newPage();await reopened.goto(origin+'/notas.html');await ready(reopened);await savedText(reopened,'last keystroke before closing');
   assert.equal((await record(reopened)).state.notes.filter(n=>n.text==='last keystroke before closing').length,1);await context.close();
 });
+test('multiple category renames remain attached to the current model after each autosave',async()=>{
+  const {context}=await contextFor();const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);
+  await page.locator('#newCatTop').click();await page.locator('#catNewName').fill('Initial category');await page.locator('#catAddBtn').click();
+  const name=page.locator('#catTable input:not([disabled])');await name.fill('First rename');await waitRecord(page,r=>r?.state.categories.some(c=>c.name==='First rename'));
+  await name.fill('Second rename');await waitRecord(page,r=>r?.state.categories.some(c=>c.name==='Second rename'));
+  await name.fill('Third rename');await waitRecord(page,r=>r?.state.categories.some(c=>c.name==='Third rename'));
+  await page.locator('#catClose').click();await page.reload();await ready(page);assert.ok((await record(page)).state.categories.some(c=>c.name==='Third rename'));await context.close();
+});
+test('a clean synchronized device reads remote updates periodically and again on reload without local edits',async()=>{
+  const {context,backend:b}=await contextFor({api:'v5'});const page=await context.newPage();await page.clock.install();await page.goto(origin+'/notas.html');await ready(page);
+  await waitRecord(page,r=>r?.cloudBase?.notes.some(n=>n.id==='fixture'));
+  let remote=b.get();remote.notes.find(n=>n.id==='fixture').text='remote periodic update';assert.equal(b.post({...remote,baseRevision:remote.revision}).ok,true);
+  await page.clock.fastForward(16000);await savedText(page,'remote periodic update');
+  remote=b.get();remote.notes.find(n=>n.id==='fixture').text='remote update before reload';assert.equal(b.post({...remote,baseRevision:remote.revision}).ok,true);
+  await page.reload();await ready(page);await savedText(page,'remote update before reload');await context.close();
+});
