@@ -1209,6 +1209,9 @@
       }
 
       function apiSaveAll_(state) {
+        if (isLikelyBadApiUrl_(API_URL)) return Promise.reject(new Error("API_URL inválida"));
+        ensureSaveBridge_();
+        if (!saveBridgeReady) return Promise.reject(new Error("No se inicializó el puente de guardado"));
         // Se preserva la versión más reciente y se evita superponer dos POST.
         saveQueuedState = JSON.stringify(state);
         if (saveBusy) return activeSavePromise;
