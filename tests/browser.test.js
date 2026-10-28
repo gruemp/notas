@@ -166,3 +166,24 @@ test('a clean synchronized device reads remote updates periodically and again on
   remote=b.get();remote.notes.find(n=>n.id==='fixture').text='remote update before reload';assert.equal(b.post({...remote,baseRevision:remote.revision}).ok,true);
   await page.reload();await ready(page);await savedText(page,'remote update before reload');await context.close();
 });
+
+test('a delayed IndexedDB read cannot replace an edit that committed after that read began',async()=>{
+  const {context}=await contextFor();const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);await create(page,'before delayed read');
+  const id=(await record(page)).state.notes[0].id;
+  await page.evaluate(()=>{
+    const original=IDBDatabase.prototype.transaction;let once=true;
+    IDBDatabase.prototype.transaction=function(...args){
+      const tx=original.apply(this,args);
+      if(once&&args[1]==='readonly'){
+        once=false;Object.defineProperty(tx,'oncomplete',{set(fn){tx.addEventListener('complete',event=>{window.releaseDelayedLocalRead=()=>fn.call(tx,event);});}});
+      }
+      return tx;
+    };
+    window.dispatchEvent(new Event('focus'));
+  });
+  await page.waitForFunction(()=>typeof window.releaseDelayedLocalRead==='function');
+  await openNote(page,id);await page.locator('#noteEditor').fill('after delayed read');await page.locator('#noteClose').click();await savedText(page,'after delayed read');
+  await page.evaluate(async()=>{window.releaseDelayedLocalRead();await new Promise(resolve=>setTimeout(resolve,0));});
+  assert.equal(await page.locator('.note[data-id="'+id+'"] .note-view').innerText(),'after delayed read');
+  await page.reload();await ready(page);assert.equal((await record(page)).state.notes.find(n=>n.id===id).text,'after delayed read');await context.close();
+});

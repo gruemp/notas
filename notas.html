@@ -1416,6 +1416,7 @@
           const initial = record?.state || cached || emptyState_();
           validateRemote_(initial);
           localBaseState = cloneState_(initial);
+          localRecordVersion = Number(record?.version) || 0;
           baseState = record ? record.cloudBase : (cached?.localOnly ? cached.cloudBase : cached);
           let recovered = cloneState_(initial);
           for (const entry of pendingEntries) {
@@ -2104,6 +2105,7 @@
       let flushPromise = null;
       let renderPending = false;
       let localBaseState = null;
+      let localRecordVersion = 0;
       let localSavedRevision = 0;
       let localSavePromise = null;
       let localDatabasePromise = null;
@@ -2336,11 +2338,14 @@
         if (localSavePromise || noteDialogEl?.open || catDialogEl?.open || pointerDrag || dragId) return;
         try {
           const record = await readLocalRecord_();
-          if (!record) return;
-          if (stateEqual_(record.state, localBaseState)) { baseState = record.cloudBase; return; }
+          // La lectura pudo empezar antes de una escritura propia o de abrir el editor.
+          // Una respuesta atrasada nunca debe reponer un estado anterior al ya adoptado.
+          if (!record || (Number(record.version) || 0) <= localRecordVersion || localSavePromise || noteDialogEl?.open || catDialogEl?.open || pointerDrag || dragId) return;
+          if (stateEqual_(record.state, localBaseState)) { localRecordVersion = Number(record.version) || 0; baseState = record.cloudBase; return; }
           const current = cloneState_(serializeState());
           const next = mergeLocalStates_(localBaseState || emptyState_(), current, record.state);
           localBaseState = cloneState_(record.state);
+          localRecordVersion = Number(record.version) || 0;
           baseState = record.cloudBase;
           adoptLocalModel_(next);
           localRevision++;
@@ -2370,6 +2375,7 @@
           const record = await persistLocalRecord_(localBaseState || baseState || emptyState_(), snapshot, baseState, null);
           const next = mergeLocalStates_(snapshot, cloneState_(serializeState()), record.state);
           localBaseState = cloneState_(record.state);
+          localRecordVersion = Number(record.version) || 0;
           baseState = record.cloudBase;
           adoptLocalModel_(next);
           localSavedRevision = revision;
@@ -2412,6 +2418,7 @@
             const localRecord = await persistLocalRecord_(snapshot, merged, baseState, remote);
             const next = mergeLocalStates_(snapshot, cloneState_(serializeState()), localRecord.state);
             localBaseState = cloneState_(localRecord.state);
+            localRecordVersion = Number(localRecord.version) || 0;
             baseState = cloneState_(remote);
             adoptLocalModel_(next);
             cacheLocal_(localRecord);
@@ -2422,6 +2429,7 @@
           const next = mergeLocalStates_(snapshot, cloneState_(serializeState()), record.state);
           baseState = cloneState_(committed);
           localBaseState = cloneState_(record.state);
+          localRecordVersion = Number(record.version) || 0;
           adoptLocalModel_(next);
           if (revision === localRevision && stateEqual_(next, record.state)) localSavedRevision = revision;
           confirmedRevision = revision;

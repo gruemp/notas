@@ -205,3 +205,12 @@ test('client: local delete versus simultaneous edit preserves the edited text',(
   assert.ok(api.mergeLocalStates_(base,a,b).notes.some(n=>n.text==='newest text'));
   assert.ok(api.mergeLocalStates_(base,b,a).notes.some(n=>n.text==='newest text'));
 });
+
+test('client: a delayed local read cannot undo a newer committed edit',async()=>{
+  const c=makeClient();c.api.setState(state());c.api.api(async()=>{throw Error('offline');},()=>assert.fail());
+  c.api.edit('a','first committed');await c.api.flushLocal();const stale=copy(c.record());stale.version++;
+  let release;c.api.readWith(()=>new Promise(resolve=>release=resolve));const refreshing=c.api.refreshLocalState_();
+  c.api.edit('a','latest committed');await c.api.flushLocal();release(stale);await refreshing;
+  assert.equal(c.api.getState().notes.find(n=>n.id==='a').text,'latest committed');
+  assert.equal(c.record().state.notes.find(n=>n.id==='a').text,'latest committed');
+});
