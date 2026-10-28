@@ -60,7 +60,7 @@ async function record(page){return page.evaluate(()=>new Promise((resolve,reject
 async function waitRecord(page,predicate){
   const deadline=Date.now()+15000;
   do {const value=await record(page);if(predicate(value))return value;await new Promise(r=>setTimeout(r,40));}while(Date.now()<deadline);
-  assert.fail('Persisted record did not reach the expected state');
+  assert.fail('Persisted record did not reach the expected state: '+JSON.stringify(await record(page)));
 }
 async function savedText(page,text){await waitRecord(page,r=>r?.state?.notes.some(n=>n.text===text));}
 async function create(page,text){await page.locator('#newNote').click();await page.locator('#noteEditor').fill(text);await page.locator('#noteClose').click();await savedText(page,text);}
