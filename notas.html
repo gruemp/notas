@@ -1261,6 +1261,7 @@
       const SETTINGS_KEY = "notas_web_settings_v1";
       const PENDING_KEY = "notas_web_pending_state_v1";
       const CACHE_KEY = "notas_web_last_state_v1";
+      const COLLAPSE_KEY = "notas_web_category_collapse_v1";
 
       /* =========================
          Model
@@ -1540,7 +1541,7 @@
 
         themeBtnEl.addEventListener("click", () => {
           settings.theme = nextTheme(settings.theme);
-          localStorage.setItem(THEME_KEY, settings.theme);
+          try { localStorage.setItem(THEME_KEY, settings.theme); } catch {}
           applyTheme(settings.theme);
           toast(`Tema: ${themeLabel(settings.theme)}`);
         });
@@ -1804,6 +1805,7 @@
         const hasGeneral = categories.some(c => String(c.id) === GENERAL_CATEGORY_ID);
         if (!hasGeneral) categories.unshift({ ...DEFAULT_GENERAL_CATEGORY });
 
+        const localCollapse = safeParse(safeStorageGet_(COLLAPSE_KEY), {}) || {};
         categories.forEach((c, i) => {
           if (!c || typeof c !== "object") return;
           c.id = String(c.id ?? makeId());
@@ -1814,7 +1816,11 @@
           // ✅ compatibilidad con datos antiguos:
           // - antes existía solo `collapsed`
           if (typeof c.collapsedNormal !== "boolean") c.collapsedNormal = Boolean(c.collapsed ?? true);
-          if (typeof c.collapsedPinned !== "boolean") c.collapsedPinned = Boolean(c.collapsedPinned ?? true);
+          if (typeof c.collapsedPinned !== "boolean") c.collapsedPinned = c.collapsedPinned === "" ? true : Boolean(c.collapsedPinned ?? true);
+          if (localCollapse[c.id]) {
+            c.collapsedNormal = !!localCollapse[c.id].normal;
+            c.collapsedPinned = !!localCollapse[c.id].pinned;
+          }
           // mantener `collapsed` como espejo (por si lo usas en otro lado)
           c.collapsed = c.collapsedNormal;
         });
@@ -1829,6 +1835,14 @@
         }
 
         categories = sortCategories(categories);
+      }
+
+      function saveCategoryCollapse_() {
+        const state = {};
+        categories.forEach(c => {
+          if (c && c.id) state[c.id] = { normal: !!c.collapsedNormal, pinned: !!c.collapsedPinned };
+        });
+        try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify(state)); } catch {}
       }
 
       function sortCategories(list) {
@@ -2679,6 +2693,7 @@
             syncCatGroupsUI_(pinned);
           }
 
+          saveCategoryCollapse_();
           saveDebounced();
           return;
         }
