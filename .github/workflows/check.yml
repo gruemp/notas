@@ -1,7 +1,7 @@
 name: Verificar código de Notas
 on:
   push:
-    branches: [main, fix/notas-stability-20261028]
+    branches: [main, "fix/**"]
   pull_request:
 jobs:
   syntax:
@@ -12,3 +12,4 @@ jobs:
         with:
           node-version: "22"
       - run: node tests/check.js
+      - run: node --test tests/functional.js

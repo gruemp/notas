@@ -1134,6 +1134,7 @@
       async function apiGetState_() {
         const data = await jsonp_({ action: "getState" });
         if (data && data.ok === false) throw new Error(data.error || "Error getState");
+        validateRemote_(data);
         return data;
       }
 
@@ -1195,19 +1196,6 @@
         saveBridgeReady = true;
       }
 
-      function apiSaveAllFireAndForget_(state) {
-        try {
-          if (isLikelyBadApiUrl_(API_URL)) return;
-          ensureSaveBridge_();
-          if (!saveBridgeReady) return;
-
-          if (saveBusy) return;
-          inRequestIdEl.value = 'unload_' + Date.now();
-          inPayloadEl.value = JSON.stringify(state);
-          saveFormEl.submit();
-        } catch {}
-      }
-
       function apiSaveAll_(state) {
         if (isLikelyBadApiUrl_(API_URL)) return Promise.reject(new Error("API_URL inválida"));
         ensureSaveBridge_();
@@ -1220,7 +1208,7 @@
           while (saveQueuedState !== null) {
             const payload = saveQueuedState;
             saveQueuedState = null;
-            const requestId = 'save_' + (++saveRequestSeq) + '_' + Date.now();
+            const requestId = 'save_' + makeId() + '_' + (++saveRequestSeq);
             await new Promise((resolve, reject) => {
               let done = false;
               let timer;
@@ -1235,9 +1223,10 @@
               const onMessage = (ev) => {
                 const data = ev && ev.data;
                 if (!data || data.type !== 'notas_saveAll') return;
-                // Apps Script antiguo: su respuesta no incluía requestId.
-                if (ev.source !== saveIframeEl.contentWindow && data.requestId !== requestId) return;
-                if (data.requestId && data.requestId !== requestId) return;
+                const trustedOrigin = /^https:\/\/(?:script\.google\.com|[a-z0-9-]+\.googleusercontent\.com)$/.test(ev.origin);
+                if (!trustedOrigin || data.requestId !== requestId) return;
+                if (data.ok && !data.revision) { complete(new Error('Actualiza el despliegue de Apps Script a v5')); return; }
+                if (data.ok) state.savedRevision = data.revision;
                 complete(data.ok ? null : new Error(data.error || 'Error guardando'));
               };
               window.addEventListener('message', onMessage);
@@ -1263,6 +1252,7 @@
       const THEME_KEY = "notas_web_theme_v1";
       const SETTINGS_KEY = "notas_web_settings_v1";
       const PENDING_KEY = "notas_web_pending_state_v1";
+      const TAB_PENDING_KEY = PENDING_KEY + ":" + makeId();
       const CACHE_KEY = "notas_web_last_state_v1";
       const COLLAPSE_KEY = "notas_web_category_collapse_v1";
 
@@ -1422,8 +1412,8 @@
             return;
           }
 
-          const staged = safeParse(safeStorageGet_(PENDING_KEY), null);
-          const restoring = !!(staged && Array.isArray(staged.notes) && Array.isArray(staged.categories));
+          const pendingEntries = readPending_();
+          let restoring = pendingEntries.length > 0;
           let remote;
           try {
             remote = await apiGetState_();
@@ -1431,10 +1421,28 @@
           } catch (error) {
             remote = safeParse(safeStorageGet_(CACHE_KEY), null);
             if (!remote && !restoring) throw error;
+            if (!remote) remote = pendingEntries[0].value.base || pendingEntries[0].value.state || pendingEntries[0].value;
             toast("Sin conexión: notas recuperadas de este dispositivo");
           }
-          notes = restoring ? staged.notes : (Array.isArray(remote?.notes) ? remote.notes : []);
-          categories = restoring ? staged.categories : (Array.isArray(remote?.categories) ? remote.categories : []);
+          validateRemote_(remote);
+          baseState = cloneState_(remote);
+          let recovered = cloneState_(remote);
+          for (const entry of pendingEntries) {
+            try {
+              if (!entry.value.base && makeSnapshot_(entry.value.categories, entry.value.notes) !== makeSnapshot_(remote.categories, remote.notes)) throw new Error("Respaldo antiguo sin versión base");
+              recovered = mergeStates_(entry.value.base || remote, entry.value.state || entry.value, recovered);
+              adoptedPending.set(entry.key, entry.raw);
+            } catch (error) {
+              // Un conflicto se conserva en su clave original; nunca se descarta.
+              recoveryBlocked = true;
+              toast("Conflicto de recuperación: conserva y exporta los cambios pendientes", 6000);
+              recovered = cloneState_(entry.value.state || entry.value);
+              baseState = entry.value.base || null;
+              break;
+            }
+          }
+          notes = recovered.notes;
+          categories = recovered.categories;
           if (restoring) localRevision = 1;
 
           const localSettings = safeParse(safeStorageGet_(SETTINGS_KEY), {}) || {};
@@ -1461,7 +1469,7 @@
 
           lastSnapshot = makeSnapshot_(categories, notes);
           startAutoSync();
-          if (restoring) scheduleSaveDebounced_();
+          if (restoring) { stagePending_(); scheduleSaveDebounced_(); }
         } catch (err) {
           toast("Error cargando datos (revisa API_URL /exec y despliegue)");
           console.error(err);
@@ -1583,6 +1591,7 @@
         });
 
         // Modal nota
+        noteDialogEl.addEventListener("cancel", (e) => { e.preventDefault(); closeNoteDialog_(); });
         noteCloseEl.addEventListener("click", () => closeNoteDialog_());
         noteDialogEl.addEventListener("click", (e) => {
           const rect = noteDialogEl.getBoundingClientRect();
@@ -1901,6 +1910,7 @@
       function closeCatDialog() {
         if (typeof catDialogEl.close === "function") catDialogEl.close();
         else catDialogEl.removeAttribute("open");
+        if (renderPending) { renderPending = false; renderAll(); }
       }
 
       function renderCatManager() {
@@ -2072,7 +2082,7 @@
       ========================== */
       function serializeState() {
         return {
-          v: 4,
+          v: 5,
           savedAt: Date.now(),
           notes,
           categories,
@@ -2088,31 +2098,136 @@
 
       let localRevision = 0;
       let confirmedRevision = 0;
+      let baseState = null;
+      let flushPromise = null;
+      let recoveryBlocked = false;
+      let renderPending = false;
+      const adoptedPending = new Map();
+
+      function cloneState_(state) { return JSON.parse(JSON.stringify(state)); }
+      function validateRemote_(data) {
+        if (!data || data.ok === false || !Array.isArray(data.notes) || !Array.isArray(data.categories)) throw new Error("Respuesta de datos inválida");
+        for (const key of ["notes", "categories"]) {
+          const ids = new Set();
+          for (const item of data[key]) {
+            if (!item || typeof item !== "object" || typeof item.id !== "string" || !item.id || ids.has(item.id)) throw new Error("Datos con ID inválido o duplicado");
+            ids.add(item.id);
+            if (key === "notes" && typeof item.text !== "string") throw new Error("Texto inválido");
+            if (key === "categories") {
+              const bool = v => v === true || v === "true" || v === 1;
+              item.collapsedNormal = item.collapsedNormal == null ? (item.collapsed === "" || item.collapsed == null ? true : bool(item.collapsed)) : bool(item.collapsedNormal);
+              item.collapsedPinned = item.collapsedPinned === "" || item.collapsedPinned == null ? true : bool(item.collapsedPinned);
+              item.collapsed = item.collapsedNormal;
+            }
+          }
+        }
+      }
+      function readPending_() {
+        const entries = [];
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key !== PENDING_KEY && !key?.startsWith(PENDING_KEY + ":")) continue;
+            const raw = localStorage.getItem(key);
+            const value = safeParse(raw, null);
+            const state = value?.state || value;
+            if (Array.isArray(state?.notes) && Array.isArray(state?.categories)) entries.push({key, raw, value});
+          }
+        } catch {}
+        return entries;
+      }
+      function mergeStates_(base, local, remote) {
+        const output = cloneState_(remote);
+        const stable = value => value && typeof value === "object"
+          ? JSON.stringify(Object.keys(value).sort().map(k => [k, value[k]])) : JSON.stringify(value);
+        const equal = (a, b) => stable(a) === stable(b);
+        for (const key of ["categories", "notes"]) {
+          const before = new Map((base?.[key] || []).map(x => [x.id, x]));
+          const ours = new Map(local[key].map(x => [x.id, x]));
+          const theirs = new Map(remote[key].map(x => [x.id, x]));
+          for (const id of new Set([...before.keys(), ...ours.keys()])) {
+            const b = before.get(id), l = ours.get(id), r = theirs.get(id);
+            if (equal(b, l)) continue;
+            if (equal(b, r) || equal(l, r)) { if (l) theirs.set(id, l); else theirs.delete(id); continue; }
+            if (!b || !l || !r) throw new Error("Conflicto al eliminar o crear " + key);
+            const merged = {...r};
+            for (const field of new Set([...Object.keys(b), ...Object.keys(l)])) {
+              if (equal(b[field], l[field])) continue;
+              if (!equal(b[field], r[field]) && !equal(l[field], r[field]) && field !== "updatedAt") throw new Error("Conflicto en " + key + ": " + field);
+              merged[field] = field === "updatedAt" ? Math.max(l[field] || 0, r[field] || 0) : l[field];
+            }
+            theirs.set(id, merged);
+          }
+          output[key] = [...theirs.values()];
+        }
+        const ids = new Set(output.categories.map(c => c.id));
+        if (output.notes.some(n => !ids.has(n.categoryId))) throw new Error("Conflicto en categorías");
+        return output;
+      }
 
       function safeStorageGet_(key) {
         try { return localStorage.getItem(key); } catch { return null; }
       }
 
       function stagePending_() {
-        try { localStorage.setItem(PENDING_KEY, JSON.stringify(serializeState())); }
-        catch { toast("No se pudo guardar una copia local"); }
+        try {
+          localStorage.setItem(TAB_PENDING_KEY, JSON.stringify({state: serializeState(), base: baseState}));
+          return true;
+        } catch { toast("No se pudo guardar una copia local", 6000); return false; }
       }
 
       function flushPendingSave_() {
-        if (localRevision <= confirmedRevision) return Promise.resolve();
-        const revision = localRevision;
-        return apiSaveAll_(serializeState()).then(() => {
-          if (revision !== localRevision) return;
+        if (flushPromise) return flushPromise;
+        if (localRevision <= confirmedRevision || recoveryBlocked) return Promise.resolve();
+        let flushSucceeded = false;
+        flushPromise = (async () => {
+          const revision = localRevision;
+          const local = cloneState_(serializeState());
+          const before = cloneState_(baseState);
+          const remote = await apiGetState_();
+          if (!remote.revision || !before) throw new Error("Actualiza Apps Script a v5 antes de guardar");
+          const merged = mergeStates_(before, local, remote);
+          merged.baseRevision = remote.revision;
+          await apiSaveAll_(merged);
+          // La respuesta confirma exactamente la instantánea enviada, nunca una edición posterior.
+          const committedState = cloneState_({...merged, revision: merged.savedRevision});
+          delete committedState.baseRevision;
+          delete committedState.savedRevision;
+          const current = cloneState_(serializeState());
+          const next = mergeStates_(local, current, committedState);
+          baseState = committedState;
+          const remoteChangedUI = makeSnapshot_(next.categories, next.notes) !== makeSnapshot_(current.categories, current.notes);
+          notes = next.notes;
+          categories = next.categories;
           confirmedRevision = revision;
+          flushSucceeded = true;
           lastSnapshot = makeSnapshot_(categories, notes);
-          try {
-            localStorage.removeItem(PENDING_KEY);
-            localStorage.setItem(CACHE_KEY, JSON.stringify(serializeState()));
-          } catch {}
-        }).catch(error => {
+          if (revision === localRevision) {
+            try {
+              localStorage.setItem(CACHE_KEY, JSON.stringify(baseState));
+              localStorage.removeItem(TAB_PENDING_KEY);
+              for (const [key, raw] of adoptedPending) {
+                if (localStorage.getItem(key) === raw) localStorage.removeItem(key);
+              }
+              adoptedPending.clear();
+            } catch {}
+          } else stagePending_();
+          // Rehacer filas solo cuando no haya un diálogo o arrastre activo.
+          if (remoteChangedUI) {
+            if (!noteDialogEl?.open && !catDialogEl?.open && !pointerDrag && !dragId) renderAll();
+            else renderPending = true;
+          }
+        })().catch(error => {
           console.error("Error guardando notas:", error);
-          toast("Guardado pendiente: hay una copia local");
+          const backedUp = stagePending_();
+          toast(error.message.startsWith("Conflicto") ? "Conflicto: cambios locales pendientes; expórtalos antes de resolver" :
+            (backedUp ? "Guardado pendiente: hay una copia local" : "Guardado pendiente sin respaldo local: exporta tus notas"), 5000);
+        }).finally(() => {
+          flushPromise = null;
+          // Los cambios escritos durante un POST se guardan por la misma cola.
+          if (localRevision > confirmedRevision && flushSucceeded) scheduleSaveDebounced_();
         });
+        return flushPromise;
       }
 
       const scheduleSaveDebounced_ = debounce(flushPendingSave_, 600);
@@ -2127,7 +2242,7 @@
         if (localRevision <= confirmedRevision) return;
         stagePending_();
         // Guardado inmediato por la misma cola, sin un segundo POST concurrente.
-        if (!saveBusy) flushPendingSave_();
+        if (!flushPromise) flushPendingSave_();
       }
 
       function makeSnapshot_(cats, nts) {
@@ -2135,7 +2250,8 @@
           return JSON.stringify({
             categories: Array.isArray(cats) ? cats : [],
             notes: Array.isArray(nts) ? nts : []
-          });
+          }, (key, value) => value && !Array.isArray(value) && typeof value === "object"
+            ? Object.fromEntries(Object.keys(value).sort().map(k => [k, value[k]])) : value);
         } catch {
           return String(Date.now());
         }
@@ -2143,18 +2259,21 @@
 
       function startAutoSync() {
         setInterval(async () => {
-          const editing = !!(noteDialogEl?.open || catDialogEl?.open || pointerDrag);
-          if (editing || saveBusy || localRevision > confirmedRevision) {
-            if (!editing && !saveBusy && localRevision > confirmedRevision) scheduleSaveDebounced_();
+          const startedRevision = localRevision;
+          const editing = !!(noteDialogEl?.open || catDialogEl?.open || pointerDrag || dragId || pendingPress);
+          if (!editing && renderPending) { renderPending = false; renderAll(); }
+          if (editing || saveBusy || flushPromise || localRevision > confirmedRevision) {
+            if (!editing && !saveBusy && !flushPromise && localRevision > confirmedRevision) scheduleSaveDebounced_();
             return;
           }
 
           try {
             const remote = await apiGetState_();
             // Impide que una lectura vieja reemplace cambios hechos después de pedirla.
-            if (noteDialogEl?.open || catDialogEl?.open || pointerDrag ||
-                saveBusy || localRevision > confirmedRevision) return;
+            if (startedRevision !== localRevision || noteDialogEl?.open || catDialogEl?.open || pointerDrag || dragId || pendingPress ||
+                saveBusy || flushPromise || localRevision > confirmedRevision) return;
 
+            baseState = cloneState_(remote);
             notes = Array.isArray(remote?.notes) ? remote.notes : [];
             categories = Array.isArray(remote?.categories) ? remote.categories : [];
             ensureGeneralCategory();
@@ -2164,7 +2283,7 @@
               lastSnapshot = snap;
               renderCategoryFilter();
               renderAll();
-              try { localStorage.setItem(CACHE_KEY, JSON.stringify(serializeState())); } catch {}
+              try { localStorage.setItem(CACHE_KEY, JSON.stringify(baseState)); } catch {}
             }
           } catch (error) {
             console.warn("Sincronización no disponible:", error);
@@ -2631,6 +2750,7 @@
         activeNoteId = null;
         if (typeof noteDialogEl.close === "function") noteDialogEl.close();
         else noteDialogEl.removeAttribute("open");
+        if (renderPending) { renderPending = false; renderAll(); }
       }
 
       /* ✅ Formato requerido: c:aaaa-mm-dd hh-mm - m:aaaa-mm-dd hh-mm */
@@ -2758,7 +2878,9 @@
               const ok = await copyToClipboard(note.text);
               toast(ok ? "Copiado ✅" : "No pude copiar ❌");
             } else {
+              const originalText = note.text;
               const clip = await readFromClipboard();
+              if (getNoteById(note.id) !== note || note.text !== originalText) { toast("La nota cambió: pega de nuevo"); return; }
               if (!clip) { toast('No se pegó ningún texto'); return; }
               note.text = clip;
               note.updatedAt = Date.now();
@@ -2943,8 +3065,9 @@
       ========================== */
       function exportJSON() {
         const payload = {
-          v: 4,
+          v: 5,
           exportedAt: Date.now(),
+          pendingBackups: readPending_().map(entry => entry.value),
           notes,
           categories,
           settings: {
@@ -2985,6 +3108,8 @@
           blocks.push("");
         }
 
+        // El anexo permite recuperar también notas vacías, espacios y separadores literales.
+        blocks.push("=== DATOS NOTAS V5 ===", JSON.stringify({notes, categories}));
         downloadFile("notas.txt", blocks.join("\n"), "text/plain;charset=utf-8");
         toast("Exportado TXT ✅");
       }
@@ -2993,12 +3118,29 @@
         const name = (file.name || "").toLowerCase();
         const text = await file.text();
 
+        const trailer = text.match(/(?:^|\n)=== DATOS NOTAS V5 ===\r?\n([^\r\n]+)\s*$/);
+        if (trailer && !name.endsWith(".json")) {
+          const data = safeParse(trailer[1], null);
+          if (data && Array.isArray(data.notes) && Array.isArray(data.categories)) {
+            return importFile({name: "notas.json", text: async () => trailer[1]});
+          }
+        }
         if (name.endsWith(".json")) {
           const data = safeParse(text, null);
           if (!data || typeof data !== "object" || !Array.isArray(data.notes)) { toast("JSON de notas inválido"); return; }
 
           const incomingCats = Array.isArray(data.categories) ? data.categories : [];
-          const incomingNotes = Array.isArray(data.notes) ? data.notes : [];
+          let incomingNotes = Array.isArray(data.notes) ? data.notes : [];
+          // Exportar un conflicto conserva todas sus variantes recuperables.
+          if (Array.isArray(data.pendingBackups)) {
+            const variants = new Map(incomingNotes.filter(Boolean).map(n => [JSON.stringify([n.id, n.text, n.categoryId, n.pinned]), n]));
+            for (const backup of data.pendingBackups) {
+              for (const n of (Array.isArray(backup?.state?.notes) ? backup.state.notes : [])) {
+                if (n && typeof n === "object") variants.set(JSON.stringify([n.id, n.text, n.categoryId, n.pinned]), n);
+              }
+            }
+            incomingNotes = [...variants.values()];
+          }
 
           ensureGeneralCategory();
           const byNormName = new Map(categories.map(c => [norm(c.name), c]));
@@ -3030,25 +3172,28 @@
 
           const catIds = new Set(categories.map(c => c.id));
           const existing = new Set(notes.map(n => n.id));
+          let importedNotes = 0;
 
           for (const n of incomingNotes) {
             if (!n || typeof n !== "object" || Array.isArray(n)) continue;
             const nn = { ...n };
             nn.id = String(nn.id || "");
-            if (!nn.id || existing.has(nn.id)) nn.id = makeId();
-            existing.add(nn.id);
             nn.text = String(nn.text ?? "");
 
             if (idMap.has(String(nn.categoryId))) nn.categoryId = idMap.get(String(nn.categoryId));
             if (!catIds.has(nn.categoryId)) nn.categoryId = GENERAL_CATEGORY_ID;
 
             const now = Date.now();
-            nn.createdAt = Number(nn.createdAt || now);
-            nn.updatedAt = Number(nn.updatedAt || nn.createdAt);
-            nn.pinned = !!nn.pinned;
+            nn.createdAt = Number.isFinite(Number(nn.createdAt)) && Number(nn.createdAt) > 0 ? Number(nn.createdAt) : now;
+            nn.updatedAt = Number.isFinite(Number(nn.updatedAt)) && Number(nn.updatedAt) > 0 ? Number(nn.updatedAt) : nn.createdAt;
+            nn.pinned = nn.pinned === true || nn.pinned === "true" || nn.pinned === 1;
             nn.order = Number.isFinite(Number(nn.order)) ? Number(nn.order) : (notes.length * 1000);
 
+            if (existing.has(nn.id) && notes.some(old => old.id === nn.id && old.text === nn.text && old.categoryId === nn.categoryId && !!old.pinned === nn.pinned)) continue;
+            if (!nn.id || existing.has(nn.id)) nn.id = makeId();
+            existing.add(nn.id);
             notes.push(nn);
+            importedNotes++;
           }
 
           if (settings.sortMode === "manual") {
@@ -3061,7 +3206,7 @@
           saveDebounced();
           renderCategoryFilter();
           renderAll();
-          toast(`Importadas ${incomingNotes.length} notas ✅`);
+          toast(`Importadas ${importedNotes} notas ✅`);
           return;
         }
 

@@ -48,7 +48,13 @@ function doGet(e) {
 
     if (action === "getState") {
       assertAuthorized_(e); // abierto
-      const data = getState_();
+      const lock = LockService.getScriptLock();
+      lock.waitLock(15000);
+      let data;
+      try {
+        recoverWrite_();
+        data = getState_();
+      } finally { lock.releaseLock(); }
 
       const cb = String((e.parameter && e.parameter.callback) || "").trim();
       if (cb) return jsonp_(cb, data); // JSONP
@@ -84,12 +90,29 @@ function doPost(e) {
     const lock = LockService.getScriptLock();
     lock.waitLock(15000);
     try {
-      const out = saveAll_(state);
+      recoverWrite_();
+      validateState_(state);
+      const before = getState_();
+      if (!state.baseRevision || state.baseRevision !== before.revision) {
+        throw new Error("CONFLICT: los datos cambiaron; vuelve a sincronizar. Se requiere cliente v5.");
+      }
+      prepareRecovery_(before);
+      let out;
+      try {
+        out = saveAll_(state);
+        SpreadsheetApp.flush();
+        out.revision = getState_().revision;
+        finishRecovery_();
+      } catch (error) {
+        recoverWrite_();
+        throw error;
+      }
       return postMessageHtml_({
         type: "notas_saveAll",
         ok: true,
         requestId,
-        savedAt: out.savedAt || Date.now()
+        savedAt: out.savedAt || Date.now(),
+        revision: out.revision
       });
     } finally {
       lock.releaseLock();
@@ -123,7 +146,8 @@ function getState_() {
 
   return {
     ok: true,
-    v: 4,
+    v: 5,
+    revision: revision_(categories, notes),
     savedAt: Date.now(),
     categories,
     notes,
@@ -195,7 +219,7 @@ function jsonp_(callbackName, obj) {
 }
 
 function postMessageHtml_(messageObj) {
-  const msg = JSON.stringify(messageObj || {});
+  const msg = JSON.stringify(messageObj || {}).replace(/</g, "\\u003c");
   const html =
 `<!doctype html>
 <meta charset="utf-8">
@@ -203,7 +227,7 @@ function postMessageHtml_(messageObj) {
 <script>
   try {
     if (window.parent && window.parent !== window) {
-      window.parent.postMessage(${msg}, "*");
+      window.top.postMessage(${msg}, "https://gruemp.github.io");
     }
   } catch (e) {}
 </script>
@@ -291,13 +315,7 @@ function readObjects_(sh, headers, opts) {
  * ========================= */
 function writeObjects_(sh, headers, objects, opts) {
   const lastRow = sh.getLastRow();
-  if (lastRow > 1) {
-    // clearContent mantiene formatos (incluido el de fecha)
-    sh.getRange(2, 1, lastRow - 1, headers.length).clearContent();
-  }
-
-  if (!objects || objects.length === 0) return;
-
+  objects = objects || [];
   const dateHeaders = (opts && Array.isArray(opts.dateHeaders)) ? opts.dateHeaders : [];
   const dateSet = new Set(dateHeaders);
   const dateFormat = (opts && opts.dateFormat) ? String(opts.dateFormat) : "yyyy-MM-dd hh-mm";
@@ -310,13 +328,19 @@ function writeObjects_(sh, headers, objects, opts) {
       v = ms ? new Date(ms) : "";
     }
 
+    // setValues interpreta "=" como fórmula: las notas siempre son texto literal.
+    if (typeof v === "string" && /^[=\']/.test(v)) v = "'" + v;
     return v;
   }));
 
-  sh.getRange(2, 1, data.length, headers.length).setValues(data);
+  const requiredRows = data.length + 1;
+  if (requiredRows > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), requiredRows - sh.getMaxRows());
+  if (data.length) sh.getRange(2, 1, data.length, headers.length).setValues(data);
+  // No se borra la versión anterior antes de que la nueva esté escrita.
+  if (lastRow > requiredRows) sh.getRange(requiredRows + 1, 1, lastRow - requiredRows, headers.length).clearContent();
 
   // ✅ Aplica formato a columnas de fecha (con hora)
-  if (dateHeaders.length) {
+  if (dateHeaders.length && data.length) {
     for (const h of dateHeaders) {
       const idx = headers.indexOf(h);
       if (idx === -1) continue;
@@ -408,4 +432,59 @@ function testOpenSheet_() {
   console.log("Nombre:", ss.getName());
   console.log("URL:", ss.getUrl());
   console.log("Hojas:", ss.getSheets().map(s => s.getName()).join(", "));
+}
+
+// Se ejecuta bajo el mismo ScriptLock en lecturas y escrituras.
+function revision_(categories, notes) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+    JSON.stringify({categories, notes}), Utilities.Charset.UTF_8)
+    .map(b => (b & 255).toString(16).padStart(2, "0")).join("");
+}
+
+function validateState_(state) {
+  if (!state || !Array.isArray(state.categories) || !Array.isArray(state.notes)) throw new Error("Estado inválido");
+  for (const key of ["categories", "notes"]) {
+    const ids = new Set();
+    for (const item of state[key]) {
+      if (!item || typeof item !== "object" || Array.isArray(item) || typeof item.id !== "string" || !item.id.trim() || ids.has(item.id)) throw new Error("ID inválido o duplicado");
+      ids.add(item.id);
+      if (key === "notes" && (typeof item.text !== "string" || item.text.length > 49000 ||
+          !Number.isFinite(item.createdAt) || !Number.isFinite(item.updatedAt))) throw new Error("Nota inválida o demasiado extensa");
+      if (key === "categories" && (typeof item.name !== "string" || item.name.length > 49000)) throw new Error("Categoría inválida");
+    }
+  }
+  const catIds = new Set(state.categories.map(c => c.id));
+  if (!catIds.has("general") || state.notes.some(n => !catIds.has(n.categoryId))) throw new Error("Categoría inexistente");
+}
+
+const RECOVERY_SHEET = "_notas_recovery_v5";
+function prepareRecovery_(state) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sh = ss.getSheetByName(RECOVERY_SHEET);
+  if (!sh) { sh = ss.insertSheet(RECOVERY_SHEET); sh.hideSheet(); }
+  const text = JSON.stringify(state);
+  const chunks = text.match(/[\s\S]{1,30000}/g) || [];
+  // El marcador se publica al final: una copia incompleta nunca se restaura.
+  sh.getRange(1, 1).clearContent();
+  if (chunks.length + 1 > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), chunks.length + 1 - sh.getMaxRows());
+  sh.getRange(2, 1, chunks.length, 1).setValues(chunks.map(c => ["'" + c]));
+  SpreadsheetApp.flush();
+  sh.getRange(1, 1).setValue(String(chunks.length));
+  SpreadsheetApp.flush();
+}
+function finishRecovery_() {
+  const sh = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(RECOVERY_SHEET);
+  if (sh) { sh.getRange(1, 1).clearContent(); SpreadsheetApp.flush(); }
+}
+function recoverWrite_() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sh = ss.getSheetByName(RECOVERY_SHEET);
+  if (!sh) return;
+  const count = Number(sh.getRange(1, 1).getValue());
+  if (!count) return;
+  if (!Number.isInteger(count) || count < 1 || count >= sh.getMaxRows()) throw new Error("Respaldo de recuperación inválido");
+  const state = JSON.parse(sh.getRange(2, 1, count, 1).getValues().map(r => r[0]).join(""));
+  saveAll_(state);
+  SpreadsheetApp.flush();
+  finishRecovery_();
 }
