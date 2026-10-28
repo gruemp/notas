@@ -2098,10 +2098,10 @@
         catch { toast("No se pudo guardar una copia local"); }
       }
 
-      const scheduleSaveDebounced_ = debounce(() => {
-        if (localRevision <= confirmedRevision) return;
+      function flushPendingSave_() {
+        if (localRevision <= confirmedRevision) return Promise.resolve();
         const revision = localRevision;
-        apiSaveAll_(serializeState()).then(() => {
+        return apiSaveAll_(serializeState()).then(() => {
           if (revision !== localRevision) return;
           confirmedRevision = revision;
           lastSnapshot = makeSnapshot_(categories, notes);
@@ -2113,7 +2113,9 @@
           console.error("Error guardando notas:", error);
           toast("Guardado pendiente: hay una copia local");
         });
-      }, 600);
+      }
+
+      const scheduleSaveDebounced_ = debounce(flushPendingSave_, 600);
 
       function saveDebounced() {
         localRevision++;
@@ -2124,7 +2126,8 @@
       function saveNow() {
         if (localRevision <= confirmedRevision) return;
         stagePending_();
-        apiSaveAllFireAndForget_(serializeState());
+        // Guardado inmediato por la misma cola, sin un segundo POST concurrente.
+        if (!saveBusy) flushPendingSave_();
       }
 
       function makeSnapshot_(cats, nts) {
