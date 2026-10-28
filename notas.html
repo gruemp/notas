@@ -1259,6 +1259,8 @@
       ========================== */
       const THEME_KEY = "notas_web_theme_v1";
       const SETTINGS_KEY = "notas_web_settings_v1";
+      const PENDING_KEY = "notas_web_pending_state_v1";
+      const CACHE_KEY = "notas_web_last_state_v1";
 
       /* =========================
          Model
@@ -1416,14 +1418,25 @@
             return;
           }
 
-          const remote = await apiGetState_();
-          notes = Array.isArray(remote?.notes) ? remote.notes : [];
-          categories = Array.isArray(remote?.categories) ? remote.categories : [];
+          const staged = safeParse(safeStorageGet_(PENDING_KEY), null);
+          const restoring = !!(staged && Array.isArray(staged.notes) && Array.isArray(staged.categories));
+          let remote;
+          try {
+            remote = await apiGetState_();
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify(remote)); } catch {}
+          } catch (error) {
+            remote = safeParse(safeStorageGet_(CACHE_KEY), null);
+            if (!remote && !restoring) throw error;
+            toast("Sin conexión: notas recuperadas de este dispositivo");
+          }
+          notes = restoring ? staged.notes : (Array.isArray(remote?.notes) ? remote.notes : []);
+          categories = restoring ? staged.categories : (Array.isArray(remote?.categories) ? remote.categories : []);
+          if (restoring) localRevision = 1;
 
-          const localSettings = safeParse(localStorage.getItem(SETTINGS_KEY), {}) || {};
+          const localSettings = safeParse(safeStorageGet_(SETTINGS_KEY), {}) || {};
           settings = { ...DEFAULT_SETTINGS, ...(remote?.settings || {}), ...localSettings };
 
-          const savedTheme = localStorage.getItem(THEME_KEY);
+          const savedTheme = safeStorageGet_(THEME_KEY);
           if (savedTheme && ["auto","dark","light"].includes(savedTheme)) settings.theme = savedTheme;
 
           ensureGeneralCategory();
@@ -1444,6 +1457,7 @@
 
           lastSnapshot = makeSnapshot_(categories, notes);
           startAutoSync();
+          if (restoring) scheduleSaveDebounced_();
         } catch (err) {
           toast("Error cargando datos (revisa API_URL /exec y despliegue)");
           console.error(err);
@@ -2054,18 +2068,45 @@
         };
       }
 
-      const saveDebounced = debounce(() => {
-        lastSnapshot = makeSnapshot_(categories, notes);
+      let localRevision = 0;
+      let confirmedRevision = 0;
 
-        apiSaveAll_(serializeState())
-          .catch(() => toast("No pude guardar (revisa API_URL /exec y deploy)"));
+      function safeStorageGet_(key) {
+        try { return localStorage.getItem(key); } catch { return null; }
+      }
+
+      function stagePending_() {
+        try { localStorage.setItem(PENDING_KEY, JSON.stringify(serializeState())); }
+        catch { toast("No se pudo guardar una copia local"); }
+      }
+
+      const scheduleSaveDebounced_ = debounce(() => {
+        if (localRevision <= confirmedRevision) return;
+        const revision = localRevision;
+        apiSaveAll_(serializeState()).then(() => {
+          if (revision !== localRevision) return;
+          confirmedRevision = revision;
+          lastSnapshot = makeSnapshot_(categories, notes);
+          try {
+            localStorage.removeItem(PENDING_KEY);
+            localStorage.setItem(CACHE_KEY, JSON.stringify(serializeState()));
+          } catch {}
+        }).catch(error => {
+          console.error("Error guardando notas:", error);
+          toast("Guardado pendiente: hay una copia local");
+        });
       }, 600);
 
+      function saveDebounced() {
+        localRevision++;
+        stagePending_();
+        scheduleSaveDebounced_();
+      }
+
       function saveNow() {
-        try {
-          lastSnapshot = makeSnapshot_(categories, notes);
-          apiSaveAllFireAndForget_(serializeState());
-        } catch {}
+        if (localRevision <= confirmedRevision) return;
+        stagePending_();
+        apiSaveAllFireAndForget_(serializeState());
       }
 
       function makeSnapshot_(cats, nts) {
@@ -2081,25 +2122,32 @@
 
       function startAutoSync() {
         setInterval(async () => {
-          const noteOpen = !!(noteDialogEl?.open || noteDialogEl?.hasAttribute("open"));
-          if (noteOpen || pointerDrag) return;
+          const editing = !!(noteDialogEl?.open || catDialogEl?.open || pointerDrag);
+          if (editing || saveBusy || localRevision > confirmedRevision) {
+            if (!editing && !saveBusy && localRevision > confirmedRevision) scheduleSaveDebounced_();
+            return;
+          }
 
           try {
             const remote = await apiGetState_();
-            const snap = makeSnapshot_(remote?.categories, remote?.notes);
+            // Impide que una lectura vieja reemplace cambios hechos después de pedirla.
+            if (noteDialogEl?.open || catDialogEl?.open || pointerDrag ||
+                saveBusy || localRevision > confirmedRevision) return;
+
+            notes = Array.isArray(remote?.notes) ? remote.notes : [];
+            categories = Array.isArray(remote?.categories) ? remote.categories : [];
+            ensureGeneralCategory();
+            sanitizeNotesCategoryIds();
+            const snap = makeSnapshot_(categories, notes);
             if (snap !== lastSnapshot) {
-              notes = Array.isArray(remote?.notes) ? remote.notes : [];
-              categories = Array.isArray(remote?.categories) ? remote.categories : [];
-
-              ensureGeneralCategory();
-              sanitizeNotesCategoryIds();
-
+              lastSnapshot = snap;
               renderCategoryFilter();
               renderAll();
-
-              lastSnapshot = snap;
+              try { localStorage.setItem(CACHE_KEY, JSON.stringify(serializeState())); } catch {}
             }
-          } catch {}
+          } catch (error) {
+            console.warn("Sincronización no disponible:", error);
+          }
         }, AUTOSYNC_MS);
       }
 
