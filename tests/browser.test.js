@@ -193,6 +193,7 @@ test('a delayed IndexedDB read cannot replace an edit that committed after that 
   });
   await page.waitForFunction(()=>typeof window.releaseDelayedLocalRead==='function');
   await openNote(page,id);await page.locator('#noteEditor').fill('after delayed read');await page.locator('#noteClose').click();await savedText(page,'after delayed read');
-  await page.evaluate(()=>window.releaseDelayedLocalRead());
+  await page.evaluate(async()=>{window.releaseDelayedLocalRead();await new Promise(resolve=>setTimeout(resolve,0));});
+  assert.equal(await page.locator('.note[data-id="'+id+'"] .note-view').innerText(),'after delayed read');
   await page.reload();await ready(page);assert.equal((await record(page)).state.notes.find(n=>n.id===id).text,'after delayed read');await context.close();
 });
