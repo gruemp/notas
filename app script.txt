@@ -7,11 +7,11 @@ const SHEET_CATS  = "Categories";
 const SHEET_NOTES = "Notes";
 
 // ✅ Claves internas (NO CAMBIAR)
-const CAT_HEADERS  = ["id", "name", "color", "order", "collapsed"];
+const CAT_HEADERS  = ["id", "name", "color", "order", "collapsed", "collapsedPinned"];
 const NOTE_HEADERS = ["id", "text", "createdAt", "updatedAt", "pinned", "order", "categoryId"];
 
 // ✅ Títulos visibles en la hoja (fila 1) — español
-const CAT_HEADERS_ES  = ["ID", "Nombre", "Color", "Orden", "Contraída"];
+const CAT_HEADERS_ES  = ["ID", "Nombre", "Color", "Orden", "Contraída", "Fijadas contraídas"];
 const NOTE_HEADERS_ES = ["ID", "Texto", "Creada", "Actualizada", "Fijada", "Orden", "Categoría"];
 
 // ✅ Encabezados que deben verse como fecha+hora en Sheets
@@ -79,6 +79,7 @@ function doPost(e) {
     if (!payload) throw new Error("Payload vacío.");
 
     const state = JSON.parse(payload);
+    const requestId = String((e.parameter && e.parameter.requestId) || "").slice(0, 100);
 
     const lock = LockService.getScriptLock();
     lock.waitLock(15000);
@@ -87,6 +88,7 @@ function doPost(e) {
       return postMessageHtml_({
         type: "notas_saveAll",
         ok: true,
+        requestId,
         savedAt: out.savedAt || Date.now()
       });
     } finally {
@@ -96,6 +98,7 @@ function doPost(e) {
     return postMessageHtml_({
       type: "notas_saveAll",
       ok: false,
+      requestId: String((e && e.parameter && e.parameter.requestId) || "").slice(0, 100),
       error: String(err.message || err)
     });
   }
@@ -144,7 +147,8 @@ function saveAll_(state) {
     name: String((c && c.name) ?? "Categoría"),
     color: String((c && c.color) ?? "#64748B"),
     order: isFiniteNumber_((c && c.order)) ? Number(c.order) : (i * 1000),
-    collapsed: toBool_((c && c.collapsed))
+    collapsed: toBool_(c && (c.collapsedNormal ?? c.collapsed)),
+    collapsedPinned: toBool_(c && (c.collapsedPinned ?? true))
   })).filter(c => c.id);
 
   // ✅ createdAt/updatedAt se mantienen como epoch(ms) en API,
@@ -365,6 +369,7 @@ function normalizeDateValueToMs_(v) {
  *  Helpers
  * ========================= */
 function isFiniteNumber_(v) {
+  if (v === null || v === undefined || v === "") return false;
   const n = Number(v);
   return Number.isFinite(n);
 }
