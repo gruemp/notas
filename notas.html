@@ -1253,6 +1253,8 @@
       const SETTINGS_KEY = "notas_web_settings_v1";
       const PENDING_KEY = "notas_web_pending_state_v1";
       const TAB_PENDING_KEY = PENDING_KEY + ":" + makeId();
+      const PENDING_ACK_KEY = "notas_web_pending_ack_v1:";
+      let stagedPendingKey = null;
       const CACHE_KEY = "notas_web_last_state_v1";
       const COLLAPSE_KEY = "notas_web_category_collapse_v1";
 
@@ -2129,6 +2131,7 @@
             const key = localStorage.key(i);
             if (key !== PENDING_KEY && !key?.startsWith(PENDING_KEY + ":")) continue;
             const raw = localStorage.getItem(key);
+            if (safeStorageGet_(PENDING_ACK_KEY + key) === raw) continue;
             const value = safeParse(raw, null);
             const state = value?.state || value;
             if (Array.isArray(state?.notes) && Array.isArray(state?.categories)) entries.push({key, raw, value});
@@ -2171,7 +2174,13 @@
 
       function stagePending_() {
         try {
-          localStorage.setItem(TAB_PENDING_KEY, JSON.stringify({state: serializeState(), base: baseState}));
+          // Cada versión tiene clave propia: nadie puede reemplazarla entre leerla y borrarla.
+          const journalId = makeId();
+          const nextKey = TAB_PENDING_KEY + ":snapshot:" + journalId;
+          localStorage.setItem(nextKey, JSON.stringify({journalId, state: serializeState(), base: baseState}));
+          const previousKey = stagedPendingKey;
+          stagedPendingKey = nextKey;
+          if (previousKey) localStorage.removeItem(previousKey);
           return true;
         } catch { toast("No se pudo guardar una copia local", 6000); return false; }
       }
@@ -2205,9 +2214,17 @@
           if (revision === localRevision) {
             try {
               localStorage.setItem(CACHE_KEY, JSON.stringify(baseState));
-              localStorage.removeItem(TAB_PENDING_KEY);
+              if (stagedPendingKey) localStorage.removeItem(stagedPendingKey);
+              stagedPendingKey = null;
               for (const [key, raw] of adoptedPending) {
-                if (localStorage.getItem(key) === raw) localStorage.removeItem(key);
+                const journal = safeParse(raw, null);
+                if (journal?.journalId && key.endsWith(":snapshot:" + journal.journalId)) {
+                  localStorage.removeItem(key);
+                } else {
+                  // Las versiones antiguas podían reescribir su clave: dejar un recibo
+                  // de la versión confirmada en vez de borrar una clave que aún usan.
+                  localStorage.setItem(PENDING_ACK_KEY + key, raw);
+                }
               }
               adoptedPending.clear();
             } catch {}

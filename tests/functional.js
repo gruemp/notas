@@ -141,3 +141,41 @@ test('bridge: Google nested frame acknowledgement confirms the exact submitted r
   const listener=c.listeners.get('message');listener({origin:'https://script.googleusercontent.com',source:{},data:{type:'notas_saveAll',ok:true,requestId,revision:'r2'}});
   await pending;assert.equal(s.savedRevision,'r2');assert.equal(c.listeners.has('message'),false);
 });
+test('backend: reordered headers are rejected without relabelling existing data',()=>{
+  const b=makeBackend();seed(b);const sh=b.sheets.get('Notes');
+  const headers=sh.getRange(1,1,1,7).getValues()[0];[headers[0],headers[1]]=[headers[1],headers[0]];sh.getRange(1,1,1,7).setValues([headers]);
+  const before=JSON.stringify(sh.data),got=b.get();assert.equal(got.ok,false);assert.equal(JSON.stringify(sh.data),before);
+});
+test('client: successive local snapshots use immutable keys so acknowledgements cannot erase a newer version',()=>{
+  const c=makeClient();c.api.setState(state());c.api.edit('a','first');const old=c.api.keys.tab;
+  c.api.edit('a','second');assert.notEqual(c.api.keys.tab,old);assert.equal(c.storage.has(old),false);assert.equal(JSON.parse(c.storage.get(c.api.keys.tab)).state.notes[0].text,'second');
+});
+test('client: old mutable journals use version receipts and a newer value remains recoverable',async()=>{
+  const c=makeClient(),key='notas_web_pending_state_v1:legacy';const old=JSON.stringify({state:state(),base:state()});
+  const newer=state();newer.notes[1].text='new pending edit';const latest=JSON.stringify({state:newer,base:state()});
+  c.storage.set(key,old);c.api.adopt(key,old);c.api.setState(state());c.api.edit('a','A');
+  const write=c.localStorage.setItem;c.localStorage.setItem=(k,v)=>{if(k.startsWith('notas_web_pending_ack_v1:'))c.storage.set(key,latest);write(k,v);};
+  c.api.api(async()=>state(),async s=>s.savedRevision='r2');await c.api.flushPendingSave_();
+  assert.equal(c.storage.get(key),latest);assert.equal(c.api.readPending_().find(x=>x.key===key).value.state.notes[1].text,'new pending edit');
+});
+test('client: failed snapshot allocation keeps previous backup and newest edit in memory',()=>{
+  const c=makeClient();c.api.setState(state());c.api.edit('a','backed up');const key=c.api.keys.tab,raw=c.storage.get(key);
+  c.localStorage.setItem=()=>{throw Error('Quota exceeded');};c.api.edit('a','new edit');assert.equal(c.storage.get(key),raw);assert.equal(c.api.getState().notes[0].text,'new edit');
+});
+test('client: full initialization merges recoverable journals with current remote state',async()=>{
+  const a=makeClient(),b=makeClient(a.storage);a.api.setState(state());b.api.setState(state());a.api.edit('a','A');b.api.edit('b','B');
+  const c=makeClient(a.storage);const remote=state();remote.notes.push(note('c','remote addition'));c.api.api(async()=>copy(remote),async s=>s.savedRevision='r2');
+  await c.api.init();assert.equal(c.api.getState().notes.length,3);assert.equal(c.api.getState().notes.find(n=>n.id==='a').text,'A');assert.equal(c.api.getState().notes.find(n=>n.id==='b').text,'B');
+  await c.api.flushPendingSave_();assert.equal(c.api.readPending_().length,0);
+});
+test('client: conflicting journals remain exportable after full initialization without a POST',async()=>{
+  const a=makeClient(),b=makeClient(a.storage);a.api.setState(state());b.api.setState(state());a.api.edit('a','variant A');b.api.edit('a','variant B');
+  const originals=[...a.storage.keys()],c=makeClient(a.storage);let posts=0;c.api.api(async()=>state(),async()=>posts++);await c.api.init();await c.api.flushPendingSave_();
+  assert.equal(c.api.getState().recoveryBlocked,true);assert.equal(posts,0);assert.ok(originals.every(k=>c.storage.has(k)));
+  let exported;c.api.onDownload((n,t)=>exported=JSON.parse(t));c.api.exportJSON();assert.ok(exported.pendingBackups.length>=2);
+});
+test('backend: known English headers and the legacy missing pinned column migrate without data loss',()=>{
+  const b=makeBackend(),base=seed(b),cats=b.sheets.get('Categories');
+  cats.getRange(1,1,1,6).setValues([['id','name','color','order','collapsed','']]);cats.getRange(2,6,1,1).clearContent();
+  const got=b.get();assert.equal(got.ok,true);assert.equal(got.notes[0].text,base.notes[0].text);assert.equal(cats.getRange(1,6).getValue(),'Fijadas contraídas');
+});

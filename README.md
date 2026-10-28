@@ -6,17 +6,20 @@ Aplicación de notas en `notas.html`, con Google Sheets y un Web App de Google A
 
 Se revisaron todos los archivos de `main` en `5e6ad21`, su historial y el PR #1, incluido el hallazgo sobre respaldos compartidos entre pestañas. Las pruebas originales solo verificaban sintaxis.
 
+La continuación también comprobó que la cuenta de Drive conectada devuelve `404 / File not found` al consultar la hoja configurada. Esto indica falta de acceso o de disponibilidad, no demuestra eliminación. La copia anterior de HTML y Apps Script encontrada en la carpeta de Drive del proyecto utiliza los mismos identificadores, por lo que no proporciona un despliegue alternativo.
+
 En la comprobación real del sitio publicado, GitHub Pages abrió `notas.html`, pero la aplicación mostró «Error cargando datos». La consola registró un error JSONP. Al abrir el endpoint `/exec?action=ping` configurado en el HTML, Google mostró «El archivo que solicitaste no existe». Esto es lo observado desde el navegador de comprobación; no demuestra si el proyecto fue eliminado, cambió de despliegue o exige otro acceso.
 
 **La actualización v5 requiere publicar Apps Script y HTML de forma coordinada. No fusionar este PR ni dar por resuelto el servicio en producción antes de completar la puesta en marcha descrita abajo.**
 
 ## Correcciones v5
 
-- Respaldos pendientes con una clave independiente por instancia de página. Un guardado solo limpia su propio respaldo y las copias recuperadas cuyo contenido sigue coincidiendo exactamente.
+- Respaldos pendientes con una clave independiente e inmutable por versión. Primero se escribe la nueva versión y después se retira la anterior de esa misma instancia. Al recuperar una copia antigua con clave reutilizable, se registra un recibo del contenido confirmado y se conserva su clave; una actualización de otra pestaña nunca puede perderse entre la lectura y la limpieza.
 - Recuperación de respaldos con su versión base. Los respaldos antiguos sin base y los conflictos se conservan y requieren conciliación; nunca se aplican ciegamente sobre Sheets. La exportación JSON incluye `pendingBackups` para conservar las variantes pendientes.
 - Fusión de cambios independientes por ID y campo. Ediciones incompatibles y eliminaciones concurrentes se detienen y permanecen respaldadas. No se escoge una versión por su fecha ni se generan duplicados automáticamente para resolver conflictos.
 - Control de versión en el servidor: `baseRevision` debe coincidir con la huella SHA-256 del estado actual, comprobada bajo `ScriptLock`. Un cliente antiguo o atrasado no puede reemplazar todo el estado.
 - Lecturas y escrituras comparten el bloqueo. Un diario de recuperación en la pestaña oculta `_notas_recovery_v5` conserva el estado anterior completo antes de escribir. Una escritura interrumpida se revierte antes de la siguiente lectura o escritura de la API. No borrar ni editar esa pestaña.
+- Validación del esquema antes de leer: encabezados movidos o desconocidos se rechazan sin reetiquetar las columnas. Se admite la migración conocida de encabezados internos al español y la columna nueva de plegado de fijadas.
 - Escritura de datos nuevos antes de limpiar filas sobrantes; ampliación de filas cuando hace falta, validación de IDs, categorías, fechas y longitud de texto. Los textos que empiezan por `=` o apóstrofe se guardan literalmente.
 - La confirmación de guardado exige un `requestId` aleatorio correlacionado, origen Google y una revisión confirmada. El HTML de respuesta escapa terminadores de script y envía la respuesta a la ventana superior de `https://gruemp.github.io`, atravesando el iframe anidado de HtmlService.
 - Las ediciones durante una solicitud permanecen pendientes y se guardan después; una lectura periódica iniciada antes de una edición no puede reemplazarla aunque esa edición ya se haya guardado.
@@ -35,7 +38,7 @@ node tests/check.js
 node --test tests/functional.js
 ```
 
-Las 24 pruebas funcionales ejecutan el JavaScript real del cliente y del backend en contextos aislados. Sustituyen DOM, red, temporizadores y servicios de Google por dobles controlados; no usan datos ni credenciales reales. Cubren concurrencia, conflictos, edición durante guardado, timeout, respaldos por pestaña, recarga lógica, lectura atrasada, escritura interrumpida, validación, fórmulas literales, ampliación de filas, búsqueda, importación/exportación, deshacer y lógica con puntero grueso. GitHub Actions ejecuta ambas verificaciones.
+Las 31 pruebas funcionales ejecutan el JavaScript real del cliente y del backend en contextos aislados. Sustituyen DOM, red, temporizadores y servicios de Google por dobles controlados; no usan datos ni credenciales reales. Cubren concurrencia, conflictos, edición durante guardado, timeout, respaldos por pestaña, recarga lógica, lectura atrasada, escritura interrumpida, validación, fórmulas literales, ampliación de filas, búsqueda, importación/exportación, deshacer y lógica con puntero grueso, arranque completo con varias copias pendientes, recibos de versiones antiguas, cuotas locales y encabezados cambiados. GitHub Actions ejecuta ambas verificaciones.
 
 Esto **no** equivale a una prueba de navegador completa, un dispositivo móvil físico, una escritura real en Google Sheets ni un despliegue Apps Script verificado. El sitio actual se comprobó en navegador sin crear, modificar ni eliminar notas. El fallo de su endpoint impide validar esos flujos en producción.
 

@@ -248,15 +248,22 @@ function ensureSheetWithHeaders_(ss, sheetName, headers, headerRowValues) {
 
   const needCols = headers.length;
   const haveCols = sh.getMaxColumns();
-  if (haveCols < needCols) sh.insertColumnsAfter(haveCols, needCols - haveCols);
+  const lastRow = sh.getLastRow();
+  const current = sh.getRange(1, 1, 1, Math.min(needCols, haveCols)).getValues()[0].map(v => String(v || "").trim());
+  while (current.length < needCols) current.push("");
+  const row = headers.map((h, i) => String(headerRowValues?.[i] ?? h).trim());
 
-  const current = sh.getRange(1, 1, 1, needCols).getValues()[0].map(v => String(v || "").trim());
-
-  const row = [];
+  // Solo se renombran encabezados conocidos en su posición original.
+  // Una columna movida no puede repararse cambiando únicamente su etiqueta.
   for (let i = 0; i < needCols; i++) {
-    const v = (headerRowValues && headerRowValues[i] != null) ? headerRowValues[i] : headers[i];
-    row.push(String(v || "").trim());
+    if (current[i] === row[i] || current[i] === headers[i]) continue;
+    const empty = current[i] === "";
+    const legacyPinned = sheetName === SHEET_CATS && headers[i] === "collapsedPinned";
+    const emptyColumn = i >= haveCols || lastRow < 2 || sh.getRange(2, i + 1, lastRow - 1, 1).getValues().every(r => r[0] === "");
+    if (empty && (lastRow < 2 || (legacyPinned && emptyColumn))) continue;
+    throw new Error("Esquema inesperado en " + sheetName + ", columna " + (i + 1) + ". Revisa los encabezados sin alterar los datos.");
   }
+  if (haveCols < needCols) sh.insertColumnsAfter(haveCols, needCols - haveCols);
 
   let mismatch = false;
   for (let i = 0; i < needCols; i++) {
