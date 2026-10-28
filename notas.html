@@ -1536,7 +1536,8 @@
           const file = importFileEl.files && importFileEl.files[0];
           importFileEl.value = "";
           if (!file) return;
-          await importFile(file);
+          try { await importFile(file); }
+          catch (error) { console.error(error); toast('No se pudo importar el archivo'); }
         });
 
         themeBtnEl.addEventListener("click", () => {
@@ -2752,6 +2753,7 @@
               toast(ok ? "Copiado ✅" : "No pude copiar ❌");
             } else {
               const clip = await readFromClipboard();
+              if (!clip) { toast('No se pegó ningún texto'); return; }
               note.text = clip;
               note.updatedAt = Date.now();
               saveDebounced();
@@ -2908,7 +2910,7 @@
         if (idx === -1) return;
 
         const [removed] = notes.splice(idx, 1);
-        undoState = { note: removed, index: idx };
+        const undoEntry = { note: removed, index: idx };
 
         if (activeNoteId === id) closeNoteDialog_();
 
@@ -2916,17 +2918,16 @@
         renderAll();
 
         toastWithAction("Nota eliminada", "Deshacer", () => {
-          if (!undoState) return;
-          notes.splice(undoState.index, 0, undoState.note);
+          if (notes.some(n => n.id === undoEntry.note.id)) return;
+          notes.splice(Math.min(undoEntry.index, notes.length), 0, undoEntry.note);
 
           if (settings.sortMode === "manual") {
-            const catId = undoState.note.categoryId || GENERAL_CATEGORY_ID;
-            renormalizeOrders(!!undoState.note.pinned, catId);
+            const catId = undoEntry.note.categoryId || GENERAL_CATEGORY_ID;
+            renormalizeOrders(!!undoEntry.note.pinned, catId);
           }
 
           saveDebounced();
           renderAll();
-          undoState = null;
           toast("Restaurada ✅");
         }, 4500);
       }
@@ -2988,7 +2989,7 @@
 
         if (name.endsWith(".json")) {
           const data = safeParse(text, null);
-          if (!data) { toast("JSON inválido ❌"); return; }
+          if (!data || typeof data !== "object" || !Array.isArray(data.notes)) { toast("JSON de notas inválido"); return; }
 
           const incomingCats = Array.isArray(data.categories) ? data.categories : [];
           const incomingNotes = Array.isArray(data.notes) ? data.notes : [];
@@ -3025,9 +3026,12 @@
           const existing = new Set(notes.map(n => n.id));
 
           for (const n of incomingNotes) {
+            if (!n || typeof n !== "object" || Array.isArray(n)) continue;
             const nn = { ...n };
+            nn.id = String(nn.id || "");
             if (!nn.id || existing.has(nn.id)) nn.id = makeId();
             existing.add(nn.id);
+            nn.text = String(nn.text ?? "");
 
             if (idMap.has(String(nn.categoryId))) nn.categoryId = idMap.get(String(nn.categoryId));
             if (!catIds.has(nn.categoryId)) nn.categoryId = GENERAL_CATEGORY_ID;
@@ -3055,16 +3059,15 @@
           return;
         }
 
-        const cleaned = text
-          .replace(/\r/g, "")
-          .replace(/^===\s*FIJADAS\s*===\s*\n?/im, "")
-          .replace(/^===\s*NOTAS\s*===\s*\n?/im, "")
-          .replace(/^===\s*CATEGORIA:\s*.*?===\s*\n?/gim, "")
-          .split(/\n\s*---\s*\n/g)
-          .join("\n\n");
-
-        const blocks = cleaned
-          .split(/\n\s*\n+/)
+        const normalized = text.replace(/\r\n?/g, "\n").trim();
+        const exported = /^===[ \t]*(?:FIJADAS|NOTAS)[ \t]*===[ \t]*$/im.test(normalized);
+        const cleaned = exported
+          ? normalized.replace(/^[ \t]*===[ \t]*(?:FIJADAS|NOTAS|CATEGORIA:[^\n]*?)[ \t]*===[ \t]*$/gim, "\n---\n")
+          : normalized;
+        // En una exportación, los párrafos internos no separan las notas.
+        const blocks = (exported
+          ? cleaned.split(/\n[ \t]*---[ \t]*\n/)
+          : cleaned.split(/\n[ \t]*\n+/))
           .map(s => s.trim())
           .filter(Boolean);
 
