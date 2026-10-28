@@ -44,7 +44,7 @@ async function contextFor({mobile=false,api='offline',seed=false,seedAuth=true,s
       if(api==='offline'){await route.abort('failed');return;}
       if(req.method()==='GET'){
         const cb=url.searchParams.get('callback');
-        await route.fulfill({contentType:'text/javascript',body:cb+'('+JSON.stringify(b?JSON.parse(b.context.doGet({parameter:Object.fromEntries(url.searchParams)}).data):fixture)+');'});return;
+        await route.fulfill({contentType:'text/javascript',body:b?b.context.doGet({parameter:Object.fromEntries(url.searchParams)}).data:cb+'('+JSON.stringify(fixture)+');'});return;
       }
       posts++;
       if(!b)throw Error('Blind write to legacy backend');
