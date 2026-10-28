@@ -2939,11 +2939,11 @@
         if (typeof noteDialogEl.showModal === "function") noteDialogEl.showModal();
         else noteDialogEl.setAttribute("open", "open");
 
-        setTimeout(() => {
-          noteEditorEl.focus();
-          const len = noteEditorEl.value.length;
-          noteEditorEl.selectionStart = noteEditorEl.selectionEnd = len;
-        }, 0);
+        // Enfocar ahora: un callback pendiente puede mover el cursor durante la escritura
+        // o robar el foco a otra pestaña después de que el usuario ya seleccionó texto.
+        noteEditorEl.focus();
+        const len = noteEditorEl.value.length;
+        noteEditorEl.selectionStart = noteEditorEl.selectionEnd = len;
       }
 
       function closeNoteDialog_() {
