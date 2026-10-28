@@ -144,3 +144,9 @@ test('clipboard permission delay survives an autosave and canceling the fallback
   await page.evaluate(()=>{navigator.clipboard.readText=()=>Promise.reject(new Error('Denied'));});page.once('dialog',dialog=>dialog.dismiss());await page.locator('.note [data-action="copyPaste"]').click();
   assert.equal((await record(page)).state.notes[0].text,'');await context.close();
 });
+test('closing the tab before the debounce finishes recovers the newest text on reopening',async()=>{
+  const {context}=await contextFor();const first=await context.newPage();await first.goto(origin+'/notas.html');await ready(first);
+  await first.locator('#newNote').click();await first.locator('#noteEditor').fill('last keystroke before closing');await first.close();
+  const reopened=await context.newPage();await reopened.goto(origin+'/notas.html');await ready(reopened);await savedText(reopened,'last keystroke before closing');
+  assert.equal((await record(reopened)).state.notes.filter(n=>n.text==='last keystroke before closing').length,1);await context.close();
+});
