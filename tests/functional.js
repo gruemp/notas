@@ -61,23 +61,27 @@ test('client: successful tab A save never removes tab B pending backup',async()=
   a.api.api(async()=>state(),async s=>{s.savedRevision='r2';});await a.api.flushPendingSave_();
   assert.equal(store.get(b.api.keys.tab),backup);assert.equal(store.has(a.api.keys.tab),false);
 });
-test('client: typing during a slow save preserves newest edit and stages follow-up',async()=>{
-  const c=makeClient();c.api.setState(state());let finish;const gate=new Promise(r=>finish=r);
-  c.api.api(async()=>state(),async s=>{await gate;s.savedRevision='r2';});c.api.edit('a','first');
-  const saving=c.api.flushPendingSave_();await Promise.resolve();await Promise.resolve();c.api.edit('a','second');finish();await saving;
-  assert.equal(c.api.getState().notes[0].text,'second');assert.equal(c.api.getState().confirmedRevision,1);
-  assert.equal(JSON.parse(c.storage.get(c.api.keys.tab)).state.notes[0].text,'second');
+test('client: typing during a slow cloud save is durably saved locally before the cloud responds',async()=>{
+  const c=makeClient();c.api.setState(state());let finish,started;const gate=new Promise(r=>finish=r),ready=new Promise(r=>started=r);
+  c.api.api(async()=>state(),async s=>{started();await gate;s.savedRevision='r2';});c.api.edit('a','first');
+  const saving=c.api.flushPendingSave_();await ready;c.api.edit('a','second');await c.api.flushLocal();
+  assert.equal(c.record().state.notes[0].text,'second');finish();await saving;
+  assert.equal(c.api.getState().notes[0].text,'second');assert.equal(c.record().state.notes[0].text,'second');
 });
-test('client: connection failure keeps recoverable journal; reload can enumerate it',async()=>{
+
+test('client: connection failure does not prevent durable local save or full reload',async()=>{
   const c=makeClient();c.api.setState(state());c.api.api(async()=>{throw Error('offline');},()=>assert.fail());c.api.edit('a','offline edit');await c.api.flushPendingSave_();
-  const reloaded=makeClient(c.storage);assert.equal(reloaded.api.readPending_()[0].value.state.notes[0].text,'offline edit');assert.equal(c.api.getState().confirmedRevision,0);
+  assert.equal(c.record().state.notes[0].text,'offline edit');const reloaded=makeClient(c.storage);reloaded.api.api(async()=>{throw Error('offline');},()=>assert.fail());await reloaded.api.init();
+  assert.equal(reloaded.api.getState().notes[0].text,'offline edit');assert.equal(c.api.getState().confirmedRevision,0);
 });
-test('client: stale periodic read cannot replace edits made and saved while GET was pending',async()=>{
-  const c=makeClient();c.api.setState(state());let resolve;let count=0;
-  c.api.api(()=>++count===1?new Promise(r=>resolve=r):Promise.resolve(state()),async s=>{s.savedRevision='r2';});
-  c.api.startAutoSync();const sync=c.intervals[0]();c.api.edit('a','new');await c.api.flushPendingSave_();resolve(state());await sync;
-  assert.equal(c.api.getState().notes[0].text,'new');
+
+test('client: stale cloud read cannot replace edits saved locally while GET was pending',async()=>{
+  const c=makeClient();c.api.setState(state());let resolve;
+  c.api.api(()=>new Promise(r=>resolve=r),async s=>s.savedRevision='r2');const sync=c.api.flushCloudSave_();
+  c.api.edit('a','new');await c.api.flushLocal();resolve(state());await sync;
+  assert.equal(c.api.getState().notes[0].text,'new');assert.equal(c.record().state.notes[0].text,'new');
 });
+
 test('client: malformed remote response cannot erase data',()=>{
   const {api}=makeClient();for(const bad of [null,{}, {notes:[],categories:null},{notes:[null],categories:[]},{notes:[note('a'),note('a')],categories:[]}]) assert.throws(()=>api.validateRemote_(bad));
 });
@@ -110,15 +114,18 @@ test('client: acknowledgement removes adopted backup only if its exact contents 
   const c=makeClient();c.api.setState(state());c.api.adopt('notas_web_pending_state_v1:other','old');c.storage.set('notas_web_pending_state_v1:other','new edit');
   c.api.api(async()=>state(),async s=>s.savedRevision='r2');c.api.edit('a','A');await c.api.flushPendingSave_();assert.equal(c.storage.get('notas_web_pending_state_v1:other'),'new edit');
 });
-test('client: concurrent conflicting edit remains pending and never sends a destructive POST',async()=>{
-  const c=makeClient();c.api.setState(state());const remote=state();remote.notes[0].text='remote';let posts=0;
-  c.api.api(async()=>remote,async()=>posts++);c.api.edit('a','local');await c.api.flushPendingSave_();
-  assert.equal(posts,0);assert.equal(c.api.getState().notes[0].text,'local');assert.ok(c.storage.has(c.api.keys.tab));
+test('client: concurrent conflicting edit preserves both versions with one deterministic recovered ID',async()=>{
+  const c=makeClient();c.api.setState(state());const remote=state();remote.notes[0].text='remote';let sent;
+  c.api.api(async()=>copy(remote),async s=>{sent=copy(s);s.savedRevision='r2';});c.api.edit('a','local');await c.api.flushPendingSave_();
+  assert.ok(sent.notes.some(n=>n.text==='remote'));assert.ok(sent.notes.some(n=>n.text==='local'));assert.equal(c.api.getState().notes.length,3);
+  const merged=c.api.mergeLocalStates_(state(),{...state(),notes:[note('a','local'),note('b')]},remote);assert.equal(merged.notes.filter(n=>n.text==='local').length,1);
 });
-test('client: backend without v5 revision does not receive a blind snapshot save',async()=>{
+
+test('client: backend without v5 revision receives no blind write while local edits remain durable',async()=>{
   const c=makeClient();c.api.setState(state());const remote=state();delete remote.revision;let posts=0;
-  c.api.api(async()=>remote,async()=>posts++);c.api.edit('a','local');await c.api.flushPendingSave_();assert.equal(posts,0);assert.ok(c.storage.has(c.api.keys.tab));
+  c.api.api(async()=>copy(remote),async()=>posts++);c.api.edit('a','local');await c.api.flushPendingSave_();assert.equal(posts,0);assert.ok(c.record().state.notes.some(n=>n.text==='local'));
 });
+
 test('bridge: only a correlated acknowledgement from a Google origin confirms a save',async()=>{
   const c=makeClient(),s=state();c.context.document.createElement=(tag)=>({name:'',style:{},setAttribute(){},appendChild(){},submit(){},contentWindow:{}});
   const pending=c.api.apiSaveAll_(s);let listener=c.listeners.get('message');assert.ok(listener);
@@ -127,13 +134,13 @@ test('bridge: only a correlated acknowledgement from a Google origin confirms a 
   assert.equal(s.savedRevision,undefined);assert.equal(c.listeners.has('message'),true);
   const timeout=[...c.timers.values()].find(t=>t.ms===12000);timeout.f();await assert.rejects(pending,/sin confirmación/);
 });
-test('client: conflict created WHILE saving retains the old baseline to prevent a later overwrite',async()=>{
-  const c=makeClient();const base=state(),remote=state();remote.notes[1].text='other tab';c.api.setState(base);let finish, started;const ready=new Promise(r=>started=r);
-  c.api.api(async()=>remote,async s=>{started();await new Promise(r=>finish=r);s.savedRevision='r2';});c.api.edit('a','A');
-  const pending=c.api.flushPendingSave_();await ready;c.api.edit('b','our conflicting edit');finish();await pending;
-  assert.equal(c.api.getState().baseState.notes[1].text,'original');let posts=0;
-  c.api.api(async()=>({...remote,notes:[{...remote.notes[0],text:'A'},remote.notes[1]]}),async()=>posts++);await c.api.flushPendingSave_();assert.equal(posts,0);
+test('client: conflict created while a cloud write is pending preserves both texts locally',async()=>{
+  const c=makeClient();const base=state(),remote=state();remote.notes[1].text='other tab';c.api.setState(base);let finish,started;const ready=new Promise(r=>started=r);
+  c.api.api(async()=>copy(remote),async s=>{started();await new Promise(r=>finish=r);s.savedRevision='r2';});c.api.edit('a','A');
+  const pending=c.api.flushPendingSave_();await ready;c.api.edit('b','our conflicting edit');await c.api.flushLocal();finish();await pending;
+  assert.ok(c.record().state.notes.some(n=>n.text==='other tab'));assert.ok(c.record().state.notes.some(n=>n.text==='our conflicting edit'));
 });
+
 test('bridge: Google nested frame acknowledgement confirms the exact submitted request',async()=>{
   const c=makeClient(),s=state(),inputs=[];
   c.context.document.createElement=tag=>{const el={style:{},setAttribute(){},appendChild(){},submit(){},contentWindow:{}};if(tag==='input')inputs.push(el);return el;};
@@ -162,20 +169,39 @@ test('client: failed snapshot allocation keeps previous backup and newest edit i
   const c=makeClient();c.api.setState(state());c.api.edit('a','backed up');const key=c.api.keys.tab,raw=c.storage.get(key);
   c.localStorage.setItem=()=>{throw Error('Quota exceeded');};c.api.edit('a','new edit');assert.equal(c.storage.get(key),raw);assert.equal(c.api.getState().notes[0].text,'new edit');
 });
-test('client: full initialization merges recoverable journals with current remote state',async()=>{
+test('client: full initialization restores journals immediately and subsequently merges remote additions',async()=>{
   const a=makeClient(),b=makeClient(a.storage);a.api.setState(state());b.api.setState(state());a.api.edit('a','A');b.api.edit('b','B');
   const c=makeClient(a.storage);const remote=state();remote.notes.push(note('c','remote addition'));c.api.api(async()=>copy(remote),async s=>s.savedRevision='r2');
-  await c.api.init();assert.equal(c.api.getState().notes.length,3);assert.equal(c.api.getState().notes.find(n=>n.id==='a').text,'A');assert.equal(c.api.getState().notes.find(n=>n.id==='b').text,'B');
-  await c.api.flushPendingSave_();assert.equal(c.api.readPending_().length,0);
+  await c.api.init();await c.api.flushPendingSave_();assert.equal(c.api.getState().notes.length,3);assert.equal(c.api.getState().notes.find(n=>n.id==='a').text,'A');assert.equal(c.api.getState().notes.find(n=>n.id==='b').text,'B');
+  assert.equal(c.api.readPending_().length,0);
 });
-test('client: conflicting journals remain exportable after full initialization without a POST',async()=>{
+
+test('client: conflicting journals recover both variants without requiring configuration',async()=>{
   const a=makeClient(),b=makeClient(a.storage);a.api.setState(state());b.api.setState(state());a.api.edit('a','variant A');b.api.edit('a','variant B');
-  const originals=[...a.storage.keys()],c=makeClient(a.storage);let posts=0;c.api.api(async()=>state(),async()=>posts++);await c.api.init();await c.api.flushPendingSave_();
-  assert.equal(c.api.getState().recoveryBlocked,true);assert.equal(posts,0);assert.ok(originals.every(k=>c.storage.has(k)));
-  let exported;c.api.onDownload((n,t)=>exported=JSON.parse(t));c.api.exportJSON();assert.ok(exported.pendingBackups.length>=2);
+  const c=makeClient(a.storage);c.api.api(async()=>{throw Error('offline');},()=>assert.fail());await c.api.init();
+  assert.ok(c.record().state.notes.some(n=>n.text==='variant A'));assert.ok(c.record().state.notes.some(n=>n.text==='variant B'));
+  let exported;c.api.onDownload((n,t)=>exported=JSON.parse(t));c.api.exportJSON();assert.ok(exported.notes.some(n=>n.text==='variant A'));assert.ok(exported.notes.some(n=>n.text==='variant B'));
 });
+
 test('backend: known English headers and the legacy missing pinned column migrate without data loss',()=>{
   const b=makeBackend(),base=seed(b),cats=b.sheets.get('Categories');
   cats.getRange(1,1,1,6).setValues([['id','name','color','order','collapsed','']]);cats.getRange(2,6,1,1).clearContent();
   const got=b.get();assert.equal(got.ok,true);assert.equal(got.notes[0].text,base.notes[0].text);assert.equal(cats.getRange(1,6).getValue(),'Fijadas contraídas');
+});
+test('client: first launch and local saving do not wait for an unresponsive API',async()=>{
+  const c=makeClient();c.api.api(()=>new Promise(()=>{}),()=>assert.fail());await c.api.init();
+  assert.equal(c.api.getState().categories[0].id,'general');assert.ok(c.record());
+  await c.api.importFile({name:'draft.json',text:async()=>JSON.stringify({notes:[note('fresh','first offline note')],categories:[cat]})});await c.api.flushLocal();
+  assert.equal(c.record().state.notes[0].text,'first offline note');
+});
+test('client: concurrent local commits merge independent edits without a network',async()=>{
+  const storage=new Map(),a=makeClient(storage),b=makeClient(storage);a.api.setState(state());b.api.setState(state());
+  for(const c of[a,b])c.api.api(async()=>{throw Error('offline');},()=>assert.fail());
+  a.api.edit('a','A offline');b.api.edit('b','B offline');await Promise.all([a.api.flushLocal(),b.api.flushLocal()]);
+  assert.ok(a.record().state.notes.some(n=>n.text==='A offline'));assert.ok(a.record().state.notes.some(n=>n.text==='B offline'));assert.equal(a.record().state.notes.length,2);
+});
+test('client: local delete versus simultaneous edit preserves the edited text',()=>{
+  const {api}=makeClient(),base=state(),a=state(),b=state();a.notes=a.notes.filter(n=>n.id!=='a');b.notes[0].text='newest text';
+  assert.ok(api.mergeLocalStates_(base,a,b).notes.some(n=>n.text==='newest text'));
+  assert.ok(api.mergeLocalStates_(base,b,a).notes.some(n=>n.text==='newest text'));
 });

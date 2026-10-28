@@ -1,0 +1,120 @@
+'use strict';
+// These tests use an isolated Chromium profile and a loopback HTTP server.
+// All requests outside that server are intercepted. No production data is read or written.
+const {test,before,after}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const http=require('node:http');
+const {execFileSync}=require('node:child_process');
+const {chromium,devices}=require('playwright');
+const backend=require('./backend-harness');
+const root=path.join(__dirname,'..');
+const fixture={ok:true,v:4,categories:[{id:'general',name:'General',color:'#4F46E5',order:-100000,collapsed:false,collapsedPinned:false}],notes:[{id:'fixture',text:'el retén bueno\n\nsegundo párrafo',createdAt:1700000000000,updatedAt:1700000000000,pinned:false,order:0,categoryId:'general'}],settings:{}};
+let server,browser,origin,baseline;
+before(async()=>{
+  baseline=execFileSync('git',['show','5e6ad21bbb66675312414e06f91812874b2d09dc:notas.html'],{cwd:root,encoding:'utf8'});
+  server=http.createServer((req,res)=>{
+    const pathname=new URL(req.url,'http://localhost').pathname;
+    const file=pathname==='/'?'index.html':pathname.slice(1);
+    if(!['index.html','notas.html','sw.js','baseline.html'].includes(file)){res.writeHead(404).end();return;}
+    res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':'text/html; charset=utf-8');
+    res.setHeader('Cache-Control','no-cache');
+    res.end(file==='baseline.html'?baseline:fs.readFileSync(path.join(root,file)));
+  });
+  await new Promise(r=>server.listen(0,'127.0.0.1',r));origin='http://127.0.0.1:'+server.address().port;
+  browser=await chromium.launch({headless:true});fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
+});
+after(async()=>{await browser?.close();await new Promise(r=>server?.close(r));});
+async function contextFor({mobile=false,api='offline',seed=false,serviceWorkers='block'}={}){
+  const context=await browser.newContext({...mobile?devices['iPhone 13']:{viewport:{width:1280,height:900}},timezoneId:'America/Bogota',serviceWorkers});
+  await context.addInitScript(({seed,fixture})=>{
+    localStorage.setItem('notas_web_category_collapse_v1',JSON.stringify({general:{normal:false,pinned:false}}));
+    if(seed&&!localStorage.getItem('notas_web_last_state_v1'))localStorage.setItem('notas_web_last_state_v1',JSON.stringify(fixture));
+  },{seed,fixture});
+  let posts=0;
+  const b=api==='v5'?backend():null;
+  if(b){const s=b.get();b.post({...fixture,baseRevision:s.revision});}
+  await context.route('**/*',async route=>{
+    const req=route.request(),url=new URL(req.url());
+    if(url.origin===origin){await route.continue();return;}
+    if(url.hostname==='script.google.com'){
+      if(api==='offline'){await route.abort('failed');return;}
+      if(req.method()==='GET'){
+        const cb=url.searchParams.get('callback');
+        await route.fulfill({contentType:'text/javascript',body:cb+'('+JSON.stringify(b?b.get():fixture)+');'});return;
+      }
+      posts++;
+      if(!b)throw Error('Blind write to legacy backend');
+      const form=new URLSearchParams(req.postData());const out=b.post(JSON.parse(form.get('payload')),form.get('requestId'));
+      await route.fulfill({contentType:'text/html',body:'<script>window.top.postMessage('+JSON.stringify(out)+','+JSON.stringify(origin)+')</script>'});return;
+    }
+    await route.abort('blockedbyclient');
+  });
+  return {context,posts:()=>posts,backend:b};
+}
+async function ready(page){await page.waitForFunction(()=>document.querySelector('#notesList')?.children.length>0);}
+async function record(page){return page.evaluate(()=>new Promise((resolve,reject)=>{
+  const r=indexedDB.open('notas_durable_v1',1);r.onerror=()=>reject(r.error);r.onsuccess=()=>{const db=r.result,tx=db.transaction('state','readonly'),get=tx.objectStore('state').get('current');tx.oncomplete=()=>{resolve(get.result);db.close();};};
+}));}
+async function savedText(page,text){await page.waitForFunction(async text=>{
+  return new Promise(resolve=>{const r=indexedDB.open('notas_durable_v1',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('state','readonly'),get=tx.objectStore('state').get('current');tx.oncomplete=()=>{resolve(get.result?.state?.notes.some(n=>n.text===text));db.close();};};});
+},text);}
+async function create(page,text){await page.locator('#newNote').click();await page.locator('#noteEditor').fill(text);await page.locator('#noteClose').click();await savedText(page,text);}
+async function openNote(page,id){const group=page.locator('.cat-group').filter({has:page.locator('.note[data-id="'+id+'"]')});if((await group.getAttribute('class')).includes('collapsed'))await group.locator('[data-action="toggleCat"]').click();await page.locator('.note[data-id="'+id+'"] .note-view').click();}
+for(const mobile of [false,true]){
+  test((mobile?'mobile':'desktop')+': unavailable API, typing, reload, search, clipboard, delete/undo, categories and JSON export',async()=>{
+    const {context,posts}=await contextFor({mobile});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    try{
+      await page.goto(origin+'/notas.html');await ready(page);
+      const text='el retén bueno\n\npárrafo conservado';await create(page,text);
+      await page.reload();await ready(page);let r=await record(page);assert.equal(r.state.notes[0].text,text);const id=r.state.notes[0].id;
+      await page.locator('#search').fill('BUE te el');await page.waitForFunction(()=>document.querySelectorAll('.note:not([hidden])').length===1);
+      await page.locator('#search').fill('inexistente');await page.waitForFunction(()=>document.querySelectorAll('.note:not([hidden])').length===0);await page.locator('#clearSearch').click();
+      const row=page.locator('.note[data-id="'+id+'"]');
+      await row.locator('[data-action="pin"]').click();await page.waitForFunction(()=>document.querySelector('#pinnedList .note'));await row.locator('[data-action="pin"]').click();
+      await row.locator('[data-action="delete"]').click();await page.getByRole('button',{name:'Deshacer',exact:true}).click();assert.equal(await page.locator('.note').count(),1);
+      await context.grantPermissions(['clipboard-read','clipboard-write']);await row.locator('[data-action="copyPaste"]').click();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),text);
+      await row.locator('[data-action="clear"]').click();await row.locator('[data-action="copyPaste"]').click();await savedText(page,text);
+      await page.locator('#newCatTop').click();await page.locator('#catNewName').fill('Trabajo');await page.locator('#catAddBtn').click();await page.locator('#catClose').click();
+      const work=await row.locator('select option').allTextContents();assert.ok(work.includes('Trabajo'));
+      await row.locator('select').selectOption({label:'Trabajo'});await page.waitForFunction(()=>document.querySelector('#catFilter option')?.parentElement.options.length===3);
+      const download=page.waitForEvent('download');await page.locator('#exportJson').click();const file=await download;const data=JSON.parse(fs.readFileSync(await file.path(),'utf8'));assert.ok(data.notes.some(n=>n.text===text));assert.ok(data.categories.some(c=>c.name==='Trabajo'));
+      await page.goto(origin+'/');await ready(page);assert.equal((await record(page)).state.notes.length,1);assert.equal(posts(),0);assert.deepEqual(errors,[]);
+    }catch(error){await page.screenshot({path:path.join(root,'test-results',mobile?'mobile.png':'desktop.png'),fullPage:true});throw error;}finally{await context.close();}
+  });
+}
+test('actual IndexedDB transactions combine simultaneous edits in two tabs and restore them on reload',async()=>{
+  const {context}=await contextFor();const a=await context.newPage();await a.goto(origin+'/notas.html');await ready(a);await create(a,'first');await create(a,'second');
+  const r=await record(a),[first,second]=r.state.notes;const b=await context.newPage();await b.goto(origin+'/notas.html');await ready(b);
+  await openNote(a,first.id);await openNote(b,second.id);await Promise.all([a.locator('#noteEditor').fill('A changed'),b.locator('#noteEditor').fill('B changed')]);
+  await Promise.all([a.locator('#noteClose').click(),b.locator('#noteClose').click()]);await savedText(a,'A changed');await savedText(a,'B changed');
+  await a.reload();await ready(a);const got=await record(a);assert.ok(got.state.notes.some(n=>n.text==='A changed'));assert.ok(got.state.notes.some(n=>n.text==='B changed'));assert.equal(got.state.notes.length,2);await context.close();
+});
+test('two tabs editing the same note preserve both versions without repeated conflict copies',async()=>{
+  const {context}=await contextFor();const a=await context.newPage();await a.goto(origin+'/notas.html');await ready(a);await create(a,'original');const id=(await record(a)).state.notes[0].id;
+  const b=await context.newPage();await b.goto(origin+'/notas.html');await ready(b);await openNote(a,id);await openNote(b,id);
+  await Promise.all([a.locator('#noteEditor').fill('version A'),b.locator('#noteEditor').fill('version B')]);
+  await Promise.all([a.locator('#noteClose').click(),b.locator('#noteClose').click()]);await savedText(a,'version A');await savedText(a,'version B');
+  await a.reload();await ready(a);assert.equal((await record(a)).state.notes.length,2);await a.reload();await ready(a);assert.equal((await record(a)).state.notes.length,2);await context.close();
+});
+test('service worker restores the application shell and notes during a completely offline reload',async()=>{
+  const {context}=await contextFor({serviceWorkers:'allow'});const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);await create(page,'offline persists');
+  await page.evaluate(()=>navigator.serviceWorker.ready);await page.waitForFunction(()=>!!navigator.serviceWorker.controller);
+  await context.setOffline(true);await page.reload({waitUntil:'domcontentloaded'});await ready(page);assert.equal((await record(page)).state.notes[0].text,'offline persists');await context.setOffline(false);await context.close();
+});
+test('client/server v5 protocol saves through a real cross-origin iframe and acknowledges the version',async()=>{
+  const {context,backend:b,posts}=await contextFor({api:'v5'});const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);await create(page,'cloud protocol');
+  await page.waitForFunction(async()=>new Promise(resolve=>{const r=indexedDB.open('notas_durable_v1',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('state','readonly'),get=tx.objectStore('state').get('current');tx.oncomplete=()=>{resolve(get.result?.cloudBase?.notes.some(n=>n.text==='cloud protocol'));db.close();};};}));
+  assert.ok(b.get().notes.some(n=>n.text==='cloud protocol'));assert.ok(posts()>0);await context.close();
+});
+for(const mobile of [false,true]){
+  test((mobile?'mobile':'desktop')+': rendered appearance matches the original main exactly',async()=>{
+    const {context}=await contextFor({mobile,api:'legacy',seed:true});const original=await context.newPage(),updated=await context.newPage();
+    await original.goto(origin+'/baseline.html');await ready(original);await updated.goto(origin+'/notas.html');await ready(updated);await savedText(updated,fixture.notes[0].text);
+    for(const page of [original,updated]){await page.locator('#toast').evaluate(el=>{el.classList.remove('show');el.style.opacity='0';});await page.evaluate(()=>document.activeElement.blur());}
+    const before=await original.screenshot({animations:'disabled'}),after=await updated.screenshot({animations:'disabled'});
+    fs.writeFileSync(path.join(root,'test-results',(mobile?'mobile':'desktop')+'-original.png'),before);fs.writeFileSync(path.join(root,'test-results',(mobile?'mobile':'desktop')+'-updated.png'),after);
+    assert.ok(before.equals(after),'Rendered pixels differ');await context.close();
+  });
+}

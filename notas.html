@@ -1408,47 +1408,35 @@
 
       async function init() {
         try {
-          if (isLikelyBadApiUrl_(API_URL)) {
-            toast("Configura API_URL con tu /exec real (Apps Script Web App)");
-            console.error("API_URL inválida:", API_URL);
-            return;
-          }
-
           const pendingEntries = readPending_();
-          let restoring = pendingEntries.length > 0;
-          let remote;
-          try {
-            remote = await apiGetState_();
-            try { localStorage.setItem(CACHE_KEY, JSON.stringify(remote)); } catch {}
-          } catch (error) {
-            remote = safeParse(safeStorageGet_(CACHE_KEY), null);
-            if (!remote && !restoring) throw error;
-            if (!remote) remote = pendingEntries[0].value.base || pendingEntries[0].value.state || pendingEntries[0].value;
-            toast("Sin conexión: notas recuperadas de este dispositivo");
-          }
-          validateRemote_(remote);
-          baseState = cloneState_(remote);
-          let recovered = cloneState_(remote);
+          const restoring = pendingEntries.length > 0;
+          const cached = safeParse(safeStorageGet_(CACHE_KEY), null);
+          let record = null;
+          try { record = await readLocalRecord_(); } catch (error) { console.warn("Almacén local no disponible:", error); }
+          const initial = record?.state || cached || emptyState_();
+          validateRemote_(initial);
+          localBaseState = cloneState_(initial);
+          baseState = record ? record.cloudBase : (cached?.localOnly ? cached.cloudBase : cached);
+          let recovered = cloneState_(initial);
           for (const entry of pendingEntries) {
+            const value = entry.value.state || entry.value;
             try {
-              if (!entry.value.base && makeSnapshot_(entry.value.categories, entry.value.notes) !== makeSnapshot_(remote.categories, remote.notes)) throw new Error("Respaldo antiguo sin versión base");
-              recovered = mergeStates_(entry.value.base || remote, entry.value.state || entry.value, recovered);
+              validateRemote_(value);
+              // Sin una base verificable solo se incorporan datos; nunca se infieren borrados.
+              recovered = mergeLocalStates_(entry.value.base || emptyState_(), value, recovered);
               adoptedPending.set(entry.key, entry.raw);
+              if (!baseState && entry.value.cloudBase) baseState = cloneState_(entry.value.cloudBase);
             } catch (error) {
-              // Un conflicto se conserva en su clave original; nunca se descarta.
-              recoveryBlocked = true;
-              toast("Conflicto de recuperación: conserva y exporta los cambios pendientes", 6000);
-              recovered = cloneState_(entry.value.state || entry.value);
-              baseState = entry.value.base || null;
-              break;
+              console.warn("Respaldo pendiente conservado:", error);
+              toast("Hay un respaldo que necesita revisión; se conserva para exportarlo", 5000);
             }
           }
           notes = recovered.notes;
           categories = recovered.categories;
-          if (restoring) localRevision = 1;
+
 
           const localSettings = safeParse(safeStorageGet_(SETTINGS_KEY), {}) || {};
-          settings = { ...DEFAULT_SETTINGS, ...(remote?.settings || {}), ...localSettings };
+          settings = { ...DEFAULT_SETTINGS, ...(initial?.settings || {}), ...localSettings };
 
           const savedTheme = safeStorageGet_(THEME_KEY);
           if (savedTheme && ["auto","dark","light"].includes(savedTheme)) settings.theme = savedTheme;
@@ -1465,15 +1453,20 @@
           syncTopSelectTitles_();
           renderAll();
 
-          if ((categories?.length || 0) === 0 && (notes?.length || 0) === 0) {
-            saveDebounced();
+          if (restoring || !record) {
+            localRevision++;
+            stagePending_();
+            await flushPendingSave_();
           }
 
           lastSnapshot = makeSnapshot_(categories, notes);
           startAutoSync();
-          if (restoring) { stagePending_(); scheduleSaveDebounced_(); }
+          initLocalNotifications_();
+          if (navigator.serviceWorker) navigator.serviceWorker.register("./sw.js").catch(error => console.warn("Caché sin conexión no disponible:", error));
+          // La carga y el guardado locales nunca esperan a Google.
+          if (hasCloudChanges_() || !baseState) flushCloudSave_();
         } catch (err) {
-          toast("Error cargando datos (revisa API_URL /exec y despliegue)");
+          toast("No se pudieron abrir los datos locales; conserva tus respaldos", 6000);
           console.error(err);
         }
       }
@@ -1913,6 +1906,7 @@
         if (typeof catDialogEl.close === "function") catDialogEl.close();
         else catDialogEl.removeAttribute("open");
         if (renderPending) { renderPending = false; renderAll(); }
+        refreshLocalState_();
       }
 
       function renderCatManager() {
@@ -2102,8 +2096,13 @@
       let confirmedRevision = 0;
       let baseState = null;
       let flushPromise = null;
-      let recoveryBlocked = false;
       let renderPending = false;
+      let localBaseState = null;
+      let localSavedRevision = 0;
+      let localSavePromise = null;
+      let localDatabasePromise = null;
+      let localChannel = null;
+      let cloudNoticeShown = false;
       const adoptedPending = new Map();
 
       function cloneState_(state) { return JSON.parse(JSON.stringify(state)); }
@@ -2177,7 +2176,7 @@
           // Cada versión tiene clave propia: nadie puede reemplazarla entre leerla y borrarla.
           const journalId = makeId();
           const nextKey = TAB_PENDING_KEY + ":snapshot:" + journalId;
-          localStorage.setItem(nextKey, JSON.stringify({journalId, state: serializeState(), base: baseState}));
+          localStorage.setItem(nextKey, JSON.stringify({journalId, state: serializeState(), base: localBaseState || baseState, cloudBase: baseState}));
           const previousKey = stagedPendingKey;
           stagedPendingKey = nextKey;
           if (previousKey) localStorage.removeItem(previousKey);
@@ -2185,65 +2184,254 @@
         } catch { toast("No se pudo guardar una copia local", 6000); return false; }
       }
 
+      function emptyState_() { return {v: 5, notes: [], categories: [], settings: {}}; }
+      function stateEqual_(a, b) { return makeSnapshot_(a?.categories, a?.notes) === makeSnapshot_(b?.categories, b?.notes); }
+      function hasCloudChanges_() { return !baseState || !stateEqual_(serializeState(), baseState); }
+
+      // La clave de una variante recuperada depende de su contenido: reintentar no la duplica.
+      function recoveryId_(id, item) {
+        const text = JSON.stringify(Object.keys(item).sort().map(k => [k, item[k]]));
+        let hash = 14695981039346656037n;
+        for (let i = 0; i < text.length; i++) hash = BigInt.asUintN(64, (hash ^ BigInt(text.charCodeAt(i))) * 1099511628211n);
+        return id + "_rec_" + hash.toString(16);
+      }
+      function mergeLocalStates_(base, local, remote) {
+        try { return mergeStates_(base, local, remote); } catch {}
+        const result = cloneState_(remote);
+        const equal = (a, b) => JSON.stringify(a && Object.keys(a).sort().map(k => [k, a[k]])) === JSON.stringify(b && Object.keys(b).sort().map(k => [k, b[k]]));
+        for (const key of ["categories", "notes"]) {
+          const before = new Map((base?.[key] || []).map(x => [x.id, x]));
+          const ours = new Map((local[key] || []).map(x => [x.id, x]));
+          const theirs = new Map((remote[key] || []).map(x => [x.id, x]));
+          for (const id of new Set([...before.keys(), ...ours.keys()])) {
+            const b = before.get(id), l = ours.get(id), r = theirs.get(id);
+            if (equal(b, l)) continue;
+            if (equal(b, r) || equal(l, r)) { if (l) theirs.set(id, l); else theirs.delete(id); continue; }
+            // En una carrera edición/borrado se conserva el texto editado.
+            if (!l) continue;
+            if (!r) { theirs.set(id, l); continue; }
+            if (key === "categories" && id === GENERAL_CATEGORY_ID) { theirs.set(id, {...r, ...l}); continue; }
+            if (b) {
+              const merged = {...r};
+              let conflict = false;
+              for (const field of new Set([...Object.keys(b), ...Object.keys(l)])) {
+                if (JSON.stringify(b[field]) === JSON.stringify(l[field])) continue;
+                if (JSON.stringify(b[field]) !== JSON.stringify(r[field]) && JSON.stringify(l[field]) !== JSON.stringify(r[field]) && field !== "updatedAt") conflict = true;
+                merged[field] = field === "updatedAt" ? Math.max(l[field] || 0, r[field] || 0) : l[field];
+              }
+              if (!conflict) { theirs.set(id, merged); continue; }
+            }
+            const copy = {...l, id: recoveryId_(id, l)};
+            if (key === "categories") copy.name = String(l.name) + " (recuperada)";
+            theirs.set(copy.id, copy);
+          }
+          result[key] = [...theirs.values()];
+        }
+        // Una categoría borrada en otra pestaña no puede dejar notas sin categoría.
+        const catIds = new Set(result.categories.map(c => c.id));
+        for (const n of result.notes) {
+          if (catIds.has(n.categoryId)) continue;
+          const source = [...(local.categories || []), ...(base?.categories || [])].find(c => c.id === n.categoryId);
+          if (source) { result.categories.push(cloneState_(source)); catIds.add(source.id); }
+          else n.categoryId = GENERAL_CATEGORY_ID;
+        }
+        if (!catIds.has(GENERAL_CATEGORY_ID)) result.categories.unshift({...DEFAULT_GENERAL_CATEGORY});
+        return result;
+      }
+      function openLocalDatabase_() {
+        if (localDatabasePromise) return localDatabasePromise;
+        localDatabasePromise = new Promise((resolve, reject) => {
+          if (!window.indexedDB) { reject(new Error("IndexedDB no disponible")); return; }
+          const request = window.indexedDB.open("notas_durable_v1", 1);
+          request.onupgradeneeded = () => { if (!request.result.objectStoreNames.contains("state")) request.result.createObjectStore("state"); };
+          request.onsuccess = () => {
+            const db = request.result;
+            db.onversionchange = () => { db.close(); localDatabasePromise = null; };
+            resolve(db);
+          };
+          request.onerror = () => { localDatabasePromise = null; reject(request.error || new Error("No se pudo abrir el almacén local")); };
+          request.onblocked = () => { localDatabasePromise = null; reject(new Error("Almacén local ocupado")); };
+        });
+        return localDatabasePromise;
+      }
+      async function readLocalRecord_() {
+        const db = await openLocalDatabase_();
+        return new Promise((resolve, reject) => {
+          const tx = db.transaction("state", "readonly");
+          const request = tx.objectStore("state").get("current");
+          tx.oncomplete = () => resolve(request.result || null);
+          tx.onerror = tx.onabort = () => reject(tx.error || new Error("No se pudo leer el almacén local"));
+        });
+      }
+      async function persistLocalRecord_(before, local, initialCloudBase, acknowledgedCloud) {
+        const db = await openLocalDatabase_();
+        return new Promise((resolve, reject) => {
+          let tx;
+          try { tx = db.transaction("state", "readwrite", {durability: "strict"}); }
+          catch { tx = db.transaction("state", "readwrite"); }
+          const store = tx.objectStore("state");
+          const request = store.get("current");
+          let output;
+          request.onsuccess = () => {
+            try {
+              const previous = request.result;
+              output = {
+                state: mergeLocalStates_(before || emptyState_(), local, previous?.state || before || emptyState_()),
+                cloudBase: acknowledgedCloud || previous?.cloudBase || initialCloudBase || null,
+                version: (previous?.version || 0) + 1
+              };
+              store.put(output, "current");
+            } catch (error) { reject(error); tx.abort(); }
+          };
+          tx.oncomplete = () => resolve(output);
+          tx.onerror = tx.onabort = () => reject(tx.error || new Error("No se pudo guardar en el dispositivo"));
+        });
+      }
+      function acknowledgeJournals_() {
+        if (stagedPendingKey) localStorage.removeItem(stagedPendingKey);
+        stagedPendingKey = null;
+        for (const [key, raw] of adoptedPending) {
+          const journal = safeParse(raw, null);
+          if (journal?.journalId && key.endsWith(":snapshot:" + journal.journalId)) localStorage.removeItem(key);
+          else localStorage.setItem(PENDING_ACK_KEY + key, raw);
+        }
+        adoptedPending.clear();
+      }
+      function adoptLocalModel_(next) {
+        const current = serializeState();
+        const changed = !stateEqual_(current, next);
+        if (activeNoteId) {
+          const old = current.notes.find(n => n.id === activeNoteId);
+          const replacement = next.notes.find(n => n.id === activeNoteId);
+          if (old && replacement && old.text !== replacement.text) {
+            const copy = next.notes.find(n => n.id.startsWith(activeNoteId + "_rec_") && n.text === old.text);
+            if (copy) activeNoteId = copy.id;
+          }
+        }
+        notes = next.notes;
+        categories = next.categories;
+        ensureGeneralCategory();
+        sanitizeNotesCategoryIds();
+        if (activeNoteId) {
+          const active = getNoteById(activeNoteId);
+          if (active && noteEditorEl.value !== active.text) {
+            const cursor = noteEditorEl.selectionStart || 0;
+            noteEditorEl.value = active.text;
+            noteEditorEl.selectionStart = noteEditorEl.selectionEnd = Math.min(cursor, active.text.length);
+          }
+        }
+        lastSnapshot = makeSnapshot_(categories, notes);
+        if (changed) {
+          if (!noteDialogEl?.open && !catDialogEl?.open && !pointerDrag && !dragId) renderAll();
+          else renderPending = true;
+        }
+      }
+      async function refreshLocalState_() {
+        if (localSavePromise || noteDialogEl?.open || catDialogEl?.open || pointerDrag || dragId) return;
+        try {
+          const record = await readLocalRecord_();
+          if (!record) return;
+          if (stateEqual_(record.state, localBaseState)) { baseState = record.cloudBase; return; }
+          const current = cloneState_(serializeState());
+          const next = mergeLocalStates_(localBaseState || emptyState_(), current, record.state);
+          localBaseState = cloneState_(record.state);
+          baseState = record.cloudBase;
+          adoptLocalModel_(next);
+          localRevision++;
+          if (stateEqual_(next, record.state)) localSavedRevision = localRevision;
+          else { stagePending_(); scheduleSaveDebounced_(); }
+        } catch (error) { console.warn("No se pudo actualizar la copia local:", error); }
+      }
+      function initLocalNotifications_() {
+        if (window.BroadcastChannel) {
+          localChannel = new window.BroadcastChannel("notas_durable_changes_v1");
+          localChannel.onmessage = () => { refreshLocalState_(); };
+        }
+        window.addEventListener("focus", () => { refreshLocalState_(); });
+        document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshLocalState_(); });
+      }
+      function notifyLocal_() { try { localChannel?.postMessage({changed: true}); } catch {} }
+      function cacheLocal_(record) {
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({...record.state, localOnly: true, cloudBase: record.cloudBase})); } catch {}
+      }
       function flushPendingSave_() {
+        if (localSavePromise) return localSavePromise;
+        if (localRevision <= localSavedRevision) { flushCloudSave_(); return Promise.resolve(); }
+        let saved = false;
+        localSavePromise = (async () => {
+          const revision = localRevision;
+          const snapshot = cloneState_(serializeState());
+          const record = await persistLocalRecord_(localBaseState || baseState || emptyState_(), snapshot, baseState, null);
+          const next = mergeLocalStates_(snapshot, cloneState_(serializeState()), record.state);
+          localBaseState = cloneState_(record.state);
+          baseState = record.cloudBase;
+          adoptLocalModel_(next);
+          localSavedRevision = revision;
+          saved = true;
+          cacheLocal_(record);
+          if (revision === localRevision) { try { acknowledgeJournals_(); } catch {} }
+          else stagePending_();
+          notifyLocal_();
+        })().catch(error => {
+          console.warn("Guardado local pendiente:", error);
+          const staged = stagePending_();
+          toast(staged ? "Guardado en la copia de recuperación de este dispositivo" : "No se pudo guardar: exporta tus notas antes de cerrar", 5000);
+        }).finally(() => {
+          localSavePromise = null;
+          if (saved && localRevision > localSavedRevision) scheduleSaveDebounced_();
+          if (saved) flushCloudSave_();
+        });
+        return localSavePromise;
+      }
+      function flushCloudSave_() {
         if (flushPromise) return flushPromise;
-        if (localRevision <= confirmedRevision || recoveryBlocked) return Promise.resolve();
-        let flushSucceeded = false;
+        if (!hasCloudChanges_() && baseState) return Promise.resolve();
         flushPromise = (async () => {
           const revision = localRevision;
-          const local = cloneState_(serializeState());
-          const before = cloneState_(baseState);
+          const snapshot = cloneState_(serializeState());
+          const before = cloneState_(baseState || emptyState_());
           const remote = await apiGetState_();
-          if (!remote.revision || !before) throw new Error("Actualiza Apps Script a v5 antes de guardar");
-          const merged = mergeStates_(before, local, remote);
-          merged.baseRevision = remote.revision;
-          await apiSaveAll_(merged);
-          // La respuesta confirma exactamente la instantánea enviada, nunca una edición posterior.
-          const committedState = cloneState_({...merged, revision: merged.savedRevision});
-          delete committedState.baseRevision;
-          delete committedState.savedRevision;
-          const current = cloneState_(serializeState());
-          const next = mergeStates_(local, current, committedState);
-          baseState = committedState;
-          const remoteChangedUI = makeSnapshot_(next.categories, next.notes) !== makeSnapshot_(current.categories, current.notes);
-          notes = next.notes;
-          categories = next.categories;
-          confirmedRevision = revision;
-          flushSucceeded = true;
-          lastSnapshot = makeSnapshot_(categories, notes);
-          if (revision === localRevision) {
-            try {
-              localStorage.setItem(CACHE_KEY, JSON.stringify(baseState));
-              if (stagedPendingKey) localStorage.removeItem(stagedPendingKey);
-              stagedPendingKey = null;
-              for (const [key, raw] of adoptedPending) {
-                const journal = safeParse(raw, null);
-                if (journal?.journalId && key.endsWith(":snapshot:" + journal.journalId)) {
-                  localStorage.removeItem(key);
-                } else {
-                  // Las versiones antiguas podían reescribir su clave: dejar un recibo
-                  // de la versión confirmada en vez de borrar una clave que aún usan.
-                  localStorage.setItem(PENDING_ACK_KEY + key, raw);
-                }
-              }
-              adoptedPending.clear();
-            } catch {}
-          } else stagePending_();
-          // Rehacer filas solo cuando no haya un diálogo o arrastre activo.
-          if (remoteChangedUI) {
-            if (!noteDialogEl?.open && !catDialogEl?.open && !pointerDrag && !dragId) renderAll();
-            else renderPending = true;
+          validateRemote_(remote);
+          // Un backend antiguo se puede leer, pero no sobrescribir sin revisión.
+          const merged = mergeLocalStates_(before, snapshot, remote);
+          let committed = cloneState_(remote);
+          if (remote.revision && !stateEqual_(merged, remote)) {
+            merged.baseRevision = remote.revision;
+            await apiSaveAll_(merged);
+            committed = cloneState_({...merged, revision: merged.savedRevision});
+            delete committed.baseRevision;
+            delete committed.savedRevision;
+          } else if (!remote.revision) {
+            if (stateEqual_(snapshot, merged) && stateEqual_(baseState, remote)) throw new Error("Sincronización remota sin control de versión");
+            const localRecord = await persistLocalRecord_(snapshot, merged, baseState, remote);
+            const next = mergeLocalStates_(snapshot, cloneState_(serializeState()), localRecord.state);
+            localBaseState = cloneState_(localRecord.state);
+            baseState = cloneState_(remote);
+            adoptLocalModel_(next);
+            cacheLocal_(localRecord);
+            notifyLocal_();
+            throw new Error("Sincronización remota sin control de versión");
           }
+          const record = await persistLocalRecord_(snapshot, committed, before, committed);
+          const next = mergeLocalStates_(snapshot, cloneState_(serializeState()), record.state);
+          baseState = cloneState_(committed);
+          localBaseState = cloneState_(record.state);
+          adoptLocalModel_(next);
+          if (revision === localRevision && stateEqual_(next, record.state)) localSavedRevision = revision;
+          confirmedRevision = revision;
+          cacheLocal_(record);
+          notifyLocal_();
+          if (hasCloudChanges_()) stagePending_();
+          else { try { acknowledgeJournals_(); } catch {} }
         })().catch(error => {
-          console.error("Error guardando notas:", error);
-          const backedUp = stagePending_();
-          toast(error.message.startsWith("Conflicto") ? "Conflicto: cambios locales pendientes; expórtalos antes de resolver" :
-            (backedUp ? "Guardado pendiente: hay una copia local" : "Guardado pendiente sin respaldo local: exporta tus notas"), 5000);
-        }).finally(() => {
-          flushPromise = null;
-          // Los cambios escritos durante un POST se guardan por la misma cola.
-          if (localRevision > confirmedRevision && flushSucceeded) scheduleSaveDebounced_();
-        });
+          console.warn("Sincronización remota no disponible:", error);
+          if (!cloudNoticeShown) {
+            cloudNoticeShown = true;
+            const backedUp = stagedPendingKey && safeStorageGet_(stagedPendingKey);
+            toast(localRevision <= localSavedRevision ? "Notas guardadas en este dispositivo. Nube no disponible" :
+              backedUp ? "Copia de recuperación guardada en este dispositivo. Nube no disponible" : "No se pudo confirmar el guardado: exporta tus notas", 5000);
+          }
+        }).finally(() => { flushPromise = null; });
         return flushPromise;
       }
 
@@ -2256,10 +2444,10 @@
       }
 
       function saveNow() {
-        if (localRevision <= confirmedRevision) return;
+        if (localRevision <= localSavedRevision) return;
         stagePending_();
         // Guardado inmediato por la misma cola, sin un segundo POST concurrente.
-        if (!flushPromise) flushPendingSave_();
+        if (!localSavePromise) flushPendingSave_();
       }
 
       function makeSnapshot_(cats, nts) {
@@ -2276,35 +2464,12 @@
 
       function startAutoSync() {
         setInterval(async () => {
-          const startedRevision = localRevision;
           const editing = !!(noteDialogEl?.open || catDialogEl?.open || pointerDrag || dragId || pendingPress);
           if (!editing && renderPending) { renderPending = false; renderAll(); }
-          if (editing || saveBusy || flushPromise || localRevision > confirmedRevision) {
-            if (!editing && !saveBusy && !flushPromise && localRevision > confirmedRevision) scheduleSaveDebounced_();
-            return;
-          }
-
-          try {
-            const remote = await apiGetState_();
-            // Impide que una lectura vieja reemplace cambios hechos después de pedirla.
-            if (startedRevision !== localRevision || noteDialogEl?.open || catDialogEl?.open || pointerDrag || dragId || pendingPress ||
-                saveBusy || flushPromise || localRevision > confirmedRevision) return;
-
-            baseState = cloneState_(remote);
-            notes = Array.isArray(remote?.notes) ? remote.notes : [];
-            categories = Array.isArray(remote?.categories) ? remote.categories : [];
-            ensureGeneralCategory();
-            sanitizeNotesCategoryIds();
-            const snap = makeSnapshot_(categories, notes);
-            if (snap !== lastSnapshot) {
-              lastSnapshot = snap;
-              renderCategoryFilter();
-              renderAll();
-              try { localStorage.setItem(CACHE_KEY, JSON.stringify(baseState)); } catch {}
-            }
-          } catch (error) {
-            console.warn("Sincronización no disponible:", error);
-          }
+          if (localRevision > localSavedRevision) { await flushPendingSave_(); return; }
+          if (editing) return;
+          await refreshLocalState_();
+          await flushCloudSave_();
         }, AUTOSYNC_MS);
       }
 
@@ -2768,6 +2933,7 @@
         if (typeof noteDialogEl.close === "function") noteDialogEl.close();
         else noteDialogEl.removeAttribute("open");
         if (renderPending) { renderPending = false; renderAll(); }
+        refreshLocalState_();
       }
 
       /* ✅ Formato requerido: c:aaaa-mm-dd hh-mm - m:aaaa-mm-dd hh-mm */
