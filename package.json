@@ -1,0 +1,12 @@
+{
+  "name": "notas",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/check.js && node --test tests/functional.js",
+    "test:browser": "node --test --test-timeout=45000 tests/browser.test.js"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}
