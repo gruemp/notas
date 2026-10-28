@@ -21,6 +21,7 @@ module.exports=function client(storage=new Map(), coarse=false){
     norm, currentTerms, makeHighlightedHTML, deleteNote, createNote, ensureGeneralCategory, saveCategoryCollapse_, serializeState, apiSaveAll_,
     sameCloudEndpoint_, endpoint: API_URL, init, flushCloudSave_, flushLocal: flushPendingSave_, refreshLocalState_,
     async flushPendingSave_(){await flushPendingSave_();await flushCloudSave_();},
+    readWith(get){readLocalRecord_=get;},
     storage(get,put){readLocalRecord_=get;persistLocalRecord_=put;},
     keys: {pending: PENDING_KEY, get tab(){return stagedPendingKey || TAB_PENDING_KEY;}, cache: CACHE_KEY},
     setState(s){notes=cloneState_(s.notes);categories=cloneState_(s.categories);baseState=cloneState_(s);localBaseState=cloneState_(s);},

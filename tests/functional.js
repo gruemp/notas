@@ -241,3 +241,12 @@ test('private connection: old local records on the unchanged original endpoint r
   const reopened=makeClient(c.storage);let sent;reopened.api.api(async()=>state(),async s=>{sent=copy(s);s.savedRevision='r2';});await reopened.api.init();await reopened.api.flushPendingSave_();
   assert.equal(sent.notes.some(n=>n.id==='a'),false);
 });
+
+test('client: a delayed local read cannot undo a newer committed edit',async()=>{
+  const c=makeClient();c.api.setState(state());c.api.api(async()=>{throw Error('offline');},()=>assert.fail());
+  c.api.edit('a','first committed');await c.api.flushLocal();const stale=copy(c.record());stale.version++;
+  let release;c.api.readWith(()=>new Promise(resolve=>release=resolve));const refreshing=c.api.refreshLocalState_();
+  c.api.edit('a','latest committed');await c.api.flushLocal();release(stale);await refreshing;
+  assert.equal(c.api.getState().notes.find(n=>n.id==='a').text,'latest committed');
+  assert.equal(c.record().state.notes.find(n=>n.id==='a').text,'latest committed');
+});
