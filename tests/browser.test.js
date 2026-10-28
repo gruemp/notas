@@ -134,3 +134,13 @@ for(const mobile of [false,true]){
     await context.close();
   });
 }
+test('clipboard permission delay survives an autosave and canceling the fallback does not alter a note',async()=>{
+  const {context}=await contextFor();const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);
+  await page.locator('#newNote').click();await page.locator('#noteClose').click();
+  await page.evaluate(()=>{navigator.clipboard.readText=()=>new Promise(resolve=>window.finishTestPaste=resolve);});
+  await page.locator('.note [data-action="copyPaste"]').click();await page.waitForFunction(()=>typeof window.finishTestPaste==='function');
+  await waitRecord(page,r=>r?.state.notes.length===1);await page.evaluate(()=>window.finishTestPaste('delayed paste'));await savedText(page,'delayed paste');
+  await page.locator('.note [data-action="clear"]').click();await savedText(page,'');
+  await page.evaluate(()=>{navigator.clipboard.readText=()=>Promise.reject(new Error('Denied'));});page.once('dialog',dialog=>dialog.dismiss());await page.locator('.note [data-action="copyPaste"]').click();
+  assert.equal((await record(page)).state.notes[0].text,'');await context.close();
+});

@@ -3029,7 +3029,7 @@
         if (!noteEl) return;
 
         const id = noteEl.dataset.id;
-        const note = getNoteById(id);
+        let note = getNoteById(id);
         if (!note) return;
 
         if (e.target.closest(".note-view")) {
@@ -3067,8 +3067,11 @@
               toast(ok ? "Copiado ✅" : "No pude copiar ❌");
             } else {
               const originalText = note.text;
+              const originalUpdatedAt = note.updatedAt;
               const clip = await readFromClipboard();
-              if (getNoteById(note.id) !== note || note.text !== originalText) { toast("La nota cambió: pega de nuevo"); return; }
+              const currentNote = getNoteById(note.id);
+              if (!currentNote || currentNote.text !== originalText || currentNote.updatedAt !== originalUpdatedAt) { toast("La nota cambió: pega de nuevo"); return; }
+              note = currentNote;
               if (!clip) { toast('No se pegó ningún texto'); return; }
               note.text = clip;
               note.updatedAt = Date.now();
