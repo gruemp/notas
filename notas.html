@@ -1142,11 +1142,14 @@
       let saveBridgeReady = false;
       let saveBusy = false;
       let saveQueuedState = null;
+      let activeSavePromise = null;
+      let saveRequestSeq = 0;
 
       let saveIframeEl = null;
       let saveFormEl = null;
       let inActionEl = null;
       let inPayloadEl = null;
+      let inRequestIdEl = null;
 
       function ensureSaveBridge_() {
         if (saveBridgeReady) return;
@@ -1179,6 +1182,10 @@
         inPayloadEl.type = "hidden";
         inPayloadEl.name = "payload";
 
+        inRequestIdEl = document.createElement("input");
+        inRequestIdEl.type = "hidden";
+        inRequestIdEl.name = "requestId";
+        saveFormEl.appendChild(inRequestIdEl);
         saveFormEl.appendChild(inActionEl);
         saveFormEl.appendChild(inPayloadEl);
 
@@ -1194,67 +1201,57 @@
           ensureSaveBridge_();
           if (!saveBridgeReady) return;
 
+          if (saveBusy) return;
+          inRequestIdEl.value = 'unload_' + Date.now();
           inPayloadEl.value = JSON.stringify(state);
           saveFormEl.submit();
         } catch {}
       }
 
       function apiSaveAll_(state) {
-        saveQueuedState = state;
-
-        if (saveBusy) return Promise.resolve({ ok: true, queued: true });
-
-        return new Promise((resolve, reject) => {
-          if (isLikelyBadApiUrl_(API_URL)) { reject(new Error("Configura API_URL")); return; }
-
-          ensureSaveBridge_();
-          if (!saveBridgeReady) { reject(new Error("No se pudo inicializar puente de guardado.")); return; }
-
-          const runOne = () => {
-            if (!saveQueuedState) { saveBusy = false; resolve({ ok: true, empty: true }); return; }
-            const payloadState = saveQueuedState;
+        // Se preserva la versión más reciente y se evita superponer dos POST.
+        saveQueuedState = JSON.stringify(state);
+        if (saveBusy) return activeSavePromise;
+        saveBusy = true;
+        activeSavePromise = (async () => {
+          while (saveQueuedState !== null) {
+            const payload = saveQueuedState;
             saveQueuedState = null;
-
-            saveBusy = true;
-
-            const onMsg = (ev) => {
-              const d = ev && ev.data;
-              if (!d || d.type !== "notas_saveAll") return;
-
-              window.removeEventListener("message", onMsg);
-
-              if (d.ok) {
-                if (saveQueuedState) return runOne();
-                saveBusy = false;
-                resolve(d);
-              } else {
-                saveBusy = false;
-                reject(new Error(d.error || "Error guardando"));
-              }
-            };
-
-            window.addEventListener("message", onMsg);
-
-            const t = setTimeout(() => {
-              window.removeEventListener("message", onMsg);
-              if (saveQueuedState) return runOne();
-              saveBusy = false;
-              resolve({ ok: true, timeout: true });
-            }, 12000);
-
-            try {
-              inPayloadEl.value = JSON.stringify(payloadState);
-              saveFormEl.submit();
-            } catch (e) {
-              clearTimeout(t);
-              window.removeEventListener("message", onMsg);
-              saveBusy = false;
-              reject(e);
-            }
-          };
-
-          runOne();
+            const requestId = 'save_' + (++saveRequestSeq) + '_' + Date.now();
+            await new Promise((resolve, reject) => {
+              let done = false;
+              let timer;
+              const complete = (error) => {
+                if (done) return;
+                done = true;
+                window.removeEventListener('message', onMessage);
+                clearTimeout(timer);
+                if (error) reject(error);
+                else resolve();
+              };
+              const onMessage = (ev) => {
+                const data = ev && ev.data;
+                if (!data || data.type !== 'notas_saveAll') return;
+                // Apps Script antiguo: su respuesta no incluía requestId.
+                if (ev.source !== saveIframeEl.contentWindow && data.requestId !== requestId) return;
+                if (data.requestId && data.requestId !== requestId) return;
+                complete(data.ok ? null : new Error(data.error || 'Error guardando'));
+              };
+              window.addEventListener('message', onMessage);
+              timer = setTimeout(() => complete(new Error('Guardado sin confirmación')), 12000);
+              try {
+                inRequestIdEl.value = requestId;
+                inPayloadEl.value = payload;
+                saveFormEl.submit();
+              } catch (error) { complete(error); }
+            });
+          }
+          return { ok: true };
+        })().finally(() => {
+          saveBusy = false;
+          activeSavePromise = null;
         });
+        return activeSavePromise;
       }
 
       /* =========================
