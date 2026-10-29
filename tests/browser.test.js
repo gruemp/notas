@@ -145,6 +145,7 @@ for(const mobile of [false,true]) test((mobile?'mobile':'desktop')+': persistent
   await waitRecord(page,r=>r?.state.notes.length===0);await page.reload();await ready(page);
   assert.ok((await page.locator('#syncSummary').innerText()).includes('dispositivo'));
   await page.locator('#openRecovery').click();const row=page.locator('.recovery-entry').filter({hasText:'recover this offline'});
+  assert.equal(await page.locator('#recoveryMore').isVisible(),false);
   await row.getByRole('button',{name:'Revisar y recuperar',exact:true}).click();assert.equal(await page.locator('#recoveryPreviewText').innerText(),'recover this offline');
   await page.locator('#recoveryRestore').click();await savedText(page,'recover this offline');
   await page.locator('#recoveryClose').click();
