@@ -137,6 +137,7 @@ for(const mobile of [false,true]){
     await context.close();
   });
 
+}
 for(const mobile of [false,true]) test((mobile?'mobile':'desktop')+': persistent status and trash restore work offline after a full reload',async()=>{
   const {context}=await contextFor({mobile});const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);
   await create(page,'recover this offline');const id=(await record(page)).state.notes[0].id;
@@ -170,7 +171,6 @@ test('Google connection control navigates only to the configured Google owner de
   const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);await page.locator('#connectGoogle').click();
   await page.getByRole('heading',{name:'Google owner authentication'}).waitFor();assert.equal(page.url(),login+'?action=connect');await context.close();
 });
-}
 test('clipboard permission delay survives an autosave and canceling the fallback does not alter a note',async()=>{
   const {context}=await contextFor();const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);
   await page.locator('#newNote').click();await page.locator('#noteClose').click();
