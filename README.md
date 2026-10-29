@@ -20,7 +20,9 @@ En la comprobación con Edge, Google indicó que la hoja original está eliminad
 
 Esta rama conecta el cliente con el servicio privado nuevo. La inicialización de Apps Script figura como completada y la versión 1 de la aplicación web se desplegó correctamente. Una lectura real sin clave fue rechazada con `No autorizado.`. La dirección `/exec` real ya está fijada en `API_URL`; no contiene secretos.
 
-**Pendiente antes de incorporar a `main`: comprobar lectura y escritura con la clave privada, conectar este navegador y verificar recarga/sincronización real.** No se ha confirmado aún una escritura de notas en Google. La conexión de Edge se interrumpió antes de recuperar el enlace privado del registro del propietario. El funcionamiento publicado en `main` sigue siendo local.
+El PR #3 se incorporó a `main` y Pages publicó el cliente con esa dirección. En el navegador remoto autorizado se consumió la clave, se retiró de la barra de direcciones y se comprobó un ciclo real completo: crear una nota temporal, guardar automáticamente mediante el iframe, leer el texto íntegro desde Google, recargar la aplicación, abrir una segunda pestaña y eliminar exclusivamente la nota temporal. La lectura final del servidor y la segunda pestaña confirmaron su eliminación. No se modificaron datos anteriores.
+
+Las notas locales de otros perfiles o dispositivos solo se sincronizan después de abrir allí el enlace privado del propietario. No se ha conectado ni comprobado aún el móvil físico del usuario ni la pestaña original de Edge. No borrar sus datos locales: al conectar cada dispositivo, el cliente combina sus notas con la hoja nueva. La hoja antigua sigue apareciendo eliminada y sus datos no se han recuperado.
 
 Al cambiar de servidor, el cliente descarta únicamente la base de comparación remota del servidor anterior y conserva las notas locales. Una hoja nueva vacía se combina mediante incorporación de datos; no representa una orden de borrado. Los registros antiguos sin identificador de servidor conservan su base cuando se sigue usando la URL original.
 
