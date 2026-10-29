@@ -15,12 +15,13 @@ new vm.Script(fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), { filename: 'sw
  // En lugar de bloquear todo cambio de marcado con un hash, comprobamos
  // la integridad de los controles y que las barras no queden ancladas.
 const requiredIds = ['search','catFilter','sort','uiBottomNav','uiAddDock','newNote',
-  'syncPanel','syncSummary','uiChips','notesList','pinnedList','uiCategoriesPage',
+  'syncPanel','syncSummary','notesList','pinnedList','uiCategoriesPage',
   'uiCategorySheet','catDialog','noteDialog','recoveryDialog','toast'];
 for (const id of requiredIds) {
   const count = html.split('id="' + id + '"').length - 1;
   assert.equal(count, 1, 'Falta o está duplicado el control ' + id);
 }
+assert.equal(html.includes('id="uiChips"'), false, 'No debe existir el panel duplicado de categorías');
 const mainIndex = html.indexOf('<main class="list"');
 assert.ok(mainIndex > html.indexOf('id="uiBottomNav"'), 'La navegación debe preceder a las notas');
 assert.ok(mainIndex > html.indexOf('id="uiAddDock"'), 'Nueva nota debe preceder a las tarjetas');
