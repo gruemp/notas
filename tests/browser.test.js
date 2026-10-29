@@ -124,7 +124,7 @@ for(const mobile of [false,true]){
     page.on('pageerror',error=>errors.push(error.message));
     await page.goto(origin+'/notas.html');await ready(page);
     assert.equal(await page.locator('#uiPageTitle').innerText(),'Notas');
-    assert.equal(await page.locator('.ui-nav button').count(),3);
+    assert.equal(await page.locator('.ui-nav button').count(),2);
     assert.ok(await page.locator('.ui-chip').count()>0);
     assert.ok(await page.locator('.note .ui-card-title').count()>0);
     assert.ok(await page.locator('#newNote').isVisible());
@@ -135,7 +135,7 @@ for(const mobile of [false,true]){
     await page.locator('.ui-category-menu').first().click();
     assert.ok(await page.locator('#uiCategorySheet').isVisible());
     await page.locator('#uiCategoryCancel').click();
-    await page.locator('[data-ui-nav="notes"]').click();
+    await page.locator('#uiBackToNotes').click();
     assert.equal(await page.locator('#uiPageTitle').innerText(),'Notas');
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
     assert.deepEqual(errors,[]);
@@ -308,7 +308,7 @@ test('responsive layout: desktop uses wide sidebar and grid while mobile retains
     await page.locator('[data-ui-nav="categories"]').click();
     assert.ok(await page.locator('#uiCategoriesPage > .ui-category-card').first().isVisible());
     assert.ok((await page.locator('#uiCategoriesPage').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length))>=2);
-    await page.locator('[data-ui-nav="notes"]').click();
+    await page.locator('#uiBackToNotes').click();
     await page.setViewportSize({width:390,height:844});
     const mobile=await page.evaluate(()=>{
       const box=selector=>document.querySelector(selector).getBoundingClientRect();
@@ -354,7 +354,7 @@ test('category folder color is identical in note cards, filters and category vie
     await page.locator('[data-ui-nav="categories"]').click();
     const colorFromCategory=await page.locator('.ui-category-card').filter({hasText:'Trabajo'}).locator('.ui-folder').evaluate(el=>getComputedStyle(el).color);
     assert.equal(colorFromCard,colorFromCategory,'Note card and categories view must match');
-    await page.locator('[data-ui-nav="notes"]').click();
+    await page.locator('#uiBackToNotes').click();
     await page.setViewportSize({width:390,height:844});
     assert.equal(await row.locator('.ui-card-folder').evaluate(el=>getComputedStyle(el).color),colorFromCategory);
     await page.reload();await ready(page);
@@ -508,4 +508,38 @@ test('natural flow: controls and feedback scroll with the page at mobile, tablet
     await page.locator('#uiCategoryCancel').click();
     assert.deepEqual(errors,[]);
   }finally {await context.close();}
+});
+
+
+test('navigation: Notes is the default view, has no redundant tab, and Categories has a contextual return',async()=>{
+  const {context}=await contextFor({api:'offline',seed:true});
+  const page=await context.newPage();
+  try {
+    for(const width of [360,390,768,1024,1440]){
+      await page.setViewportSize({width,height:850});
+      await page.goto(origin+'/notas.html');await ready(page);
+      assert.equal(await page.locator('#uiPageTitle').innerText(),'Notas');
+      assert.equal(await page.locator('[data-ui-nav="notes"]').count(),0);
+      assert.equal(await page.locator('.ui-nav button').count(),2);
+      assert.equal(await page.locator('#uiBackToNotes').isVisible(),false);
+      assert.equal(await page.locator('.list').isVisible(),true);
+      assert.equal(await page.locator('.ui-nav').evaluate(el=>getComputedStyle(el).position),'static');
+      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+      if(width<1024){
+        const cols=await page.locator('.ui-nav').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length);
+        assert.equal(cols,2,'Only Categories and Trash must share the available width');
+      }
+      await page.locator('[data-ui-nav="categories"]').click();
+      assert.equal(await page.locator('#uiPageTitle').innerText(),'Categorías');
+      assert.ok(await page.locator('#uiBackToNotes').isVisible());
+      assert.equal(await page.locator('[data-ui-nav="categories"]').getAttribute('aria-current'),'page');
+      assert.equal(await page.locator('#uiAddDock').isVisible(),false);
+      await page.locator('#uiBackToNotes').click();
+      assert.equal(await page.locator('#uiPageTitle').innerText(),'Notas');
+      assert.equal(await page.locator('#uiBackToNotes').isVisible(),false);
+      assert.equal(await page.locator('#newNote').isVisible(),true);
+      assert.equal(await page.locator('.list').isVisible(),true);
+      assert.equal(await page.locator('[data-ui-nav="categories"]').getAttribute('aria-current'),null);
+    }
+  } finally {await context.close();}
 });
