@@ -18,7 +18,9 @@ La sincronización remota se intenta en segundo plano. Un servidor antiguo se pu
 
 En la comprobación con Edge, Google indicó que la hoja original está eliminada. No se encontró su ID entre las hojas visibles de la papelera; esto no demuestra que sea irrecuperable. No se restauraron carpetas ajenas ni se modificaron datos anteriores. El servicio original sigue inaccesible.
 
-Esta rama prepara una conexión nueva y protegida. Se creó un proyecto privado de Apps Script y se guardó en él el código completo, sin ejecutar su inicialización, conceder permisos nuevos ni desplegarlo. **La URL del cliente todavía apunta al servicio anterior: la nube nueva no está activada y esta rama debe permanecer en borrador hasta comprobarla.** El funcionamiento publicado en `main` continúa siendo local mientras tanto.
+Esta rama conecta el cliente con el servicio privado nuevo. La inicialización de Apps Script figura como completada y la versión 1 de la aplicación web se desplegó correctamente. Una lectura real sin clave fue rechazada con `No autorizado.`. La dirección `/exec` real ya está fijada en `API_URL`; no contiene secretos.
+
+**Pendiente antes de incorporar a `main`: comprobar lectura y escritura con la clave privada, conectar este navegador y verificar recarga/sincronización real.** No se ha confirmado aún una escritura de notas en Google. La conexión de Edge se interrumpió antes de recuperar el enlace privado del registro del propietario. El funcionamiento publicado en `main` sigue siendo local.
 
 Al cambiar de servidor, el cliente descarta únicamente la base de comparación remota del servidor anterior y conserva las notas locales. Una hoja nueva vacía se combina mediante incorporación de datos; no representa una orden de borrado. Los registros antiguos sin identificador de servidor conservan su base cuando se sigue usando la URL original.
 
@@ -32,7 +34,7 @@ El código completo `app script.txt` implementa el protocolo v5:
 - Las filas nuevas se escriben antes de limpiar las sobrantes y se amplía la hoja cuando hace falta. Los textos que empiezan por `=` o apóstrofe se guardan literalmente.
 - Las confirmaciones de guardado requieren un `requestId` correlacionado, origen Google y una revisión confirmada. La respuesta del iframe anidado se dirige a `https://gruemp.github.io` y escapa terminadores de script.
 
-Actualizar el TXT en GitHub no despliega Apps Script. La preparación prevista, pendiente de autorización de seguridad en Edge, es:
+Actualizar el TXT en GitHub no despliega Apps Script. Procedimiento para repetir la instalación o completar su comprobación (la autorización, inicialización y el primer despliegue ya se realizaron):
 
 1. En el proyecto privado, guardar todo `app script.txt` y ejecutar `prepararNotas` desde el editor como propietario. Google solicitará los permisos detectados por Apps Script, incluido acceso a Sheets e identidad del usuario. La función crea una hoja nueva con fecha, registra `NOTAS_SPREADSHEET_ID` y genera `NOTAS_API_TOKEN` en las propiedades privadas del proyecto. Un reintento reutiliza la hoja y la clave.
 2. Publicar una implementación web que se ejecute como propietario y sea accesible al cliente de Pages. Aunque la URL sea accesible por Internet, GET y POST rechazan toda lectura y escritura sin la clave de 64 caracteres hexadecimales. Una persona que obtenga esa clave podrá leer y modificar las notas: debe tratarse como una contraseña.

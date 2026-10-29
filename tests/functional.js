@@ -236,9 +236,9 @@ test('private connection: switching to a new empty backend never treats its empt
   await reopened.api.init();await reopened.api.flushPendingSave_();assert.ok(sent.notes.some(n=>n.text==='preserve on migration'));assert.equal(reopened.record().state.notes.length,2);
 });
 test('private connection: old local records on the unchanged original endpoint retain their known cloud baseline',async()=>{
-  const c=makeClient();const local=state();local.notes=local.notes.filter(n=>n.id!=='a');c.api.setState(local);c.api.api(async()=>{throw Error('offline');},()=>assert.fail());
+  const endpoint='https://script.google.com/macros/s/AKfycbyNE12DPGcX6w9zTQRjCAej-bxeQM4GDCpTrVhlERhj_cptdO7uFXlDJ4aDgt_230_V/exec';const c=makeClient(new Map(),false,endpoint);const local=state();local.notes=local.notes.filter(n=>n.id!=='a');c.api.setState(local);c.api.api(async()=>{throw Error('offline');},()=>assert.fail());
   await c.api.importFile({name:'notes.json',text:async()=>JSON.stringify({categories:[cat],notes:[note('b')]})});await c.api.flushLocal();delete c.record().cloudEndpoint;c.record().cloudBase=state();
-  const reopened=makeClient(c.storage);let sent;reopened.api.api(async()=>state(),async s=>{sent=copy(s);s.savedRevision='r2';});await reopened.api.init();await reopened.api.flushPendingSave_();
+  const reopened=makeClient(c.storage,false,endpoint);let sent;reopened.api.api(async()=>state(),async s=>{sent=copy(s);s.savedRevision='r2';});await reopened.api.init();await reopened.api.flushPendingSave_();
   assert.equal(sent.notes.some(n=>n.id==='a'),false);
 });
 
