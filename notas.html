@@ -1522,7 +1522,7 @@
         if (!panel) return;
         const unsaved = localRevision > localSavedRevision;
         const pending = !baseState || hasCloudChanges_();
-        let text = unsaved ? "Guardando en este dispositivo…" : "Guardado en este dispositivo";
+        let text = unsaved ? (localSaveWarning ? "Guardado local sin confirmar" : "Guardando en este dispositivo…") : "Guardado en este dispositivo";
         if (syncState.phase === "syncing") text = unsaved ? text : "Guardado en este dispositivo · Sincronizando con Google…";
         else if (syncState.error) text += syncState.error.code.startsWith("AUTH") ? " · Conexión pendiente" : " · Pendiente de subir a Google";
         else if (!unsaved && !pending && syncState.at) text = "Sincronizado con Google";
@@ -1532,7 +1532,7 @@
         if (syncState.at) details.push("Última sincronización confirmada: " + new Date(syncState.at).toLocaleString("es-CO"));
         if (syncState.backupAt) details.push("Respaldo independiente en Google: " + new Date(syncState.backupAt).toLocaleString("es-CO"));
         $("syncDetail").textContent = details.join(" · ");
-        $("syncError").textContent = syncState.error?.text || "";
+        $("syncError").textContent = [unsaved ? localSaveWarning : null, syncState.error?.text].filter(Boolean).join(" · ");
         $("recoveryWarning").textContent = recoveryProblem || (connectionSessionOnly ? "La conexión funciona durante esta sesión, pero el navegador no permite recordarla. Vuelve a conectar al abrir de nuevo." : "");
         $("retrySync").disabled = syncState.phase === "syncing" || !!localSavePromise;
         $("connectGoogle").textContent = API_TOKEN ? "Volver a conectar con Google" : "Conectar con Google";
@@ -1746,10 +1746,16 @@
             saveDebounced(); renderAll();
           }
           await flushPendingSave_();
+          if (localRevision > localSavedRevision) throw new Error("RESTORE_UNCONFIRMED_LOCAL_SAVE");
           $("recoveryPreview").close();
           renderRecovery_();
           toast("Recuperación guardada en este dispositivo");
-        } catch (_) { $("recoveryMessage").textContent = "No se pudo completar la recuperación. Se conserva la copia y tus notas actuales."; }
+        } catch (error) {
+          $("recoveryPreview").close();
+          $("recoveryMessage").textContent = error?.message === "RESTORE_UNCONFIRMED_LOCAL_SAVE"
+            ? "La recuperación está visible, pero el dispositivo no confirmó su guardado. Exporta tus notas antes de cerrar y vuelve a intentar."
+            : "No se pudo completar la recuperación. Se conserva la copia y tus notas actuales.";
+        }
         finally { $("recoveryRestore").disabled = false; }
       }
 
@@ -2461,6 +2467,7 @@
       let localRecordVersion = 0;
       let localSavedRevision = 0;
       let localSavePromise = null;
+      let localSaveWarning = "";
       let localDatabasePromise = null;
       let localChannel = null;
       let cloudNoticeShown = false;
@@ -2733,6 +2740,7 @@
           baseState = sameCloudEndpoint_(record) ? record.cloudBase : null;
           adoptLocalModel_(next);
           localSavedRevision = revision;
+          localSaveWarning = "";
           saved = true;
           cacheLocal_(record);
           dailyLocalBackup_(record.state).catch(() => {});
@@ -2742,6 +2750,9 @@
         })().catch(error => {
           console.warn("Guardado local pendiente:", error);
           const staged = stagePending_();
+          localSaveWarning = staged
+            ? "Falló el guardado principal. Hay una copia de emergencia en el navegador; exporta tus notas antes de cerrar."
+            : "No se pudo guardar ni crear una copia de emergencia. Exporta tus notas antes de cerrar.";
           toast(staged ? "Guardado en la copia de recuperación de este dispositivo" : "No se pudo guardar: exporta tus notas antes de cerrar", 5000);
         }).finally(() => {
           localSavePromise = null;
