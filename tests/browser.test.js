@@ -331,3 +331,33 @@ test('responsive layout: desktop uses wide sidebar and grid while mobile retains
     await page.screenshot({path:path.join(root,'test-results','mobile-unchanged.png'),fullPage:true});
   }finally {await context.close();}
 });
+
+
+test('category folder color is identical in note cards, filters and category view on desktop and mobile',async()=>{
+  const {context}=await contextFor({api:'offline',seed:true});
+  const page=await context.newPage();
+  try {
+    await page.setViewportSize({width:1440,height:900});
+    await page.goto(origin+'/notas.html');await ready(page);
+    await openSettings(page);
+    await page.locator('#newCatTop').click();
+    await page.locator('#catNewName').fill('Trabajo');
+    await page.locator('#catAddBtn').click();
+    await page.locator('#catClose').click();
+    const row=page.locator('.note[data-id="fixture"]');
+    await row.locator('.ui-note-more').click();
+    await row.locator('select').selectOption({label:'Trabajo'});
+    await waitRecord(page,r=>r?.state.notes.some(n=>n.id==='fixture'&&r.state.categories.some(c=>c.name==='Trabajo'&&c.id===n.categoryId)));
+    const colorFromCard=await row.locator('.ui-card-folder').evaluate(el=>getComputedStyle(el).color);
+    const colorFromChip=await page.locator('.ui-chip').filter({hasText:'Trabajo'}).locator('.ui-chip-folder').evaluate(el=>getComputedStyle(el).color);
+    assert.equal(colorFromCard,colorFromChip,'Note and filter folder must use one color source');
+    await page.locator('[data-ui-nav="categories"]').click();
+    const colorFromCategory=await page.locator('.ui-category-card').filter({hasText:'Trabajo'}).locator('.ui-folder').evaluate(el=>getComputedStyle(el).color);
+    assert.equal(colorFromCard,colorFromCategory,'Note card and categories view must match');
+    await page.locator('[data-ui-nav="notes"]').click();
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await row.locator('.ui-card-folder').evaluate(el=>getComputedStyle(el).color),colorFromCategory);
+    await page.reload();await ready(page);
+    assert.equal(await page.locator('.note[data-id="fixture"] .ui-card-folder').evaluate(el=>getComputedStyle(el).color),colorFromCategory);
+  }finally {await context.close();}
+});
