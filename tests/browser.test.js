@@ -253,7 +253,7 @@ test('category removal archives its notes and full category snapshot before chan
   await page.locator('[data-ui-nav="categories"]').click();
   const category=page.locator('.ui-category-card').filter({hasText:'Trabajo'});
   await category.locator('.ui-category-menu').click();
-  assert.match(await page.locator('#uiCategorySheetDescription').innerText(),/1 nota irán/);
+  assert.match(await page.locator('#uiCategorySheetDescription').innerText(),/su nota se moverán/);
   await page.locator('#uiCategoryCancel').click();
   assert.equal((await record(page)).state.notes.length,1);
   await category.locator('.ui-category-menu').click();
