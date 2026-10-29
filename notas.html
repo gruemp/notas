@@ -922,7 +922,12 @@
     .note-view:focus-visible{outline:2px solid #b2a4ff;outline-offset:4px}
     .ui-card-title{font-size:16px;font-weight:735;color:#fff;line-height:1.4;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
     .ui-card-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:#c4cef1;font-size:14px;line-height:1.4;margin-top:8px;overflow-wrap:anywhere}
-    .ui-card-meta{font-size:12px;color:#afbbdf;margin-top:10px}
+    .ui-card-meta{font-size:12px;color:#afbbdf;margin-top:10px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+    .ui-card-category{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+    .ui-card-folder,.ui-chip-folder{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+    .ui-card-folder svg{width:16px;height:16px;fill:currentColor;stroke:none}
+    .ui-chip-folder svg{width:16px;height:16px;fill:currentColor;stroke:none}
+    .ui-chip:has(.ui-chip-folder){display:inline-flex;align-items:center;gap:7px}
     .ui-pin{color:#ffcf5d;margin-right:9px}
     .ui-note-more{grid-column:2;grid-row:1;align-self:start;justify-self:end;border:0;background:transparent;color:#b7c4f2;border-radius:10px;min-width:29px;min-height:37px;font-size:24px;line-height:1;cursor:pointer}
     .note .actions{display:none;position:absolute;top:56px;right:12px;z-index:10;flex-wrap:wrap;max-width:calc(100% - 24px);padding:10px;border-radius:14px;background:#111b32;border:1px solid #536385;box-shadow:0 12px 24px rgba(0,0,0,.3)}
@@ -1085,7 +1090,7 @@
         right: 32px;
         bottom: auto;
         left: auto;
-        z-index: 55;
+        z-index: 80;
         transform: none;
         width: 190px;
         margin: 0;
@@ -1132,7 +1137,7 @@
       }
       [data-ui-view="categories"] .ui-categories {
         display: grid !important;
-        grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
         align-content: start;
         gap: 16px;
       }
@@ -2075,6 +2080,12 @@
       // Vista de tarjetas y categorías. Es una presentación del mismo estado persistente.
       const uiFolderSvg_ = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6a2 2 0 0 1 2-2h6l2 3h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"></path></svg>';
       let uiCategoryToDelete_ = null;
+      const uiCategoryPalette_ = ["#a799f8", "#d787a9", "#6c9ccf", "#8ccea7", "#ecc179"];
+      function uiCategoryColor_(catId) {
+        if (catId === GENERAL_CATEGORY_ID) return "#6c9ccf";
+        const index = sortCategories(categories).findIndex(c => c.id === catId);
+        return uiCategoryPalette_[Math.max(0, index) % uiCategoryPalette_.length];
+      }
 
       function uiRelativeTime_(ms) {
         const delta = Math.max(0, Date.now() - (Number(ms) || 0));
@@ -2091,9 +2102,10 @@
         const preview = firstIndex < 0 ? "" : lines.slice(firstIndex + 1).join(" ").trim();
         const cat = getCategoryById(note.categoryId || GENERAL_CATEGORY_ID);
         const heading = makeHighlightedHTML(title, terms, true);
+        const categoryColor = uiCategoryColor_(cat?.id || GENERAL_CATEGORY_ID);
         return '<div class="ui-card-title">' + (note.pinned ? '<span class="ui-pin" aria-label="Fijada">✦</span>' : '') + heading + '</div>'
           + (preview ? '<div class="ui-card-preview">' + makeHighlightedHTML(preview, terms, true) + '</div>' : '')
-          + '<div class="ui-card-meta">' + escapeHTML(cat?.name || "General") + ' · ' + escapeHTML(uiRelativeTime_(note.updatedAt || note.createdAt)) + '</div>';
+          + '<div class="ui-card-meta"><span class="ui-card-category"><span class="ui-card-folder" style="color:' + categoryColor + '" aria-hidden="true">' + uiFolderSvg_ + '</span>' + escapeHTML(cat?.name || "General") + '</span><span class="ui-card-time">· ' + escapeHTML(uiRelativeTime_(note.updatedAt || note.createdAt)) + '</span></div>';
       }
       function renderUIChips_() {
         const root = $("uiChips");
@@ -2103,7 +2115,17 @@
           const button = document.createElement("button");
           button.type = "button";
           button.className = "ui-chip";
-          button.textContent = item.name;
+          if (item.id !== "all") {
+            const folder = document.createElement("span");
+            folder.className = "ui-chip-folder";
+            folder.style.color = uiCategoryColor_(item.id);
+            folder.innerHTML = uiFolderSvg_;
+            folder.setAttribute("aria-hidden", "true");
+            button.appendChild(folder);
+          }
+          const label = document.createElement("span");
+          label.textContent = item.name;
+          button.appendChild(label);
           button.setAttribute("aria-pressed", String((settings.categoryFilter || "all") === item.id));
           button.addEventListener("click", () => {
             settings.categoryFilter = item.id;
@@ -2117,14 +2139,13 @@
         const root = $("uiCategoriesPage");
         if (!root) return;
         root.replaceChildren();
-        const colors = ["#a799f8", "#d787a9", "#6c9ccf", "#8ccea7", "#ecc179"];
-        sortCategories(categories).forEach((category, i) => {
+        sortCategories(categories).forEach(category => {
           const count = notes.filter(n => n.categoryId === category.id).length;
           const row = document.createElement("div");
           row.className = "ui-category-card";
           const folder = document.createElement("span");
           folder.className = "ui-folder";
-          folder.style.color = category.id === GENERAL_CATEGORY_ID ? "#6c9ccf" : colors[i % colors.length];
+          folder.style.color = uiCategoryColor_(category.id);
           folder.innerHTML = uiFolderSvg_;
           const label = document.createElement("button");
           label.type = "button";
