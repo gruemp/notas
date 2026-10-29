@@ -2308,7 +2308,15 @@
     [data-theme="light"].ui-settings-open #syncPanel .reliability-actions{
       background:#fff;border-color:#d6deee;box-shadow:0 8px 20px rgba(34,52,94,.09);
     }
-        /* NOTAS_UI_POLISH_20261029_END */
+        /* Sin el panel de chips redundante, la búsqueda aprovecha el ancho del encabezado.
+       La pantalla de Categorías y el selector de herramientas siguen filtrando notas. */
+    @media (min-width:1024px) {
+      .header {grid-template-columns:minmax(0,1fr)}
+      .header .ui-heading {grid-column:1;padding-right:0}
+      .header .topbar {grid-column:1}
+      .header .searchbox {width:100%}
+    }
+    /* NOTAS_UI_POLISH_20261029_END */
 
   </style>
   <!-- NOTAS_V6_END -->
@@ -2443,9 +2451,6 @@
           </button>
         </div>
       </div>
-        <!-- NOTAS_V6_BEGIN -->
-        <div id="uiChips" class="ui-chips" role="group" aria-label="Filtrar notas por categoría"></div>
-        <!-- NOTAS_V6_END -->
     </header>
 
     <!-- Navegación y acción principal en el flujo natural de lectura. -->
@@ -3252,34 +3257,6 @@
         return '<div class="ui-card-title">' + (note.pinned ? '<span class="ui-pin" aria-label="Fijada">✦</span>' : '') + heading + '</div>'
           + (preview ? '<div class="ui-card-preview">' + makeHighlightedHTML(preview, terms, true) + '</div>' : '')
           + '<div class="ui-card-meta"><span class="ui-card-category"><span class="ui-card-folder" style="color:' + categoryColor + '" aria-hidden="true">' + uiFolderSvg_ + '</span>' + escapeHTML(cat?.name || "General") + '</span><span class="ui-card-time">· ' + escapeHTML(uiRelativeTime_(note.updatedAt || note.createdAt)) + '</span></div>';
-      }
-      function renderUIChips_() {
-        const root = $("uiChips");
-        if (!root) return;
-        root.replaceChildren();
-        for (const item of [{id:"all",name:"Todas"}, ...sortCategories(categories)]) {
-          const button = document.createElement("button");
-          button.type = "button";
-          button.className = "ui-chip";
-          if (item.id !== "all") {
-            const folder = document.createElement("span");
-            folder.className = "ui-chip-folder";
-            folder.style.color = uiCategoryColor_(item.id);
-            folder.innerHTML = uiFolderSvg_;
-            folder.setAttribute("aria-hidden", "true");
-            button.appendChild(folder);
-          }
-          const label = document.createElement("span");
-          label.textContent = item.name;
-          button.appendChild(label);
-          button.setAttribute("aria-pressed", String((settings.categoryFilter || "all") === item.id));
-          button.addEventListener("click", () => {
-            settings.categoryFilter = item.id;
-            saveUISettings_();
-            renderAll();
-          });
-          root.appendChild(button);
-        }
       }
       function renderUICategories_() {
         const root = $("uiCategoriesPage");
@@ -4883,7 +4860,6 @@
 
         applySearchAndHighlights();
         applySectionCollapseUI_();
-        renderUIChips_();
         renderUICategories_();
       }
 
