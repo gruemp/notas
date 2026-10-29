@@ -461,12 +461,16 @@ test('natural flow: controls and feedback scroll with the page at mobile, tablet
           navPosition:getComputedStyle(document.querySelector('.ui-nav')).position,
           addPosition:getComputedStyle(document.querySelector('#uiAddDock')).position,
           headerPosition:getComputedStyle(document.querySelector('.header')).position,
+          titleAlign:getComputedStyle(document.querySelector('.ui-card-title')).textAlign,
+          previewAlign:getComputedStyle(document.querySelector('.ui-card-preview')).textAlign,
           overflow:document.documentElement.scrollWidth>innerWidth,
           chipOverflow:getComputedStyle(document.querySelector('.ui-chips')).overflowX,
           navBeforeList:document.querySelector('.ui-nav').compareDocumentPosition(document.querySelector('.list')) & Node.DOCUMENT_POSITION_FOLLOWING
         };
       });
       assert.equal(start.headerPosition,'static');
+      assert.equal(start.titleAlign,'left','Note heading must align with its body');
+      assert.equal(start.previewAlign,'left','Note description must remain aligned');
       assert.equal(start.navPosition,'static');
       assert.equal(start.addPosition,'static');
       assert.equal(start.overflow,false);
