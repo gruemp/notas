@@ -1890,6 +1890,189 @@
       }
 
 
+
+      // Vista de tarjetas y categorías. Es una presentación del mismo estado persistente.
+      const uiFolderSvg_ = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6a2 2 0 0 1 2-2h6l2 3h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"></path></svg>';
+      let uiCategoryToDelete_ = null;
+
+      function uiRelativeTime_(ms) {
+        const delta = Math.max(0, Date.now() - (Number(ms) || 0));
+        if (delta < 60000) return "Ahora";
+        if (delta < 3600000) return "Hace " + Math.floor(delta / 60000) + " min";
+        if (delta < 86400000) return "Hace " + Math.floor(delta / 3600000) + " h";
+        if (delta < 604800000) return "Hace " + Math.floor(delta / 86400000) + " días";
+        return new Date(ms).toLocaleDateString("es-CO", {day: "numeric", month: "short"});
+      }
+      function renderNoteCardHTML_(note, terms) {
+        const lines = String(note.text || "").replace(/\r/g, "").split("\n");
+        const firstIndex = lines.findIndex(line => line.trim());
+        const title = firstIndex === -1 ? "Nota sin contenido" : lines[firstIndex].trim();
+        const preview = firstIndex < 0 ? "" : lines.slice(firstIndex + 1).join(" ").trim();
+        const cat = getCategoryById(note.categoryId || GENERAL_CATEGORY_ID);
+        const heading = makeHighlightedHTML(title, terms, true);
+        return '<div class="ui-card-title">' + (note.pinned ? '<span class="ui-pin" aria-label="Fijada">✦</span>' : '') + heading + '</div>'
+          + (preview ? '<div class="ui-card-preview">' + makeHighlightedHTML(preview, terms, true) + '</div>' : '')
+          + '<div class="ui-card-meta">' + escapeHTML(cat?.name || "General") + ' · ' + escapeHTML(uiRelativeTime_(note.updatedAt || note.createdAt)) + '</div>';
+      }
+      function renderUIChips_() {
+        const root = $("uiChips");
+        if (!root) return;
+        root.replaceChildren();
+        for (const item of [{id:"all",name:"Todas"}, ...sortCategories(categories)]) {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "ui-chip";
+          button.textContent = item.name;
+          button.setAttribute("aria-pressed", String((settings.categoryFilter || "all") === item.id));
+          button.addEventListener("click", () => {
+            settings.categoryFilter = item.id;
+            saveUISettings_();
+            renderAll();
+          });
+          root.appendChild(button);
+        }
+      }
+      function renderUICategories_() {
+        const root = $("uiCategoriesPage");
+        if (!root) return;
+        root.replaceChildren();
+        const colors = ["#a799f8", "#d787a9", "#6c9ccf", "#8ccea7", "#ecc179"];
+        sortCategories(categories).forEach((category, i) => {
+          const count = notes.filter(n => n.categoryId === category.id).length;
+          const row = document.createElement("div");
+          row.className = "ui-category-card";
+          const folder = document.createElement("span");
+          folder.className = "ui-folder";
+          folder.style.color = category.id === GENERAL_CATEGORY_ID ? "#6c9ccf" : colors[i % colors.length];
+          folder.innerHTML = uiFolderSvg_;
+          const label = document.createElement("button");
+          label.type = "button";
+          label.className = "ui-category-label";
+          label.style.cssText = "text-align:left;border:0;background:none;color:inherit;font:inherit;cursor:pointer;";
+          const title = document.createElement("strong");
+          title.textContent = category.name;
+          const small = document.createElement("small");
+          small.textContent = count + (count === 1 ? " nota" : " notas");
+          label.append(title, small);
+          label.setAttribute("aria-label", "Ver notas de " + category.name);
+          label.addEventListener("click", () => {
+            settings.categoryFilter = category.id;
+            saveUISettings_();
+            uiShowView_("notes");
+            renderAll();
+          });
+          const more = document.createElement("button");
+          more.type = "button";
+          more.className = "ui-category-menu";
+          more.textContent = "⋮";
+          more.setAttribute("aria-label", "Opciones de " + category.name);
+          more.addEventListener("click", () => openUICategorySheet_(category.id));
+          row.append(folder, label, more);
+          root.appendChild(row);
+        });
+        const add = document.createElement("button");
+        add.type = "button";
+        add.className = "ui-category-new";
+        add.textContent = "+ Nueva categoría";
+        add.addEventListener("click", () => openCatDialog({focusNew:true}));
+        root.appendChild(add);
+      }
+      function uiShowView_(view) {
+        const categoriesView = view === "categories";
+        document.documentElement.dataset.uiView = categoriesView ? "categories" : "notes";
+        $("uiCategoriesPage").hidden = !categoriesView;
+        document.querySelector("main.list").hidden = categoriesView;
+        $("uiAddDock").hidden = categoriesView;
+        $("uiPageTitle").textContent = categoriesView ? "Categorías" : "Notas";
+        document.querySelectorAll("[data-ui-nav]").forEach(button => {
+          if (button.dataset.uiNav === (categoriesView ? "categories" : "notes")) button.setAttribute("aria-current", "page");
+          else button.removeAttribute("aria-current");
+        });
+        if (categoriesView) renderUICategories_();
+        window.scrollTo?.(0, 0);
+      }
+      function openUICategorySheet_(catId) {
+        const category = getCategoryById(catId);
+        if (!category) return;
+        const count = notes.filter(n => n.categoryId === catId).length;
+        uiCategoryToDelete_ = catId;
+        $("uiCategorySheetName").textContent = category.name;
+        $("uiCategorySheetCount").textContent = count + (count === 1 ? " nota" : " notas");
+        $("uiCategorySheetIcon").innerHTML = uiFolderSvg_;
+        $("uiCategorySheetDescription").textContent = catId === GENERAL_CATEGORY_ID
+          ? "La categoría General es necesaria para conservar las notas sin categoría y no se puede eliminar."
+          : "La categoría y sus " + count + (count === 1 ? " nota irán" : " notas irán")
+            + " a la papelera. Se guardará además un respaldo para recuperar todo el conjunto.";
+        $("uiCategoryDelete").disabled = catId === GENERAL_CATEGORY_ID;
+        $("uiCategorySheet").showModal();
+      }
+      async function trashUICategory_(catId) {
+        if (catId === GENERAL_CATEGORY_ID || !getCategoryById(catId)) return false;
+        // Archivar notas individualmente y guardar el estado completo antes de borrar.
+        // La restauración del respaldo vuelve a crear la categoría y sus notas.
+        const before = cloneState_(serializeState());
+        const affected = before.notes.filter(n => n.categoryId === catId);
+        try {
+          await persistRecoveryEntry_({id:"before_category_delete_" + makeId(),kind:"backup",at:Date.now(),state:before,source:"device"});
+          for (const note of affected) await rememberNote_("trash", note);
+        } catch (_) {
+          toast("No se eliminó la categoría: no se pudo asegurar su respaldo", 6000);
+          return false;
+        }
+        const unchanged = getCategoryById(catId)?.name === before.categories.find(c => c.id === catId)?.name
+          && affected.every(n => JSON.stringify(getNoteById(n.id)) === JSON.stringify(n))
+          && notes.filter(n => n.categoryId === catId).length === affected.length;
+        if (!unchanged) { toast("Las notas cambiaron durante la copia. Revisa la categoría antes de eliminarla", 6000); return false; }
+        notes = notes.filter(n => n.categoryId !== catId);
+        categories = categories.filter(c => c.id !== catId);
+        if (settings.categoryFilter === catId) settings.categoryFilter = "all";
+        saveDebounced();
+        renderAll();
+        await flushPendingSave_();
+        if (localRevision > localSavedRevision) {
+          toast("Borrado local sin confirmar. Exporta tus notas y consulta Recuperación", 6000);
+          return false;
+        }
+        toast("Categoría y notas movidas a la papelera");
+        return true;
+      }
+      function initDesignUI_() {
+        const heading = document.querySelector(".ui-heading");
+        if (!heading) return; // Entorno de pruebas unitarias sin DOM visual.
+        heading.after($("syncPanel"));
+        $("uiAddDock").appendChild(newNoteEl);
+        searchEl.placeholder = "Buscar en tus notas";
+        notesTitleEl.querySelector(".section-title-left > span").textContent = "Recientes";
+        document.documentElement.dataset.uiView = "notes";
+        $("uiSettings").addEventListener("click", () => {
+          const open = document.documentElement.classList.toggle("ui-settings-open");
+          $("uiSettings").setAttribute("aria-expanded", String(open));
+        });
+        document.querySelectorAll("[data-ui-nav]").forEach(button => {
+          button.addEventListener("click", () => {
+            if (button.dataset.uiNav === "trash") { openRecovery_("trash"); return; }
+            uiShowView_(button.dataset.uiNav);
+          });
+        });
+        $("uiCategoryCancel").addEventListener("click", () => $("uiCategorySheet").close());
+        $("uiCategoryDelete").addEventListener("click", async () => {
+          if (!uiCategoryToDelete_) return;
+          const button = $("uiCategoryDelete");
+          button.disabled = true;
+          try {
+            if (await trashUICategory_(uiCategoryToDelete_)) $("uiCategorySheet").close();
+          } finally { button.disabled = false; }
+        });
+        $("uiCategorySheet").addEventListener("click", event => {
+          if (event.target === $("uiCategorySheet")) $("uiCategorySheet").close();
+        });
+        document.addEventListener("click", event => {
+          if (!event.target.closest(".note")) {
+            document.querySelectorAll(".note.menu-open").forEach(row => row.classList.remove("menu-open"));
+          }
+        });
+      }
+
       document.addEventListener("DOMContentLoaded", () => { init(); });
 
       async function init() {
@@ -1938,6 +2121,7 @@
 
           bindEvents();
           initReliability_();
+          initDesignUI_();
 
           renderCategoryFilter();
           syncTopSelectTitles_();
@@ -3157,7 +3341,7 @@
         view.tabIndex = 0;
         view.setAttribute("role", "button");
         view.setAttribute("aria-label", "Abrir editor");
-        view.innerHTML = makeHighlightedHTML(note.text, currentTerms(), true);
+        view.innerHTML = renderNoteCardHTML_(note, currentTerms());
 
         content.appendChild(view);
 
@@ -3202,8 +3386,15 @@
         actions.appendChild(clearBtn);
         actions.appendChild(delBtn);
 
+        const more = document.createElement("button");
+        more.type = "button";
+        more.className = "ui-note-more";
+        more.textContent = "⋮";
+        more.setAttribute("aria-label", "Opciones de nota");
+        more.setAttribute("aria-expanded", "false");
         el.appendChild(drag);
         el.appendChild(content);
+        el.appendChild(more);
         el.appendChild(actions);
 
         return el;
@@ -3342,6 +3533,8 @@
 
         applySearchAndHighlights();
         applySectionCollapseUI_();
+        renderUIChips_();
+        renderUICategories_();
       }
 
       function applySearchAndHighlights() {
@@ -3375,7 +3568,7 @@
             }
 
             const view = el.querySelector(".note-view");
-            if (view) view.innerHTML = makeHighlightedHTML(note.text, terms, true);
+            if (view) view.innerHTML = renderNoteCardHTML_(note, terms);
 
             const cpBtn = el.querySelector('[data-action="copyPaste"]');
             if (cpBtn) setCopyPasteUI(cpBtn, note.text);
@@ -3561,11 +3754,20 @@
           openNoteDialog_(note.id);
           return;
         }
+        if (e.target.closest(".ui-note-more")) {
+          const open = !noteEl.classList.contains("menu-open");
+          document.querySelectorAll(".note.menu-open").forEach(row => {row.classList.remove("menu-open"); row.querySelector(".ui-note-more")?.setAttribute("aria-expanded", "false");});
+          noteEl.classList.toggle("menu-open", open);
+          noteEl.querySelector(".ui-note-more")?.setAttribute("aria-expanded", String(open));
+          return;
+        }
 
         const actionBtn = e.target.closest("[data-action]");
         if (!actionBtn) return;
 
         const action = actionBtn.dataset.action;
+        noteEl.classList.remove("menu-open");
+        noteEl.querySelector(".ui-note-more")?.setAttribute("aria-expanded", "false");
 
         if (action === "pin") {
           const prevPinned = !!note.pinned;
