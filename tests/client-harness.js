@@ -9,7 +9,7 @@ module.exports=function client(storage=new Map(), coarse=false, endpoint=null){
   const timers=new Map(),intervals=[];let seq=0;
   const localStorage={get length(){return storage.size;},key:i=>[...storage.keys()][i],getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)};
   const elements=new Map();
-  const element=()=>({value:'',open:false,dataset:{},style:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},getAttribute(){},addEventListener(){},querySelectorAll:()=>[],querySelector:()=>null,appendChild(){},remove(){},focus(){}});
+  const element=()=>({value:'',open:false,dataset:{},style:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},getAttribute(){},addEventListener(){},querySelectorAll:()=>[],querySelector:()=>null,appendChild(){},remove(){},focus(){},showModal(){this.open=true;},close(){this.open=false;}});
   const document={getElementById:id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id);},addEventListener(){},createElement:element,querySelectorAll:()=>[],querySelector:()=>null,body:element(),head:element(),documentElement:element()};
   const listeners=new Map();
   const window={crypto,matchMedia:()=>({matches:coarse}),addEventListener:(type,f)=>listeners.set(type,f),removeEventListener:type=>listeners.delete(type)};
@@ -21,6 +21,8 @@ module.exports=function client(storage=new Map(), coarse=false, endpoint=null){
     readPrivateConnection_, mergeStates_, mergeLocalStates_, validateRemote_, readPending_, stagePending_, flushPendingSave_, saveDebounced, saveNow, startAutoSync, importFile, exportJSON, exportTXT,
     norm, currentTerms, makeHighlightedHTML, deleteNote, createNote, ensureGeneralCategory, saveCategoryCollapse_, serializeState, apiSaveAll_,
     sameCloudEndpoint_, endpoint: API_URL, init, flushCloudSave_, flushLocal: flushPendingSave_, refreshLocalState_,
+    rememberNote_, loadLocalRecovery_, persistRecoveryEntry_, renderSyncStatus_, syncError_, retrySync_, restoreSelected_,
+    recovery(){return recoveryEntries;}, selectRecovery(entry){recoverySelected=entry;},syncState(){return syncState;},
     async flushPendingSave_(){await flushPendingSave_();await flushCloudSave_();},
     readWith(get){readLocalRecord_=get;},
     storage(get,put){readLocalRecord_=get;persistLocalRecord_=put;},
@@ -47,3 +49,4 @@ module.exports=function client(storage=new Map(), coarse=false, endpoint=null){
   });
   return {api,storage,localStorage,timers,intervals,elements,context,window,listeners,record:()=>shared.record};
 };
+

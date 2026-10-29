@@ -1,6 +1,6 @@
 'use strict';
 // Solo contiene la aplicación; nunca guarda respuestas de Google ni datos de notas.
-const CACHE = 'notas-shell-v6-20261028-private-1';
+const CACHE = 'notas-shell-v7-reliability-20261029';
 const SHELL = ['./', './index.html', './notas.html'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL.map(url => new Request(url, {cache: 'reload'})))).then(() => self.skipWaiting()));
@@ -22,3 +22,4 @@ self.addEventListener('fetch', event => {
     return (await cache.match(event.request)) || (await cache.match('./notas.html'));
   }));
 });
+

@@ -42,9 +42,21 @@ function dataSpreadsheetId_() {
  * ========================= */
 function doGet(e) {
   try {
+    archiveCache_ = null;
     const action = String((e && e.parameter && e.parameter.action) || "").trim();
 
+    if (action === "connect") return googleConnectionPage_();
     assertAuthorized_(e);
+
+    if (action === "getArchive") {
+      const lock = LockService.getScriptLock();
+      lock.waitLock(15000);
+      try {
+        const data = archivePage_(e.parameter);
+        const cb = String(e.parameter.callback || "").trim();
+        return cb ? jsonp_(cb, data) : json_(data);
+      } finally { lock.releaseLock(); }
+    }
 
     if (action === "ping") {
       const ss = SpreadsheetApp.openById(dataSpreadsheetId_());
@@ -85,6 +97,7 @@ function doGet(e) {
 
 function doPost(e) {
   try {
+    archiveCache_ = null;
     const action = String((e && e.parameter && e.parameter.action) || "").trim();
     if (action !== "saveAll") throw new Error("Acción inválida.");
 
@@ -108,6 +121,9 @@ function doPost(e) {
       prepareRecovery_(before);
       let out;
       try {
+        acceptRecoveryEntries_(state.recoveryEntries);
+        preserveChanges_(before, state);
+        dailyBackup_(before);
         out = saveAll_(state);
         SpreadsheetApp.flush();
         out.revision = getState_().revision;
@@ -121,7 +137,8 @@ function doPost(e) {
         ok: true,
         requestId,
         savedAt: out.savedAt || Date.now(),
-        revision: out.revision
+        revision: out.revision,
+        backupAt: Number(PropertiesService.getScriptProperties().getProperty("NOTAS_LAST_BACKUP_AT")) || 0
       });
     } finally {
       lock.releaseLock();
@@ -155,7 +172,9 @@ function getState_() {
 
   return {
     ok: true,
-    v: 5,
+    v: 6,
+    capabilities: { archive: true, independentBackups: true },
+    backupAt: Number(PropertiesService.getScriptProperties().getProperty("NOTAS_LAST_BACKUP_AT")) || 0,
     revision: revision_(categories, notes),
     savedAt: Date.now(),
     categories,
@@ -513,6 +532,7 @@ function setupPrivateNotes_() {
   lock.waitLock(15000);
   try {
     const props = PropertiesService.getScriptProperties();
+    props.setProperty("NOTAS_OWNER_EMAIL", Session.getEffectiveUser().getEmail());
     let id = props.getProperty("NOTAS_SPREADSHEET_ID");
     if (!id) {
       const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
@@ -546,3 +566,140 @@ function assertOwnerEditor_() {
 }
 function prepararNotas() { assertOwnerEditor_(); setupPrivateNotes_(); }
 function verConexionPrivada() { assertOwnerEditor_(); showPrivateConnection_(); }
+
+
+// ARCHIVE_V6: append-only, independent from the active notes protocol.
+const ARCHIVE_SHEET = "_notas_archive_v6";
+const ARCHIVE_HEADERS = ["ID", "Tipo", "Fecha", "Fragmento", "Total", "Datos"];
+let archiveCache_ = null;
+function archiveSheet_() {
+  const ss = SpreadsheetApp.openById(dataSpreadsheetId_());
+  let sh = ss.getSheetByName(ARCHIVE_SHEET);
+  if (!sh) {
+    sh = ss.insertSheet(ARCHIVE_SHEET);
+    sh.getRange(1, 1, 1, 6).setValues([ARCHIVE_HEADERS]);
+    sh.setFrozenRows(1);
+    sh.hideSheet();
+  }
+  const actual = sh.getRange(1, 1, 1, 6).getValues()[0];
+  if (JSON.stringify(actual) !== JSON.stringify(ARCHIVE_HEADERS)) throw new Error("Esquema inesperado del archivo de recuperación. No se modificó.");
+  return sh;
+}
+function archiveEntries_() {
+  if (archiveCache_) return archiveCache_;
+  const sh = archiveSheet_();
+  if (sh.getLastRow() < 2) return [];
+  const rows = sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues();
+  const groups = new Map();
+  for (const [id, kind, at, part, total, text] of rows) {
+    if (!id) continue;
+    if (!groups.has(id)) groups.set(id, {id, kind, at: Number(at), total: Number(total), parts: new Map()});
+    const group = groups.get(id);
+    group.parts.set(Number(part), String(text));
+  }
+  const result = [];
+  for (const group of groups.values()) {
+    // Incomplete appends are ignored; a retry appends all chunks again.
+    if (!Number.isInteger(group.total) || group.total < 1 || group.parts.size !== group.total) continue;
+    try {
+      const text = Array.from({length: group.total}, (_, i) => group.parts.get(i)).join("");
+      const entry = JSON.parse(text);
+      if (entry.id === group.id && entry.kind === group.kind) result.push(entry);
+    } catch (_) {}
+  }
+  archiveCache_ = result.sort((a, b) => b.at - a.at || a.id.localeCompare(b.id));
+  return archiveCache_;
+}
+function archiveHash_(value) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, JSON.stringify(value), Utilities.Charset.UTF_8)
+    .map(b => (b & 255).toString(16).padStart(2, "0")).join("");
+}
+function appendArchive_(entry) {
+  if (archiveEntries_().some(e => e.id === entry.id)) return;
+  const chunks = JSON.stringify(entry).match(/[\s\S]{1,30000}/g) || [];
+  const sh = archiveSheet_(), first = sh.getLastRow() + 1;
+  if (first + chunks.length - 1 > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), first + chunks.length - 1 - sh.getMaxRows());
+  sh.getRange(first, 1, chunks.length, 6).setValues(chunks.map((text, i) => [entry.id, entry.kind, entry.at, i, chunks.length, "'" + text]));
+  SpreadsheetApp.flush();
+  archiveCache_ = null;
+}
+function acceptRecoveryEntries_(entries) {
+  if (entries == null) return;
+  if (!Array.isArray(entries) || entries.length > 30) throw new Error("Lote de recuperación inválido.");
+  for (const entry of entries) {
+    if (!entry || typeof entry.id !== "string" || entry.id.length > 200 || !["trash", "history"].includes(entry.kind) || !Number.isFinite(entry.at) || entry.at <= 0) throw new Error("Copia de recuperación inválida.");
+    const note = entry.note;
+    if (!note || typeof note.id !== "string" || typeof note.text !== "string" || note.text.length > 49000 || !Number.isFinite(note.createdAt) || !Number.isFinite(note.updatedAt)) throw new Error("Nota de recuperación inválida.");
+    appendArchive_({id: entry.id, kind: entry.kind, at: entry.at, note, categories: Array.isArray(entry.categories) ? entry.categories : [], source: "cloud"});
+  }
+}
+function preserveChanges_(before, after) {
+  const incoming = new Map(after.notes.map(n => [n.id, n]));
+  for (const note of before.notes) {
+    const next = incoming.get(note.id);
+    const kind = !next ? "trash" : next.text !== note.text ? "history" : null;
+    if (!kind) continue;
+    appendArchive_({id: kind + "_" + archiveHash_([note, before.revision]), kind, at: Date.now(), note, categories: before.categories, source: "cloud"});
+  }
+}
+function dailyBackup_(state) {
+  const props = PropertiesService.getScriptProperties();
+  const day = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+  if (props.getProperty("NOTAS_BACKUP_DAY") === day) return;
+  const id = "daily_" + day;
+  const existing = archiveEntries_().find(e => e.id === id);
+  if (existing) {
+    props.setProperty("NOTAS_BACKUP_DAY", day);
+    props.setProperty("NOTAS_LAST_BACKUP_AT", String(existing.at));
+    return;
+  }
+  // Record the destination immediately so a failed write reuses the same file.
+  const pendingKey = "NOTAS_BACKUP_PENDING_" + day;
+  let destination = props.getProperty(pendingKey);
+  const backup = destination ? SpreadsheetApp.openById(destination) : SpreadsheetApp.create(day + "_notas_respaldo");
+  destination = backup.getId();
+  props.setProperty(pendingKey, destination);
+  const cats = ensureSheetWithHeaders_(backup, SHEET_CATS, CAT_HEADERS, CAT_HEADERS_ES);
+  const notes = ensureSheetWithHeaders_(backup, SHEET_NOTES, NOTE_HEADERS, NOTE_HEADERS_ES);
+  writeObjects_(cats, CAT_HEADERS, state.categories);
+  writeObjects_(notes, NOTE_HEADERS, state.notes, {dateHeaders: NOTE_DATE_HEADERS, dateFormat: SHEETS_DATE_FORMAT});
+  SpreadsheetApp.flush();
+  const at = Date.now();
+  appendArchive_({id, kind: "backup", at, state: {categories: state.categories, notes: state.notes}, spreadsheetId: destination, source: "cloud"});
+  props.setProperty("NOTAS_BACKUP_DAY", day);
+  props.setProperty("NOTAS_LAST_BACKUP_AT", String(at));
+}
+function archivePage_(params) {
+  const kind = String(params.kind || "trash");
+  if (!["trash", "history", "backup"].includes(kind)) throw new Error("Tipo de recuperación inválido.");
+  const all = archiveEntries_().filter(e => e.kind === kind);
+  const offset = Number(params.offset || 0);
+  if (!Number.isInteger(offset) || offset < 0) throw new Error("Página inválida.");
+  if (params.id) {
+    const entry = all.find(e => e.id === params.id);
+    if (!entry) throw new Error("No se encontró la copia solicitada.");
+    return {ok: true, entry};
+  }
+  const entries = all.slice(offset, offset + 30).map(e => ({id: e.id, kind: e.kind, at: e.at, source: "cloud", noteId: e.note?.id,
+    preview: (e.note?.text || "").slice(0, 200), noteCount: e.state?.notes.length, spreadsheetId: e.spreadsheetId}));
+  return {ok: true, entries, nextOffset: offset + entries.length < all.length ? offset + entries.length : null};
+}
+function googleConnectionPage_() {
+  const props = PropertiesService.getScriptProperties();
+  const owner = props.getProperty("NOTAS_OWNER_EMAIL");
+  const active = Session.getActiveUser().getEmail();
+  const effective = Session.getEffectiveUser().getEmail();
+  if (!owner || active !== owner || effective !== owner) throw new Error("Accede con la cuenta de Google propietaria de Notas. No se entregó ninguna clave.");
+  const token = props.getProperty("NOTAS_API_TOKEN") || "";
+  if (!/^[a-f0-9]{64}$/.test(token)) throw new Error("La conexión privada no está preparada.");
+  // A second deployment is restricted to MYSELF. No arbitrary destination or token input.
+  return HtmlService.createHtmlOutput(`<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Conectar Notas</title><style>body{font:18px system-ui;max-width:36rem;margin:10vh auto;padding:24px;background:#11182f;color:#eef2ff}a{display:inline-block;padding:16px 22px;border-radius:14px;background:#7568ff;color:white;text-decoration:none}p{line-height:1.6}</style></head><body><h1>Conectar Notas con Google</h1><p>Google ha verificado la cuenta propietaria. Conecta este navegador para leer y guardar tus notas. Las notas que ya estén en este dispositivo se conservarán.</p><a target="_top" rel="noreferrer" href="https://gruemp.github.io/notas/notas.html#notas_key=${token}">Conectar este dispositivo</a><p>La conexión se guarda únicamente en el navegador que abra el botón.</p></body></html>`);
+}
+function prepararMejorasNotas() {
+  assertOwnerEditor_();
+  setupPrivateNotes_();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try { archiveSheet_(); } finally { lock.releaseLock(); }
+  console.log("Mejoras preparadas. Conservadas las notas y la clave existente.");
+}

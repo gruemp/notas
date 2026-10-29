@@ -39,10 +39,15 @@ module.exports = function backend() {
       };
     }
   }
-  const ss={getSheetByName:n=>sheets.get(n),insertSheet:n=>{const s=new Sheet(n);sheets.set(n,s);return s;},getSheets:()=>[...sheets.values()],getName:()=> 'Isolated test',getId:()=> 'isolated-test-sheet'};
+  const documents = new Map();
+  function spreadsheet(id, name, tabs=new Map()) {
+    const value={getSheetByName:n=>tabs.get(n),insertSheet:n=>{const s=new Sheet(n);tabs.set(n,s);return s;},getSheets:()=>[...tabs.values()],getName:()=>name,getId:()=>id,tabs};
+    documents.set(id,value);return value;
+  }
+  const ss=spreadsheet('isolated-test-sheet','Isolated test',sheets);
   const output = data => ({data,setMimeType(){return this;},setXFrameOptionsMode(){return this;}});
   const context=vm.createContext({console,Date,JSON,Set,Map,
-    SpreadsheetApp:{openById:()=>ss,create:()=>{created++;return ss;},flush(){}},
+    SpreadsheetApp:{openById:id=>documents.get(id)||ss,create:name=>{created++;return spreadsheet('created-'+created,name);},flush(){}},
     Session:{getScriptTimeZone:()=>'UTC',getActiveUser:()=>({getEmail:()=>'owner@example.test'}),getEffectiveUser:()=>({getEmail:()=>'owner@example.test'})},
     PropertiesService:{getScriptProperties:()=>({getProperty:k=>properties.get(k)||null,setProperty:(k,v)=>properties.set(k,v)})},
     Utilities:{DigestAlgorithm:{SHA_256:'sha256'},Charset:{UTF_8:'utf8'},getUuid:()=>crypto.randomUUID(),formatDate:()=> '2026-10-28',computeDigest:(_,s)=>[...crypto.createHash('sha256').update(s).digest()]},
@@ -51,10 +56,11 @@ module.exports = function backend() {
     HtmlService:{createHtmlOutput:output,XFrameOptionsMode:{ALLOWALL:1}}
   });
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../app script.txt'),'utf8'),context);
-  return {context,sheets,properties,created:()=>created,failOnce:f=>{fail=f;},get:()=>JSON.parse(context.doGet({parameter:{action:'getState',auth:'a'.repeat(64)}}).data),
+  return {context,sheets,properties,documents,created:()=>created,failOnce:f=>{fail=f;},get:()=>JSON.parse(context.doGet({parameter:{action:'getState',auth:'a'.repeat(64)}}).data),
     post(state,requestId='test',auth='a'.repeat(64)){
       const html=context.doPost({parameter:{action:'saveAll',payload:JSON.stringify(state),requestId,auth}}).data;
       const match=html.match(/window.top.postMessage\((.*), "https:\/\/gruemp.github.io"\);/);
       if(!match)throw Error('Invalid save response');return JSON.parse(match[1]);
     }};
 };
+

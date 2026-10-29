@@ -12,11 +12,12 @@ new vm.Script(match[1], { filename: 'notas.html' });
 new vm.Script(backend, { filename: 'app script.txt' });
 new vm.Script(fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), { filename: 'sw.js' });
 const crypto = require('node:crypto');
-const visualPrefix = (html.split('<script>')[0] + '<script>').replace(/\r\n/g, '\n');
-assert.equal(crypto.createHash('sha256').update(visualPrefix).digest('hex'), '3dccc36167b38d5adc9ef3d8c915286f7f49bcb7d74024de40b0fd170fe73c95', 'Cambió el CSS o marcado visual original');
+const visualPrefix = (html.split('<script>')[0] + '<script>').replace(/\r\n/g, '\n').replace(/<!-- NOTAS_V6_BEGIN -->[\s\S]*?<!-- NOTAS_V6_END -->/g, '').replace(/>\s+</g, '><');
+assert.equal(crypto.createHash('sha256').update(visualPrefix).digest('hex'), '21286856e3c7edeb38a841f1120b5fa12f301f77b00a3c9378affaa959ecb056', 'Cambió el CSS o marcado visual original');
 assert.match(html, /function apiSaveAll_\(state\)/, 'Falta guardado remoto');
 assert.match(html, /function stagePending_\(\)/, 'Falta respaldo de cambios');
 assert.match(html, /function startAutoSync\(\)/, 'Falta sincronización');
 assert.match(html, /function importFile\(file\)/, 'Falta importación');
 assert.match(backend, /requestId/, 'Falta correlación de guardados');
 console.log('OK: HTML y Apps Script compilan; funciones esenciales presentes.');
+

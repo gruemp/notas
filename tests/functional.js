@@ -99,8 +99,8 @@ test('client: search ignores accents, case and term order; highlighting escapes 
   const c=makeClient();c.elements.get('search').value='bue te EL';assert.ok(c.api.currentTerms().every(t=>c.api.norm('el retén bueno').includes(t)));
   assert.ok(!c.api.makeHighlightedHTML('<script>alert(1)</script>',[],true).includes('<script>'));
 });
-test('client: delete and undo restore each note exactly once',()=>{
-  const c=makeClient();c.api.setState(state());c.api.onToast(()=>{});c.api.deleteNote('a');assert.equal(c.api.getState().notes.length,1);c.window.undo();c.window.undo();assert.equal(c.api.getState().notes.length,2);
+test('client: delete and undo restore each note exactly once',async()=>{
+  const c=makeClient();c.api.setState(state());c.api.onToast(()=>{});await c.api.deleteNote('a');assert.equal(c.api.getState().notes.length,1);c.window.undo();c.window.undo();assert.equal(c.api.getState().notes.length,2);
 });
 test('client: coarse pointer uses the same data/save logic',async()=>{
   const c=makeClient(new Map(),true);c.api.setState(state());c.api.api(async()=>state(),async s=>s.savedRevision='r2');c.api.edit('a','móvil');await c.api.flushPendingSave_();assert.equal(c.api.getState().confirmedRevision,1);
@@ -132,7 +132,7 @@ test('bridge: only a correlated acknowledgement from a Google origin confirms a 
   const payload=JSON.stringify(s); // request ID is private to the submitted form; capture inputs for next test instead.
   listener({origin:'https://evil.example',data:{type:'notas_saveAll',ok:true,requestId:'wrong',revision:'bad'}});
   assert.equal(s.savedRevision,undefined);assert.equal(c.listeners.has('message'),true);
-  const timeout=[...c.timers.values()].find(t=>t.ms===12000);timeout.f();await assert.rejects(pending,/sin confirmación/);
+  const timeout=[...c.timers.values()].find(t=>t.ms===45000);timeout.f();await assert.rejects(pending,/sin confirmación/);
 });
 test('client: conflict created while a cloud write is pending preserves both texts locally',async()=>{
   const c=makeClient();const base=state(),remote=state();remote.notes[1].text='other tab';c.api.setState(base);let finish,started;const ready=new Promise(r=>started=r);
@@ -250,3 +250,4 @@ test('client: a delayed local read cannot undo a newer committed edit',async()=>
   assert.equal(c.api.getState().notes.find(n=>n.id==='a').text,'latest committed');
   assert.equal(c.record().state.notes.find(n=>n.id==='a').text,'latest committed');
 });
+
