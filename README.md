@@ -57,3 +57,9 @@ La vista principal incorpora tarjetas, encabezado de estado, búsqueda, filtros 
 A partir de 1024 px, la aplicación ocupa un ancho máximo de 1560 px: navegación lateral fija dentro de la página, búsqueda y filtros en la cabecera, creación de notas arriba a la derecha, tarjetas en varias columnas y categorías en rejilla. Por debajo de 1024 px se conserva la distribución móvil original de la versión anterior. Este ajuste solo modifica la presentación y la versión de la caché offline, no la estructura de datos ni el servicio de Google.
 
 **Revertir únicamente la disposición de escritorio:** la versión previa al ajuste se conserva en [`backup/notas-mobile-ui-before-desktop-20261029`](https://github.com/gruemp/notas/tree/backup/notas-mobile-ui-before-desktop-20261029). Restaurar el CSS y la caché de esa rama mediante un nuevo PR permite volver al ancho anterior sin borrar las notas ni cambiar credenciales.
+
+## Pulido visual de la interfaz (octubre de 2026)
+
+Se han refinado únicamente los estilos CSS de la cabecera, estado de sincronización, búsqueda, filtros, tarjetas, categorías, navegación y modales. Mejora la jerarquía, superficies, contraste y consistencia entre temas claro y oscuro, sin cambiar la estructura funcional de las notas, las columnas originales ni los puntos de ruptura existentes (móvil, tableta y PC). El estado de sincronización tiene representación visual neutral mientras está pendiente, verde al sincronizarse y ámbar en caso de error. La caché offline cambia de nombre para asegurar que se descarguen los nuevos estilos.
+
+**Reversión:** la versión inmediatamente anterior al pulido está respaldada en [`backup/notas-before-visual-polish-20261029`](https://github.com/gruemp/notas/tree/backup/notas-before-visual-polish-20261029), commit `cc61265947c83ffe2e957dad0626a2234d420fdb`. Puede recuperarse mediante otro PR que restablezca el HTML, la caché y la documentación, sin borrar datos del usuario.
