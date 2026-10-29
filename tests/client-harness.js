@@ -5,7 +5,7 @@ const crypto = require('node:crypto');
 const path = require('node:path');
 const records=new WeakMap();
 const html=fs.readFileSync(path.join(__dirname,'../notas.html'),'utf8');
-module.exports=function client(storage=new Map(), coarse=false){
+module.exports=function client(storage=new Map(), coarse=false, endpoint=null){
   const timers=new Map(),intervals=[];let seq=0;
   const localStorage={get length(){return storage.size;},key:i=>[...storage.keys()][i],getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,String(v)),removeItem:k=>storage.delete(k)};
   const elements=new Map();
@@ -16,10 +16,11 @@ module.exports=function client(storage=new Map(), coarse=false){
   const context=vm.createContext({console:{error(){},warn(){}},document,window,crypto,localStorage,navigator:{},URL,URLSearchParams,
     setTimeout:(f,ms)=>{timers.set(++seq,{f,ms});return seq;},clearTimeout:id=>timers.delete(id),setInterval:f=>intervals.push(f),clearInterval(){},prompt:()=>null});
   let js=html.match(/<script>([\s\S]*?)<\/script>/i)[1];
+  if(endpoint)js=js.replace(/const API_URL = "[^"]+";/,'const API_URL = '+JSON.stringify(endpoint)+';');
   js=js.replace(/\}\)\(\);\s*$/,`window.test = {
-    mergeStates_, mergeLocalStates_, validateRemote_, readPending_, stagePending_, flushPendingSave_, saveDebounced, saveNow, startAutoSync, importFile, exportJSON, exportTXT,
+    readPrivateConnection_, mergeStates_, mergeLocalStates_, validateRemote_, readPending_, stagePending_, flushPendingSave_, saveDebounced, saveNow, startAutoSync, importFile, exportJSON, exportTXT,
     norm, currentTerms, makeHighlightedHTML, deleteNote, createNote, ensureGeneralCategory, saveCategoryCollapse_, serializeState, apiSaveAll_,
-    init, flushCloudSave_, flushLocal: flushPendingSave_, refreshLocalState_,
+    sameCloudEndpoint_, endpoint: API_URL, init, flushCloudSave_, flushLocal: flushPendingSave_, refreshLocalState_,
     async flushPendingSave_(){await flushPendingSave_();await flushCloudSave_();},
     readWith(get){readLocalRecord_=get;},
     storage(get,put){readLocalRecord_=get;persistLocalRecord_=put;},
@@ -39,7 +40,7 @@ module.exports=function client(storage=new Map(), coarse=false){
   const shared=records.get(storage),copy=x=>x==null?x:JSON.parse(JSON.stringify(x));
   api.storage(async()=>copy(shared.record),(before,local,initialCloudBase,acknowledged)=>{
     const operation=shared.queue.then(()=>{
-      const record={state:copy(api.mergeLocalStates_(before,local,shared.record?.state||before)),cloudBase:copy(acknowledged||shared.record?.cloudBase||initialCloudBase),version:(shared.record?.version||0)+1};
+      const record={state:copy(api.mergeLocalStates_(before,local,shared.record?.state||before)),cloudBase:copy(acknowledged||(api.sameCloudEndpoint_(shared.record)?shared.record?.cloudBase:null)||initialCloudBase),cloudEndpoint:api.endpoint,version:(shared.record?.version||0)+1};
       shared.record=record;return copy(record);
     });
     shared.queue=operation.catch(()=>{});return operation;

@@ -205,6 +205,42 @@ test('client: local delete versus simultaneous edit preserves the edited text',(
   assert.ok(api.mergeLocalStates_(base,a,b).notes.some(n=>n.text==='newest text'));
   assert.ok(api.mergeLocalStates_(base,b,a).notes.some(n=>n.text==='newest text'));
 });
+test('private backend: missing, incorrect or unconfigured credentials cannot read or write data',()=>{
+  const b=makeBackend(),base=seed(b);
+  for(const auth of['','b'.repeat(64),'bad']){
+    const out=JSON.parse(b.context.doGet({parameter:{action:'getState',auth}}).data);assert.equal(out.ok,false);
+    assert.equal(b.post({...base,baseRevision:base.revision},'unauthorized',auth).ok,false);assert.equal(b.get().revision,base.revision);
+  }
+  b.properties.delete('NOTAS_API_TOKEN');assert.equal(b.get().ok,false);
+});
+test('private backend: setup and connection helpers require the effective owner identity',()=>{
+  const b=makeBackend();b.context.Session={getActiveUser:()=>({getEmail:()=>''}),getEffectiveUser:()=>({getEmail:()=> 'owner@example.test'})};
+  assert.throws(()=>b.context.prepararNotas(),/propietario/);assert.throws(()=>b.context.verConexionPrivada(),/propietario/);assert.equal(b.properties.has('NOTAS_SPREADSHEET_ID'),false);
+});
+test('private client: a connection key is consumed from the fragment, scrubbed, and pinned to the reviewed endpoint',()=>{
+  const c=makeClient(),endpoint='https://script.google.com/macros/s/test/exec',key='c'.repeat(64);let clean;
+  c.window.location={hash:'#notas_key='+key,pathname:'/notas/notas.html',search:''};c.window.history={replaceState:(a,b,url)=>clean=url};
+  assert.equal(c.api.readPrivateConnection_(endpoint),key);assert.equal(clean,'/notas/notas.html');
+  c.window.location.hash='';assert.equal(c.api.readPrivateConnection_('https://script.google.com/macros/s/other/exec'),'');
+  c.window.location.hash='#notas_key=invalid';assert.equal(c.api.readPrivateConnection_(endpoint),key);
+});
+test('private backend: initialization reuses the same private sheet and key on every retry',()=>{
+  const b=makeBackend();b.properties.delete('NOTAS_API_TOKEN');b.context.prepararNotas();const id=b.properties.get('NOTAS_SPREADSHEET_ID'),token=b.properties.get('NOTAS_API_TOKEN');
+  assert.equal(b.created(),1);assert.match(token,/^[a-f0-9]{64}$/);assert.equal(JSON.parse(b.context.doGet({parameter:{action:'getState',auth:token}}).data).ok,true);
+  b.context.prepararNotas();assert.equal(b.created(),1);assert.equal(b.properties.get('NOTAS_SPREADSHEET_ID'),id);assert.equal(b.properties.get('NOTAS_API_TOKEN'),token);
+});
+test('private connection: switching to a new empty backend never treats its empty state as deletion of local notes',async()=>{
+  const c=makeClient();c.api.setState(state());c.api.api(async()=>{throw Error('offline');},()=>assert.fail());c.api.edit('a','preserve on migration');await c.api.flushLocal();
+  c.record().cloudEndpoint='https://script.google.com/macros/s/older/exec';c.record().cloudBase=state();
+  const reopened=makeClient(c.storage);let sent;reopened.api.api(async()=>({ok:true,categories:[cat],notes:[],revision:'new-empty'}),async s=>{sent=copy(s);s.savedRevision='new-saved';});
+  await reopened.api.init();await reopened.api.flushPendingSave_();assert.ok(sent.notes.some(n=>n.text==='preserve on migration'));assert.equal(reopened.record().state.notes.length,2);
+});
+test('private connection: old local records on the unchanged original endpoint retain their known cloud baseline',async()=>{
+  const endpoint='https://script.google.com/macros/s/AKfycbyNE12DPGcX6w9zTQRjCAej-bxeQM4GDCpTrVhlERhj_cptdO7uFXlDJ4aDgt_230_V/exec';const c=makeClient(new Map(),false,endpoint);const local=state();local.notes=local.notes.filter(n=>n.id!=='a');c.api.setState(local);c.api.api(async()=>{throw Error('offline');},()=>assert.fail());
+  await c.api.importFile({name:'notes.json',text:async()=>JSON.stringify({categories:[cat],notes:[note('b')]})});await c.api.flushLocal();delete c.record().cloudEndpoint;c.record().cloudBase=state();
+  const reopened=makeClient(c.storage,false,endpoint);let sent;reopened.api.api(async()=>state(),async s=>{sent=copy(s);s.savedRevision='r2';});await reopened.api.init();await reopened.api.flushPendingSave_();
+  assert.equal(sent.notes.some(n=>n.id==='a'),false);
+});
 
 test('client: a delayed local read cannot undo a newer committed edit',async()=>{
   const c=makeClient();c.api.setState(state());c.api.api(async()=>{throw Error('offline');},()=>assert.fail());

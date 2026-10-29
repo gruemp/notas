@@ -20,11 +20,18 @@ const NOTE_DATE_HEADERS = ["createdAt", "updatedAt"];
 const SHEETS_DATE_FORMAT = "yyyy-MM-dd hh-mm";
 
 /** =========================
- *  AUTH (SIN TOKEN)
+ *  AUTH (clave privada por instalación)
  * ========================= */
 function assertAuthorized_(e) {
-  // ✅ Sin autenticación
-  return;
+  const expected = PropertiesService.getScriptProperties().getProperty("NOTAS_API_TOKEN") || "";
+  const supplied = String(e?.parameter?.auth || "");
+  if (!/^[a-f0-9]{64}$/.test(expected) || !/^[a-f0-9]{64}$/.test(supplied)) throw new Error("No autorizado.");
+  let different = 0;
+  for (let i = 0; i < expected.length; i++) different |= expected.charCodeAt(i) ^ supplied.charCodeAt(i);
+  if (different !== 0) throw new Error("No autorizado.");
+}
+function dataSpreadsheetId_() {
+  return PropertiesService.getScriptProperties().getProperty("NOTAS_SPREADSHEET_ID") || SPREADSHEET_ID;
 }
 
 /** =========================
@@ -37,8 +44,10 @@ function doGet(e) {
   try {
     const action = String((e && e.parameter && e.parameter.action) || "").trim();
 
+    assertAuthorized_(e);
+
     if (action === "ping") {
-      const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+      const ss = SpreadsheetApp.openById(dataSpreadsheetId_());
       return json_({
         ok: true,
         spreadsheetName: ss.getName(),
@@ -47,7 +56,7 @@ function doGet(e) {
     }
 
     if (action === "getState") {
-      assertAuthorized_(e); // abierto
+      assertAuthorized_(e);
       const lock = LockService.getScriptLock();
       lock.waitLock(15000);
       let data;
@@ -79,7 +88,7 @@ function doPost(e) {
     const action = String((e && e.parameter && e.parameter.action) || "").trim();
     if (action !== "saveAll") throw new Error("Acción inválida.");
 
-    assertAuthorized_(e); // abierto
+    assertAuthorized_(e);
 
     const payload = String((e.parameter && e.parameter.payload) || "").trim();
     if (!payload) throw new Error("Payload vacío.");
@@ -131,7 +140,7 @@ function doPost(e) {
  *  Core API
  * ========================= */
 function getState_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = SpreadsheetApp.openById(dataSpreadsheetId_());
 
   // Encabezados visibles en español (fila 1)
   const shCats  = ensureSheetWithHeaders_(ss, SHEET_CATS,  CAT_HEADERS,  CAT_HEADERS_ES);
@@ -156,7 +165,7 @@ function getState_() {
 }
 
 function saveAll_(state) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = SpreadsheetApp.openById(dataSpreadsheetId_());
 
   const shCats  = ensureSheetWithHeaders_(ss, SHEET_CATS,  CAT_HEADERS,  CAT_HEADERS_ES);
   const shNotes = ensureSheetWithHeaders_(ss, SHEET_NOTES, NOTE_HEADERS, NOTE_HEADERS_ES);
@@ -418,7 +427,7 @@ function toBool_(v) {
  *  - Ejecuta esto UNA vez si quieres forzar el formato en toda la hoja Notes.
  * ========================= */
 function applyNotesDateFormat_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = SpreadsheetApp.openById(dataSpreadsheetId_());
   const sh = ss.getSheetByName(SHEET_NOTES);
   if (!sh) throw new Error("No existe la hoja Notes.");
 
@@ -435,7 +444,7 @@ function applyNotesDateFormat_() {
  *  Test manual (Logs)
  * ========================= */
 function testOpenSheet_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = SpreadsheetApp.openById(dataSpreadsheetId_());
   console.log("Nombre:", ss.getName());
   console.log("URL:", ss.getUrl());
   console.log("Hojas:", ss.getSheets().map(s => s.getName()).join(", "));
@@ -466,7 +475,7 @@ function validateState_(state) {
 
 const RECOVERY_SHEET = "_notas_recovery_v5";
 function prepareRecovery_(state) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = SpreadsheetApp.openById(dataSpreadsheetId_());
   let sh = ss.getSheetByName(RECOVERY_SHEET);
   if (!sh) { sh = ss.insertSheet(RECOVERY_SHEET); sh.hideSheet(); }
   const text = JSON.stringify(state);
@@ -480,11 +489,11 @@ function prepareRecovery_(state) {
   SpreadsheetApp.flush();
 }
 function finishRecovery_() {
-  const sh = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(RECOVERY_SHEET);
+  const sh = SpreadsheetApp.openById(dataSpreadsheetId_()).getSheetByName(RECOVERY_SHEET);
   if (sh) { sh.getRange(1, 1).clearContent(); SpreadsheetApp.flush(); }
 }
 function recoverWrite_() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ss = SpreadsheetApp.openById(dataSpreadsheetId_());
   const sh = ss.getSheetByName(RECOVERY_SHEET);
   if (!sh) return;
   const count = Number(sh.getRange(1, 1).getValue());
@@ -495,3 +504,45 @@ function recoverWrite_() {
   SpreadsheetApp.flush();
   finishRecovery_();
 }
+
+
+// Solo se ejecutan desde el editor por el propietario. El sufijo _ impide invocarlas mediante google.script.run.
+// No se ejecutan desde GET ni POST y no eliminan ni reemplazan la hoja anterior.
+function setupPrivateNotes_() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const props = PropertiesService.getScriptProperties();
+    let id = props.getProperty("NOTAS_SPREADSHEET_ID");
+    if (!id) {
+      const stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM-dd");
+      const ss = SpreadsheetApp.create(stamp + "_notas_datos");
+      id = ss.getId();
+      // Registrar el ID antes de inicializar las tablas para que un reintento reutilice la misma hoja.
+      props.setProperty("NOTAS_SPREADSHEET_ID", id);
+    }
+    if (!props.getProperty("NOTAS_API_TOKEN")) {
+      props.setProperty("NOTAS_API_TOKEN", (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, "").toLowerCase());
+    }
+    getState_();
+    SpreadsheetApp.flush();
+    console.log("Almacén privado preparado: https://docs.google.com/spreadsheets/d/" + id + "/edit");
+  } finally { lock.releaseLock(); }
+}
+function showPrivateConnection_() {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty("NOTAS_API_TOKEN");
+  if (!/^[a-f0-9]{64}$/.test(token || "")) throw new Error("Primero prepara el almacén privado.");
+  // Enlace privado: solo se muestra en el registro del propietario. Nunca añadirlo al repositorio ni compartirlo públicamente.
+  console.log("https://gruemp.github.io/notas/notas.html#notas_key=" + token);
+}
+
+// Entradas del editor: Google también exige la identidad del propietario.
+// Aunque estas funciones son visibles en el selector, un visitante anónimo no puede utilizarlas.
+function assertOwnerEditor_() {
+  const active = Session.getActiveUser().getEmail();
+  const effective = Session.getEffectiveUser().getEmail();
+  if (!active || !effective || active !== effective) throw new Error("Solo el propietario puede preparar esta conexión.");
+}
+function prepararNotas() { assertOwnerEditor_(); setupPrivateNotes_(); }
+function verConexionPrivada() { assertOwnerEditor_(); showPrivateConnection_(); }

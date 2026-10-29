@@ -1081,11 +1081,35 @@
          Backend: GitHub Pages -> Apps Script Web App API
          - Lee con JSONP (GET) para evitar CORS
          - Guarda con POST vía iframe + postMessage (evita CORS)
-         - ✅ SIN TOKEN (abierto)
+         - Clave privada almacenada solo en este navegador, nunca en el repositorio
       ========================== */
 
-      const API_URL = "https://script.google.com/macros/s/AKfycbyNE12DPGcX6w9zTQRjCAej-bxeQM4GDCpTrVhlERhj_cptdO7uFXlDJ4aDgt_230_V/exec";
+      const API_URL = "https://script.google.com/macros/s/AKfycbxTzSBlyqt5JARd_-y660qPmVR8R7SWwDMHjakAlh--QKn7nRUEM3crGto-SSfNfhY96w/exec";
+      const LEGACY_API_URL = "https://script.google.com/macros/s/AKfycbyNE12DPGcX6w9zTQRjCAej-bxeQM4GDCpTrVhlERhj_cptdO7uFXlDJ4aDgt_230_V/exec";
+      const API_TOKEN = readPrivateConnection_(API_URL);
       const AUTOSYNC_MS = 15000;
+
+      function readPrivateConnection_(endpoint) {
+        const storageKey = "notas_web_cloud_connection_v1";
+        try {
+          const params = new URLSearchParams((window.location?.hash || "").slice(1));
+          const incoming = params.get("notas_key");
+          if (incoming !== null) {
+            // El destino nunca se acepta desde el enlace: API_URL queda fijado en el código revisado.
+            // El fragmento no se envía por HTTP y se retira de la barra y del historial al consumirlo.
+            params.delete("notas_key");
+            const rest = params.toString();
+            window.history?.replaceState(null, "", window.location.pathname + window.location.search + (rest ? "#" + rest : ""));
+            if (/^[a-f0-9]{64}$/.test(incoming)) localStorage.setItem(storageKey, JSON.stringify({endpoint, token: incoming}));
+          }
+          const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
+          return saved?.endpoint === endpoint && /^[a-f0-9]{64}$/.test(saved?.token || "") ? saved.token : "";
+        } catch { return ""; }
+      }
+
+      function sameCloudEndpoint_(record) {
+        return !!record && (record.cloudEndpoint === API_URL || (!record.cloudEndpoint && API_URL === LEGACY_API_URL));
+      }
 
       function isLikelyBadApiUrl_(u) {
         const s = String(u || "");
@@ -1103,6 +1127,7 @@
           const url = new URL(API_URL);
           const q = new URLSearchParams(params || {});
           q.set("callback", cb);
+          if (API_TOKEN) q.set("auth", API_TOKEN);
           q.set("t", String(Date.now()));
           url.search = q.toString();
 
@@ -1186,6 +1211,13 @@
         inRequestIdEl = document.createElement("input");
         inRequestIdEl.type = "hidden";
         inRequestIdEl.name = "requestId";
+        if (API_TOKEN) {
+          const auth = document.createElement("input");
+          auth.type = "hidden";
+          auth.name = "auth";
+          auth.value = API_TOKEN;
+          saveFormEl.appendChild(auth);
+        }
         saveFormEl.appendChild(inRequestIdEl);
         saveFormEl.appendChild(inActionEl);
         saveFormEl.appendChild(inPayloadEl);
@@ -1417,7 +1449,9 @@
           validateRemote_(initial);
           localBaseState = cloneState_(initial);
           localRecordVersion = Number(record?.version) || 0;
-          baseState = record ? record.cloudBase : (cached?.localOnly ? cached.cloudBase : cached);
+          // La revisión de otro servidor nunca puede convertir una hoja nueva vacía en un borrado local.
+          baseState = record ? (sameCloudEndpoint_(record) ? record.cloudBase : null)
+            : (sameCloudEndpoint_(cached) ? (cached.localOnly ? cached.cloudBase : cached) : null);
           let recovered = cloneState_(initial);
           for (const entry of pendingEntries) {
             const value = entry.value.state || entry.value;
@@ -1426,7 +1460,7 @@
               // Sin una base verificable solo se incorporan datos; nunca se infieren borrados.
               recovered = mergeLocalStates_(entry.value.base || emptyState_(), value, recovered);
               adoptedPending.set(entry.key, entry.raw);
-              if (!baseState && entry.value.cloudBase) baseState = cloneState_(entry.value.cloudBase);
+              if (!baseState && sameCloudEndpoint_(entry.value) && entry.value.cloudBase) baseState = cloneState_(entry.value.cloudBase);
             } catch (error) {
               console.warn("Respaldo pendiente conservado:", error);
               toast("Hay un respaldo que necesita revisión; se conserva para exportarlo", 5000);
@@ -2184,7 +2218,7 @@
           // Cada versión tiene clave propia: nadie puede reemplazarla entre leerla y borrarla.
           const journalId = makeId();
           const nextKey = TAB_PENDING_KEY + ":snapshot:" + journalId;
-          localStorage.setItem(nextKey, JSON.stringify({journalId, state: serializeState(), base: localBaseState || baseState, cloudBase: baseState}));
+          localStorage.setItem(nextKey, JSON.stringify({journalId, state: serializeState(), base: localBaseState || baseState, cloudBase: baseState, cloudEndpoint: API_URL}));
           const previousKey = stagedPendingKey;
           stagedPendingKey = nextKey;
           if (previousKey) localStorage.removeItem(previousKey);
@@ -2285,7 +2319,8 @@
               const previous = request.result;
               output = {
                 state: mergeLocalStates_(before || emptyState_(), local, previous?.state || before || emptyState_()),
-                cloudBase: acknowledgedCloud || previous?.cloudBase || initialCloudBase || null,
+                cloudBase: acknowledgedCloud || (sameCloudEndpoint_(previous) ? previous?.cloudBase : null) || initialCloudBase || null,
+                cloudEndpoint: API_URL,
                 version: (previous?.version || 0) + 1
               };
               store.put(output, "current");
@@ -2341,12 +2376,12 @@
           // La lectura pudo empezar antes de una escritura propia o de abrir el editor.
           // Una respuesta atrasada nunca debe reponer un estado anterior al ya adoptado.
           if (!record || (Number(record.version) || 0) <= localRecordVersion || localSavePromise || noteDialogEl?.open || catDialogEl?.open || pointerDrag || dragId) return;
-          if (stateEqual_(record.state, localBaseState)) { localRecordVersion = Number(record.version) || 0; baseState = record.cloudBase; return; }
+          if (stateEqual_(record.state, localBaseState)) { localRecordVersion = Number(record.version) || 0; baseState = sameCloudEndpoint_(record) ? record.cloudBase : null; return; }
           const current = cloneState_(serializeState());
           const next = mergeLocalStates_(localBaseState || emptyState_(), current, record.state);
           localBaseState = cloneState_(record.state);
           localRecordVersion = Number(record.version) || 0;
-          baseState = record.cloudBase;
+          baseState = sameCloudEndpoint_(record) ? record.cloudBase : null;
           adoptLocalModel_(next);
           localRevision++;
           if (stateEqual_(next, record.state)) localSavedRevision = localRevision;
@@ -2363,7 +2398,7 @@
       }
       function notifyLocal_() { try { localChannel?.postMessage({changed: true}); } catch {} }
       function cacheLocal_(record) {
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify({...record.state, localOnly: true, cloudBase: record.cloudBase})); } catch {}
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({...record.state, localOnly: true, cloudBase: record.cloudBase, cloudEndpoint: record.cloudEndpoint})); } catch {}
       }
       function flushPendingSave_() {
         if (localSavePromise) return localSavePromise;
@@ -2376,7 +2411,7 @@
           const next = mergeLocalStates_(snapshot, cloneState_(serializeState()), record.state);
           localBaseState = cloneState_(record.state);
           localRecordVersion = Number(record.version) || 0;
-          baseState = record.cloudBase;
+          baseState = sameCloudEndpoint_(record) ? record.cloudBase : null;
           adoptLocalModel_(next);
           localSavedRevision = revision;
           saved = true;

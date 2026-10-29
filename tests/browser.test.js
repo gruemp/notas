@@ -10,6 +10,7 @@ const {execFileSync}=require('node:child_process');
 const {chromium,devices}=require('playwright');
 const backend=require('./backend-harness');
 const root=path.join(__dirname,'..');
+const apiEndpoint=fs.readFileSync(path.join(root,'notas.html'),'utf8').match(/const API_URL = "([^"]+)"/)[1];
 const fixture={ok:true,v:4,categories:[{id:'general',name:'General',color:'#4F46E5',order:-100000,collapsed:false,collapsedPinned:false}],notes:[{id:'fixture',text:'el retén bueno\n\nsegundo párrafo',createdAt:1700000000000,updatedAt:1700000000000,pinned:false,order:0,categoryId:'general'}],settings:{}};
 let server,browser,origin,baseline;
 before(async()=>{
@@ -26,12 +27,13 @@ before(async()=>{
   browser=await chromium.launch({headless:true});fs.mkdirSync(path.join(root,'test-results'),{recursive:true});
 });
 after(async()=>{await browser?.close();await new Promise(r=>server?.close(r));});
-async function contextFor({mobile=false,api='offline',seed=false,serviceWorkers='block'}={}){
+async function contextFor({mobile=false,api='offline',seed=false,seedAuth=true,serviceWorkers='block'}={}){
   const context=await browser.newContext({...mobile?devices['iPhone 13']:{viewport:{width:1280,height:900}},timezoneId:'America/Bogota',serviceWorkers});
-  await context.addInitScript(({seed,fixture})=>{
+  await context.addInitScript(({seed,fixture,api,apiEndpoint,seedAuth})=>{
+    if(api==='v5'&&seedAuth)localStorage.setItem('notas_web_cloud_connection_v1',JSON.stringify({endpoint:apiEndpoint,token:"a".repeat(64)}));
     localStorage.setItem('notas_web_category_collapse_v1',JSON.stringify({general:{normal:false,pinned:false}}));
     if(seed&&!localStorage.getItem('notas_web_last_state_v1'))localStorage.setItem('notas_web_last_state_v1',JSON.stringify(fixture));
-  },{seed,fixture});
+  },{seed,fixture,api,apiEndpoint,seedAuth});
   let posts=0;
   const b=api==='v5'?backend():null;
   if(b){const s=b.get();b.post({...fixture,baseRevision:s.revision});}
@@ -42,11 +44,11 @@ async function contextFor({mobile=false,api='offline',seed=false,serviceWorkers=
       if(api==='offline'){await route.abort('failed');return;}
       if(req.method()==='GET'){
         const cb=url.searchParams.get('callback');
-        await route.fulfill({contentType:'text/javascript',body:cb+'('+JSON.stringify(b?b.get():fixture)+');'});return;
+        await route.fulfill({contentType:'text/javascript',body:b?b.context.doGet({parameter:Object.fromEntries(url.searchParams)}).data:cb+'('+JSON.stringify(fixture)+');'});return;
       }
       posts++;
       if(!b)throw Error('Blind write to legacy backend');
-      const form=new URLSearchParams(req.postData());const out=b.post(JSON.parse(form.get('payload')),form.get('requestId'));
+      const form=new URLSearchParams(req.postData());const out=b.post(JSON.parse(form.get('payload')),form.get('requestId'),form.get('auth')||'');
       await route.fulfill({contentType:'text/html',body:'<script>window.top.postMessage('+JSON.stringify(out)+','+JSON.stringify(origin)+')</script>'});return;
     }
     await route.abort('blockedbyclient');
@@ -166,7 +168,15 @@ test('a clean synchronized device reads remote updates periodically and again on
   remote=b.get();remote.notes.find(n=>n.id==='fixture').text='remote update before reload';assert.equal(b.post({...remote,baseRevision:remote.revision}).ok,true);
   await page.reload();await ready(page);await savedText(page,'remote update before reload');await context.close();
 });
-
+test('a private fragment configures the pinned endpoint and is removed before cloud requests',async()=>{
+  const {context}=await contextFor({api:'v5',seedAuth:false});const page=await context.newPage();await page.goto(origin+'/notas.html#notas_key='+'a'.repeat(64));await ready(page);
+  await waitRecord(page,r=>r?.cloudBase?.notes.some(n=>n.id==='fixture'));assert.equal(new URL(page.url()).hash,'');
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('notas_web_cloud_connection_v1')).token.length),64);await context.close();
+});
+test('a wrong private key leaves local data usable and cannot change remote notes',async()=>{
+  const {context,backend:b,posts}=await contextFor({api:'v5',seedAuth:false});const page=await context.newPage();await page.goto(origin+'/notas.html#notas_key='+'b'.repeat(64));await ready(page);
+  await create(page,'local despite denied connection');assert.ok((await record(page)).state.notes.some(n=>n.text==='local despite denied connection'));assert.equal(b.get().notes.length,1);assert.equal(posts(),0);await context.close();
+});
 test('a delayed IndexedDB read cannot replace an edit that committed after that read began',async()=>{
   const {context}=await contextFor();const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);await create(page,'before delayed read');
   const id=(await record(page)).state.notes[0].id;
