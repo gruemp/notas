@@ -1,61 +1,37 @@
-# Notas
+# Notas — guardado y recuperación v6
 
-Aplicación de notas en `notas.html`. Conserva la interfaz original y funciona aunque el servicio de Google Apps Script no esté disponible.
+Aplicación personal de notas para escritorio y móvil. Mantiene los controles y el editor originales e incorpora un panel de guardado, conexión con Google, papelera, versiones y respaldos.
 
-## Funcionamiento actual
+## Uso
 
-Las notas se abren y guardan primero en el dispositivo, mediante transacciones de IndexedDB. Cada cambio también crea una copia inmediata de recuperación en localStorage antes del guardado diferido. La carga y el guardado locales no esperan a Google. Tras una primera apertura con conexión y la instalación de su caché, la aplicación también puede abrirse y recargarse sin red.
+- **Guardado visible:** indica si hay cambios guardándose en el dispositivo, pendientes de subir o confirmados en Google. Muestra la hora de la última sincronización y del respaldo independiente. El guardado local no se presenta como guardado en la nube.
+- **Conectar con Google:** abre una implementación de Apps Script que exige iniciar sesión y está restringida a la cuenta propietaria. Después de verificar la identidad, “Conectar este dispositivo” regresa a Pages. La clave existente se conserva y no se publica en el código. Cada navegador se conecta por separado. Se siguen admitiendo los enlaces privados anteriores.
+- **Errores y reintentos:** identifica falta de conexión o autorización, espera agotada, cuotas, conflicto y versión incompatible. El reintento manual está siempre disponible cuando no hay una sincronización en curso. Los reintentos automáticos esperan entre 15 segundos y 5 minutos y se reactivan al volver Internet.
+- **Papelera e historial:** las notas eliminadas y las versiones previas se conservan. Antes de eliminar se exige confirmar una copia local. La recuperación de una versión conserva también el texto que reemplaza. Las versiones creadas sin conexión se envían al archivo de Google cuando vuelve a funcionar la sincronización. El panel distingue copias del dispositivo y de Google.
+- **Respaldos automáticos:** el dispositivo conserva una copia diaria. Google crea una hoja de cálculo independiente antes de la primera escritura de cada día de uso, con la versión anterior a ese cambio. No hay tarea programada en días sin actividad. La recuperación incorpora las notas del respaldo sin eliminar las actuales; los IDs con versiones distintas generan una copia. No se elimina automáticamente ninguna copia ni elemento de la papelera.
 
-Las pestañas del mismo navegador coordinan las escrituras mediante las transacciones del almacén común y se notifican los cambios. Ediciones independientes se combinan. Si dos versiones del mismo texto son incompatibles, se conservan ambas con identificadores distintos y deterministas, sin repetir la copia al reintentar. En una carrera entre editar y borrar se conserva la edición. El texto de las notas se mantiene íntegro.
+Las copias locales pertenecen al navegador y no sustituyen las copias independientes de Google. Una copia en Google solo se confirma después de que el servidor responde. Los respaldos independientes están en Drive como `AAAA-MM-DD_notas_respaldo`. El archivo `_notas_archive_v6` conserva metadatos, textos y snapshots en fragmentos de 30.000 caracteres para respetar los límites por celda de Sheets. Las copias no contienen la clave de conexión.
 
-El almacenamiento local pertenece al navegador, perfil y dispositivo utilizados. **No equivale a una copia en Google ni a sincronización entre dispositivos.** Borrar los datos del sitio, usar un perfil temporal o perder el dispositivo puede eliminar ese almacenamiento; la exportación JSON permite conservar una copia independiente. Si el navegador rechaza IndexedDB, se conserva la copia inmediata de recuperación cuando localStorage está disponible. Si ambos fallan, la aplicación informa que no pudo guardar y pide exportar antes de cerrar.
+## Instalación de Apps Script
 
-## Recuperación y sincronización
+Actualizar `app script.txt` en GitHub no despliega el servicio. Para repetir la instalación:
 
-Se recuperan la última copia local y los respaldos pendientes de versiones anteriores. Los respaldos utilizan claves inmutables; la confirmación de una versión antigua con clave reutilizable se registra en una clave separada, para no borrar cambios más nuevos de otra pestaña.
+1. Copiar todo el archivo al proyecto privado y guardar. Mantener sus propiedades `NOTAS_SPREADSHEET_ID` y `NOTAS_API_TOKEN`; no generar otra hoja ni otra clave. Ejecutar `prepararMejorasNotas` como propietario: registra `NOTAS_OWNER_EMAIL` y prepara la tabla de recuperación sin alterar las notas.
+2. Actualizar la implementación API existente a una nueva versión, manteniendo su URL, ejecución como propietario y acceso anónimo protegido por la clave. Las solicitudes GET y POST sin clave siguen siendo rechazadas. Esto conserva la compatibilidad de los clientes v5.
+3. Crear una segunda implementación web para la conexión, con **Ejecutar como: Usuario que accede a la app web** y **Usuarios con acceso: Solo yo**. Fijar su URL `/exec` en `GOOGLE_CONNECT_URL` del cliente. La ruta `?action=connect` verifica identidad activa, efectiva y propietaria antes de generar el enlace de retorno fijo a `https://gruemp.github.io/notas/notas.html`; no acepta un destino arbitrario.
+4. Comprobar el acceso con la cuenta propietaria, el rechazo anónimo y de otras identidades, y un ciclo de escritura y recuperación exclusivamente con una nota de prueba. Publicar el cliente tras completar Actions.
 
-La sincronización remota se intenta en segundo plano. Un servidor antiguo se puede leer, pero nunca se sobrescribe sin control de versión. Una respuesta inválida o una conexión fallida no reemplaza las notas locales. Las lecturas locales atrasadas se descartan por versión para que no repongan un estado anterior a un guardado ya adoptado. Los cambios remotos se combinan con los del dispositivo y se guardan también localmente. Si no existe una base remota conocida, solo se incorporan datos: no se infieren eliminaciones de información que nunca se ha leído.
+El botón de conexión utiliza la autenticación de Apps Script; no es un sistema de cuentas múltiples. La API conserva una clave privada por instalación. Quien obtenga esa clave podrá leer y modificar las notas. La clave se consume desde el fragmento del enlace y se retira de la dirección. Si el navegador rechaza localStorage, la clave puede funcionar en memoria durante esa sesión y el panel advierte que será necesario reconectar.
 
-En la comprobación con Edge, Google indicó que la hoja original está eliminada. No se encontró su ID entre las hojas visibles de la papelera; esto no demuestra que sea irrecuperable. No se restauraron carpetas ajenas ni se modificaron datos anteriores. El servicio original sigue inaccesible.
+## Conservación de datos
 
-Esta rama conecta el cliente con el servicio privado nuevo. La inicialización de Apps Script figura como completada y la versión 1 de la aplicación web se desplegó correctamente. Una lectura real sin clave fue rechazada con `No autorizado.`. La dirección `/exec` real ya está fijada en `API_URL`; no contiene secretos.
+IndexedDB conserva las notas mediante transacciones y localStorage mantiene un diario inmediato de recuperación. Las pestañas combinan cambios y conservan versiones incompatibles. La nube usa un bloqueo de Apps Script y una revisión del estado para rechazar escrituras atrasadas; mantiene la recuperación transaccional v5. El archivo duradero v6 es adicional y no altera el cálculo de revisión de las notas activas.
 
-El PR #3 se incorporó a `main` y Pages publicó el cliente con esa dirección. En el navegador remoto autorizado se consumió la clave, se retiró de la barra de direcciones y se comprobó un ciclo real completo: crear una nota temporal, guardar automáticamente mediante el iframe, leer el texto íntegro desde Google, recargar la aplicación, abrir una segunda pestaña y eliminar exclusivamente la nota temporal. La lectura final del servidor y la segunda pestaña confirmaron su eliminación. No se modificaron datos anteriores.
+Los cambios a otro servidor conservan las notas locales; una hoja nueva vacía no implica borrar datos. La hoja original anterior fue reportada como eliminada y no se recuperó en este trabajo. No borrar datos del navegador para intentar solucionar la conexión.
 
-Las notas locales de otros perfiles o dispositivos solo se sincronizan después de abrir allí el enlace privado del propietario. No se ha conectado ni comprobado aún el móvil físico del usuario ni la pestaña original de Edge. No borrar sus datos locales: al conectar cada dispositivo, el cliente combina sus notas con la hoja nueva. La hoja antigua sigue apareciendo eliminada y sus datos no se han recuperado.
+Los respaldos y el archivo dependen de las cuotas de Google y del espacio disponible. Si no se puede asegurar la copia anterior, la escritura remota falla y los cambios permanecen pendientes localmente. La papelera no ofrece borrado definitivo desde esta versión. Las escrituras manuales en Sheets no pasan por el historial del servicio.
 
-Al cambiar de servidor, el cliente descarta únicamente la base de comparación remota del servidor anterior y conserva las notas locales. Una hoja nueva vacía se combina mediante incorporación de datos; no representa una orden de borrado. Los registros antiguos sin identificador de servidor conservan su base cuando se sigue usando la URL original.
-
-## Compatibilidad del backend opcional
-
-El código completo `app script.txt` implementa el protocolo v5:
-
-- El cliente envía `baseRevision`, una huella del estado leído. El servidor comprueba la coincidencia bajo `ScriptLock`; rechaza clientes atrasados o escrituras sin versión.
-- Lecturas y escrituras usan el mismo bloqueo. La pestaña oculta `_notas_recovery_v5` guarda el estado anterior antes de escribir. Si una operación se interrumpe, la siguiente lectura o escritura de esta API restaura ese estado antes de continuar.
-- Se validan IDs, categorías, fechas, longitud de texto y encabezados. Columnas movidas o desconocidas se rechazan sin reetiquetar datos. Se admite la migración conocida de los encabezados internos al español y la columna adicional de plegado de fijadas.
-- Las filas nuevas se escriben antes de limpiar las sobrantes y se amplía la hoja cuando hace falta. Los textos que empiezan por `=` o apóstrofe se guardan literalmente.
-- Las confirmaciones de guardado requieren un `requestId` correlacionado, origen Google y una revisión confirmada. La respuesta del iframe anidado se dirige a `https://gruemp.github.io` y escapa terminadores de script.
-
-Actualizar el TXT en GitHub no despliega Apps Script. Procedimiento para repetir la instalación o completar su comprobación (la autorización, inicialización y el primer despliegue ya se realizaron):
-
-1. En el proyecto privado, guardar todo `app script.txt` y ejecutar `prepararNotas` desde el editor como propietario. Google solicitará los permisos detectados por Apps Script, incluido acceso a Sheets e identidad del usuario. La función crea una hoja nueva con fecha, registra `NOTAS_SPREADSHEET_ID` y genera `NOTAS_API_TOKEN` en las propiedades privadas del proyecto. Un reintento reutiliza la hoja y la clave.
-2. Publicar una implementación web que se ejecute como propietario y sea accesible al cliente de Pages. Aunque la URL sea accesible por Internet, GET y POST rechazan toda lectura y escritura sin la clave de 64 caracteres hexadecimales. Una persona que obtenga esa clave podrá leer y modificar las notas: debe tratarse como una contraseña.
-3. Comprobar que peticiones sin clave o con clave incorrecta son rechazadas. Verificar lectura, control de revisión y escritura únicamente con notas de prueba identificadas en la hoja nueva, antes de conectar notas reales. No usar la hoja anterior para pruebas.
-4. Sustituir solo `API_URL` por la URL `/exec` real del nuevo despliegue, conservando `LEGACY_API_URL` como referencia de migración. Ejecutar ambas suites en Actions y mantener el diseño original.
-5. Ejecutar `verConexionPrivada` como propietario. Su registro muestra un enlace privado a Pages con `#notas_key=…`. Abrirlo exclusivamente en los dispositivos autorizados. El cliente consume la clave, elimina ese parámetro de la dirección y la guarda localmente asociada a la URL fijada en el código. No admite un servidor arbitrario desde el enlace. No publicar el enlace, los registros con la clave ni las propiedades privadas en GitHub.
-6. Tras verificar el despliegue real, incorporar el PR a `main`, comprobar Pages y confirmar lectura/guardado/recarga desde Edge. La sincronización en otros dispositivos requiere abrir allí el mismo enlace privado. Hasta entonces, no presentar la nube como operativa.
-
-La clave se envía por HTTPS a Google en las peticiones JSONP y en el formulario de guardado. Es accesible al JavaScript del mismo origen y a quien use ese perfil: no sustituye la protección del dispositivo ni una cuenta individual por usuario. Los auxiliares públicos de preparación comprueban que la identidad activa coincide con la efectiva; las operaciones HTTP no los invocan. El bloqueo de Apps Script tampoco impide escrituras manuales en Sheets ni las de otros proyectos.
-
-## Apariencia e importaciones
-
-Se conservan CSS, colores, fuentes, botones, iconos, tamaños, espacios, marcado visual y reglas de adaptación originales. Una prueba comprueba la huella exacta del CSS y del marcado estático de la versión original de `main`; las pruebas de navegador comparan también capturas con una tolerancia inferior al 0,002 % para diferencias de rasterización de bordes nativos, además de exigir los mismos SVG en escritorio y móvil emulado.
-
-La importación JSON evita duplicar registros equivalentes y normaliza booleanos y fechas. Si un mismo ID contiene otra versión, conserva ambas. La exportación JSON incluye las variantes pendientes recuperables. TXT mantiene sus secciones legibles e incorpora un anexo JSON para reimportar notas vacías, espacios, párrafos y separadores literales sin pérdidas. Sigue admitiendo el TXT antiguo, cuyo formato no puede representar esos casos sin ambigüedad.
-
-## Pruebas
-
-Con Node.js 22 o posterior:
+## Validación
 
 ```sh
 npm ci
@@ -64,8 +40,7 @@ npx playwright install --with-deps chromium
 npm run test:browser
 ```
 
-`npm test` compila los scripts y ejecuta 41 pruebas funcionales del código real con dobles controlados de DOM/red/Sheets. Cubren versiones, concurrencia, respaldos, primer arranque sin API, guardado durante solicitudes lentas, recuperación, cuotas, conflictos, validación, escritura interrumpida, fórmulas literales, búsqueda, importaciones, exportaciones, deshacer, rechazo de claves inválidas, preparación idempotente y migración conservadora a otro servidor.
+La suite funcional comprueba versiones, concurrencia, recuperación, almacenamiento rechazado, identidad de Google, papelera, historial, fragmentación de textos largos, respaldos independientes e importación sin pérdida. Chromium prueba escritorio y móvil emulado, guardado real en IndexedDB, recarga, trabajo sin conexión, carreras entre pestañas, protocolo con iframe y recuperación mediante la interfaz. Las peticiones externas de las pruebas se interceptan y no leen ni modifican producción.
 
-La suite de navegador contiene 15 pruebas y ejecuta Chromium con perfiles aislados, un servidor HTTP local y todas las solicitudes externas interceptadas. Prueba la interfaz en escritorio y móvil emulado, almacenamiento real en IndexedDB, recarga, categorías, búsqueda, portapapeles, eliminación/deshacer, navegación, exportación, pestañas simultáneas, conflicto sobre una misma nota, recarga completamente sin red mediante service worker, protocolo v5 con iframe de otro origen y comparación visual con `main` original. No lee ni escribe notas de producción. GitHub Actions ejecuta ambas suites y conserva las capturas como artefactos.
+La prueba visual protege el CSS y marcado originales excluyendo únicamente los bloques nuevos señalados `NOTAS_V6_BEGIN/END`; compara también la interfaz original con el panel nuevo oculto. Las nuevas pantallas tienen capturas propias y una comprobación de desbordamiento en móvil.
 
-Las pruebas de móvil emulado no sustituyen un dispositivo físico. El protocolo remoto se comprueba con el código real del backend y servicios de Google simulados; no constituye un despliegue ni una escritura real en Google Sheets.

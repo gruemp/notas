@@ -12,7 +12,7 @@ jobs:
         with:
           node-version: "22"
       - run: node tests/check.js
-      - run: node --test tests/functional.js
+      - run: node --test tests/functional.js tests/reliability.test.js
   browser:
     runs-on: ubuntu-latest
     steps:
@@ -36,3 +36,4 @@ jobs:
         with:
           name: browser-results
           path: test-results/
+

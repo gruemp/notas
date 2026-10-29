@@ -864,7 +864,21 @@
       *{ transition: none !important; }
     }
   </style>
-</head>
+<!-- NOTAS_V6_BEGIN -->
+  <style>
+    .sync-panel{max-width:1160px;margin:12px auto;padding:16px;border:1px solid var(--border, #38415d);border-radius:16px;background:var(--panel, #151d36);color:var(--text,#eef2ff);display:grid;gap:10px}
+    .sync-panel p{margin:0;font-size:.88rem;line-height:1.5;overflow-wrap:anywhere}.sync-panel[data-state="error"]{border-color:#bd8d45}
+    .reliability-actions{display:flex;gap:8px;flex-wrap:wrap}.reliability-actions .btn,.recovery-entry .btn{width:auto;min-height:44px;padding:10px 14px;white-space:normal;color:inherit}
+    #syncError,#recoveryWarning{color:#e7ba78}#syncDetail{opacity:.8}
+    .recovery-modal{width:min(700px,calc(100% - 28px));max-height:85dvh;overflow:auto;padding:20px;border:1px solid #505b7b;border-radius:18px;background:#141c34;color:#eef2ff}
+    .recovery-modal::backdrop{background:rgba(0,0,0,.65)}.recovery-modal h2{margin-top:0}.recovery-modal select{max-width:100%;padding:10px;background:#202c49;color:#fff;border-radius:10px}
+    .recovery-modal button{cursor:pointer}.recovery-entry{border-top:1px solid #46516c;padding:16px 0}.recovery-entry p,#recoveryPreviewText{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit}
+    #recoveryPreviewText{max-height:45dvh;overflow:auto}#recoveryMessage{line-height:1.5}
+    [data-theme="light"] .sync-panel{background:#fff;color:#172033}[data-theme="light"] #syncError,[data-theme="light"] #recoveryWarning{color:#825000}
+    @media(max-width:600px){.sync-panel{margin:10px 0}.reliability-actions .btn{flex:1 1 auto;font-size:.85rem}}
+  </style>
+  <!-- NOTAS_V6_END -->
+  </head>
 
 <body>
   <div class="app">
@@ -986,6 +1000,18 @@
       </div>
     </header>
 
+    <!-- NOTAS_V6_BEGIN -->
+    <section id="syncPanel" class="sync-panel" aria-label="Guardado y conexión">
+      <strong id="syncSummary" role="status" aria-live="polite">Abriendo notas del dispositivo…</strong>
+      <p id="syncDetail"></p><p id="syncError"></p><p id="recoveryWarning"></p>
+      <div class="reliability-actions">
+        <button id="connectGoogle" class="btn" type="button">Conectar con Google</button>
+        <button id="retrySync" class="btn" type="button">Reintentar sincronización</button>
+        <button id="openRecovery" class="btn" type="button">Papelera, historial y respaldos</button>
+      </div>
+    </section>
+    <!-- NOTAS_V6_END -->
+
     <main class="list" aria-label="Notas">
       <section id="pinnedSection" class="section" hidden>
         <div id="pinnedTitle" class="section-title section-toggle" role="button" tabindex="0" aria-label="Mostrar/ocultar fijadas">
@@ -1071,6 +1097,26 @@
     </div>
   </dialog>
 
+
+  <!-- NOTAS_V6_BEGIN -->
+  <dialog id="recoveryDialog" class="recovery-modal" aria-labelledby="recoveryTitle">
+    <h2 id="recoveryTitle">Recuperación de notas</h2>
+    <div class="reliability-actions">
+      <select id="recoveryKind" aria-label="Tipo de recuperación"><option value="trash">Papelera</option><option value="history">Historial de versiones</option><option value="backup">Respaldos automáticos</option></select>
+      <button id="recoveryRefresh" class="btn" type="button">Actualizar</button><button id="recoveryClose" class="btn" type="button">Cerrar recuperación</button>
+    </div>
+    <p id="recoveryMessage" role="status" aria-live="polite"></p>
+    <p id="recoveryEmpty">No hay copias de este tipo para mostrar.</p><div id="recoveryList"></div>
+    <div class="reliability-actions"><button id="recoveryMore" class="btn" type="button" hidden>Ver más copias de Google</button><button id="recoveryExport" class="btn" type="button">Exportar recuperación de este dispositivo</button></div>
+    <p>Las copias se conservan. Los respaldos de Google se crean antes del primer cambio de cada día de uso y se guardan en un archivo separado de Drive.</p>
+  </dialog>
+  <dialog id="recoveryPreview" class="recovery-modal" aria-labelledby="recoveryPreviewTitle">
+    <h2 id="recoveryPreviewTitle">Revisar copia</h2><pre id="recoveryPreviewText"></pre>
+    <p>Al volver a una versión se conserva también el texto actual en el historial.</p>
+    <div class="reliability-actions"><button id="recoveryRestore" class="btn" type="button">Restaurar</button><button id="recoveryPreviewClose" class="btn" type="button">Cancelar recuperación</button></div>
+  </dialog>
+  <!-- NOTAS_V6_END -->
+
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script>
@@ -1086,25 +1132,30 @@
 
       const API_URL = "https://script.google.com/macros/s/AKfycbxTzSBlyqt5JARd_-y660qPmVR8R7SWwDMHjakAlh--QKn7nRUEM3crGto-SSfNfhY96w/exec";
       const LEGACY_API_URL = "https://script.google.com/macros/s/AKfycbyNE12DPGcX6w9zTQRjCAej-bxeQM4GDCpTrVhlERhj_cptdO7uFXlDJ4aDgt_230_V/exec";
-      const API_TOKEN = readPrivateConnection_(API_URL);
+      const GOOGLE_CONNECT_URL = "https://script.google.com/macros/s/AKfycbwHODtb6VTYNqeFJ0n2zDsKp8tlH5Qv9jYIJXaSgv7F-JPEPoiVKKjdHWnEF_t1aEiqqw/exec";
+      let connectionSessionOnly = false;
+      let API_TOKEN = readPrivateConnection_(API_URL);
       const AUTOSYNC_MS = 15000;
 
       function readPrivateConnection_(endpoint) {
         const storageKey = "notas_web_cloud_connection_v1";
+        let incoming = null;
         try {
           const params = new URLSearchParams((window.location?.hash || "").slice(1));
-          const incoming = params.get("notas_key");
+          incoming = params.get("notas_key");
           if (incoming !== null) {
-            // El destino nunca se acepta desde el enlace: API_URL queda fijado en el código revisado.
-            // El fragmento no se envía por HTTP y se retira de la barra y del historial al consumirlo.
             params.delete("notas_key");
             const rest = params.toString();
-            window.history?.replaceState(null, "", window.location.pathname + window.location.search + (rest ? "#" + rest : ""));
-            if (/^[a-f0-9]{64}$/.test(incoming)) localStorage.setItem(storageKey, JSON.stringify({endpoint, token: incoming}));
+            try { window.history?.replaceState(null, "", window.location.pathname + window.location.search + (rest ? "#" + rest : "")); } catch (_) {}
+            if (/^[a-f0-9]{64}$/.test(incoming)) {
+              try { localStorage.setItem(storageKey, JSON.stringify({endpoint, token: incoming})); connectionSessionOnly = false; }
+              catch (_) { connectionSessionOnly = true; }
+              return incoming;
+            }
           }
           const saved = JSON.parse(localStorage.getItem(storageKey) || "null");
           return saved?.endpoint === endpoint && /^[a-f0-9]{64}$/.test(saved?.token || "") ? saved.token : "";
-        } catch { return ""; }
+        } catch (_) { return ""; }
       }
 
       function sameCloudEndpoint_(record) {
@@ -1123,6 +1174,8 @@
             return;
           }
 
+          if (!API_TOKEN) { reject(new Error("AUTH_MISSING")); return; }
+          if (navigator.onLine === false) { reject(new Error("offline")); return; }
           const cb = "__jsonp_cb_" + Math.random().toString(16).slice(2);
           const url = new URL(API_URL);
           const q = new URLSearchParams(params || {});
@@ -1150,7 +1203,7 @@
           const timer = setTimeout(() => {
             cleanup();
             reject(new Error("Timeout leyendo datos (revisa Apps Script)"));
-          }, 12000);
+          }, 25000);
 
           document.head.appendChild(script);
         });
@@ -1258,11 +1311,11 @@
                 const trustedOrigin = /^https:\/\/(?:script\.google\.com|[a-z0-9-]+\.googleusercontent\.com)$/.test(ev.origin);
                 if (!trustedOrigin || data.requestId !== requestId) return;
                 if (data.ok && !data.revision) { complete(new Error('Actualiza el despliegue de Apps Script a v5')); return; }
-                if (data.ok) state.savedRevision = data.revision;
+                if (data.ok) { state.savedRevision = data.revision; if (data.backupAt) syncState.backupAt = data.backupAt; }
                 complete(data.ok ? null : new Error(data.error || 'Error guardando'));
               };
               window.addEventListener('message', onMessage);
-              timer = setTimeout(() => complete(new Error('Guardado sin confirmación')), 12000);
+              timer = setTimeout(() => complete(new Error('Guardado sin confirmación')), 45000);
               try {
                 inRequestIdEl.value = requestId;
                 inPayloadEl.value = payload;
@@ -1436,6 +1489,270 @@
       let activeNoteId = null;
       const refreshPreviewDebounced = debounce(() => applySearchAndHighlights(), 80);
 
+      // Estado visible, acceso de Google y recuperación v6.
+      const LAST_SYNC_KEY = "notas_last_sync_v6:" + API_URL;
+      const LOCAL_ARCHIVE_PREFIX = "notas_archive_v6:";
+      const syncState = {phase: "local", at: Number(safeStorageGet_(LAST_SYNC_KEY)) || 0, error: null, retryAt: 0, failures: 0, backupAt: 0};
+      const recoveryEntries = new Map();
+      const recoveryConfirmed = new Set();
+      const historyCheckpoints = new Map();
+      let recoveryObserved = null;
+      let recoveryProblem = "";
+      let recoveryKind = "trash";
+      let recoveryNextOffset = null;
+      let recoveryPageGeneration = 0;
+      let recoverySelected = null;
+      let archiveQueue = Promise.resolve();
+
+      function syncError_(error) {
+        const message = String(error?.message || error || "");
+        if (message.includes("AUTH_MISSING")) return {code: "AUTH_MISSING", text: "Este navegador no está conectado. Pulsa Conectar con Google."};
+        if (/No autorizado|AUTH_INVALID/i.test(message)) return {code: "AUTH_INVALID", text: "Google rechazó la autorización. Vuelve a conectar este navegador."};
+        if (navigator.onLine === false) return {code: "OFFLINE", text: "Sin Internet. Los cambios quedan pendientes en este dispositivo."};
+        if (/timeout|sin confirmación/i.test(message)) return {code: "TIMEOUT", text: "Google no confirmó la operación a tiempo. Conservamos tus cambios y volveremos a intentarlo."};
+        if (/quota|cuota|too many|limit exceeded/i.test(message)) return {code: "QUOTA", text: "Google alcanzó una cuota temporal. Reintentaremos más tarde."};
+        if (/CONFLICT/i.test(message)) return {code: "CONFLICT", text: "Hay cambios de otro dispositivo. Se combinarán al reintentar."};
+        if (/JSONP|network|fetch|offline/i.test(message)) return {code: "NETWORK", text: "No se pudo contactar con Google. Comprueba Internet y si el navegador bloquea script.google.com."};
+        if (/versión|v5|v6/i.test(message)) return {code: "VERSION", text: "El servicio de Google necesita actualizarse. Tus notas locales se conservan."};
+        return {code: "SERVER", text: "Google no pudo completar la sincronización. Tus cambios se conservan; pulsa Reintentar."};
+      }
+      function renderSyncStatus_() {
+        const panel = $("syncPanel");
+        if (!panel) return;
+        const unsaved = localRevision > localSavedRevision;
+        const pending = !baseState || hasCloudChanges_();
+        let text = unsaved ? "Guardando en este dispositivo…" : "Guardado en este dispositivo";
+        if (syncState.phase === "syncing") text = unsaved ? text : "Guardado en este dispositivo · Sincronizando con Google…";
+        else if (syncState.error) text += syncState.error.code.startsWith("AUTH") ? " · Conexión pendiente" : " · Pendiente de subir a Google";
+        else if (!unsaved && !pending && syncState.at) text = "Sincronizado con Google";
+        else if (!unsaved && pending) text += " · Pendiente de subir a Google";
+        $("syncSummary").textContent = text;
+        const details = [];
+        if (syncState.at) details.push("Última sincronización confirmada: " + new Date(syncState.at).toLocaleString("es-CO"));
+        if (syncState.backupAt) details.push("Respaldo independiente en Google: " + new Date(syncState.backupAt).toLocaleString("es-CO"));
+        $("syncDetail").textContent = details.join(" · ");
+        $("syncError").textContent = syncState.error?.text || "";
+        $("recoveryWarning").textContent = recoveryProblem || (connectionSessionOnly ? "La conexión funciona durante esta sesión, pero el navegador no permite recordarla. Vuelve a conectar al abrir de nuevo." : "");
+        $("retrySync").disabled = syncState.phase === "syncing" || !!localSavePromise;
+        $("connectGoogle").textContent = API_TOKEN ? "Volver a conectar con Google" : "Conectar con Google";
+        panel.dataset.state = syncState.error ? "error" : syncState.phase;
+      }
+      function setSyncState_(phase, error = null) {
+        syncState.phase = phase;
+        syncState.error = error ? syncError_(error) : null;
+        renderSyncStatus_();
+      }
+      async function retrySync_() {
+        syncState.retryAt = 0;
+        syncState.failures = 0;
+        await flushPendingSave_();
+        await flushCloudSave_();
+      }
+      async function connectGoogle_() {
+        await flushPendingSave_();
+        if (localRevision > localSavedRevision) { toast("Antes de conectar, exporta tus notas: no se pudo confirmar el guardado local", 6000); return; }
+        if (!GOOGLE_CONNECT_URL) { setSyncState_("error", new Error("v6 conexión de Google pendiente de configurar")); return; }
+        window.location.assign(GOOGLE_CONNECT_URL + "?action=connect");
+      }
+      function initReliability_() {
+        recoveryObserved = cloneState_(serializeState());
+        $("retrySync").addEventListener("click", retrySync_);
+        $("connectGoogle").addEventListener("click", connectGoogle_);
+        $("openRecovery").addEventListener("click", () => openRecovery_("trash"));
+        $("recoveryClose").addEventListener("click", () => $("recoveryDialog").close());
+        $("recoveryPreviewClose").addEventListener("click", () => $("recoveryPreview").close());
+        $("recoveryRestore").addEventListener("click", restoreSelected_);
+        $("recoveryKind").addEventListener("change", () => openRecovery_($("recoveryKind").value));
+        $("recoveryMore").addEventListener("click", () => loadCloudRecovery_(false));
+        $("recoveryRefresh").addEventListener("click", () => openRecovery_(recoveryKind));
+        $("recoveryExport").addEventListener("click", async () => {
+          await loadLocalRecovery_();
+          downloadFile("notas-recuperacion.json", JSON.stringify({v: 6, exportedAt: Date.now(), notes: [], categories: [], recoveryEntries: [...recoveryEntries.values()].filter(e => e.note || e.state)}, null, 2), "application/json");
+        });
+        window.addEventListener("online", retrySync_);
+        window.addEventListener("offline", () => setSyncState_("error", new Error("offline")));
+        window.addEventListener("storage", event => {
+          if (event.key !== "notas_web_cloud_connection_v1") return;
+          API_TOKEN = readPrivateConnection_(API_URL);
+          retrySync_();
+        });
+        loadLocalRecovery_().catch(() => {});
+        renderSyncStatus_();
+      }
+      function persistRecoveryEntry_(entry) {
+        recoveryEntries.set(entry.id, entry);
+        const key = LOCAL_ARCHIVE_PREFIX + entry.id;
+        let staged = false;
+        try { localStorage.setItem(key, JSON.stringify(entry)); staged = true; recoveryConfirmed.add(entry.id); } catch (_) {}
+        const operation = archiveQueue.then(async () => {
+          const db = await openLocalDatabase_();
+          await new Promise((resolve, reject) => {
+            const tx = db.transaction("state", "readwrite");
+            tx.objectStore("state").put(entry, key);
+            tx.oncomplete = resolve;
+            tx.onabort = tx.onerror = () => reject(tx.error || new Error("No se pudo guardar la recuperación"));
+          });
+          try { localStorage.removeItem(key); } catch (_) {}
+          recoveryConfirmed.add(entry.id);
+          return true;
+        });
+        archiveQueue = operation.catch(() => {});
+        // Immediate journal or IndexedDB must confirm before a destructive action.
+        return operation.catch(error => {
+          if (staged) return true;
+          recoveryProblem = "No se pudo guardar la papelera o el historial. Exporta tus notas antes de cerrar.";
+          renderSyncStatus_();
+          throw error;
+        });
+      }
+      async function rememberNote_(kind, note) {
+        const id = recoveryId_(kind + ":" + note.id, note);
+        if (recoveryConfirmed.has(id)) return true;
+        return persistRecoveryEntry_({id, kind, at: Date.now(), note: cloneState_(note), categories: cloneState_(categories), source: "device"});
+      }
+      function observeRecoveryChanges_() {
+        const next = cloneState_(serializeState());
+        if (recoveryObserved) {
+          const current = new Map(next.notes.map(n => [n.id, n]));
+          for (const note of recoveryObserved.notes) {
+            const newer = current.get(note.id);
+            const kind = !newer ? "trash" : newer.text !== note.text ? "history" : null;
+            if (!kind) continue;
+            if (kind === "history" && Date.now() - (historyCheckpoints.get(note.id) || 0) < 60000) continue;
+            historyCheckpoints.set(note.id, Date.now());
+            rememberNote_(kind, note).catch(() => {});
+          }
+        }
+        recoveryObserved = next;
+      }
+      async function dailyLocalBackup_(state) {
+        const day = new Date().toLocaleDateString("en-CA");
+        const id = "device_backup_" + day;
+        if (recoveryConfirmed.has(id)) return;
+        await persistRecoveryEntry_({id, kind: "backup", at: Date.now(), state: cloneState_(state), source: "device"});
+      }
+      async function loadLocalRecovery_() {
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key?.startsWith(LOCAL_ARCHIVE_PREFIX)) continue;
+            const entry = safeParse(safeStorageGet_(key), null);
+            if (entry?.id && ["trash", "history", "backup"].includes(entry.kind)) { recoveryEntries.set(entry.id, entry); recoveryConfirmed.add(entry.id); }
+          }
+        } catch (_) {}
+        try {
+          const db = await openLocalDatabase_();
+          const entries = await new Promise((resolve, reject) => {
+            const tx = db.transaction("state", "readonly"), request = tx.objectStore("state").getAll();
+            tx.oncomplete = () => resolve(request.result || []);
+            tx.onabort = tx.onerror = () => reject(tx.error);
+          });
+          for (const entry of entries) if (entry?.id && ["trash", "history", "backup"].includes(entry.kind)) { recoveryEntries.set(entry.id, entry); recoveryConfirmed.add(entry.id); }
+        } catch (_) {}
+      }
+      async function openRecovery_(kind) {
+        recoveryKind = kind;
+        recoveryNextOffset = 0;
+        recoveryPageGeneration++;
+        $("recoveryKind").value = kind;
+        $("recoveryMessage").textContent = "";
+        const dialog = $("recoveryDialog");
+        if (!dialog.open) dialog.showModal();
+        await loadLocalRecovery_();
+        renderRecovery_();
+        await loadCloudRecovery_(true);
+      }
+      async function loadCloudRecovery_(first) {
+        const generation = recoveryPageGeneration, kind = recoveryKind;
+        $("recoveryMore").disabled = true;
+        if (!API_TOKEN) { $("recoveryMessage").textContent = "Mostrando copias de este dispositivo. Conecta con Google para ver la recuperación de la nube."; return; }
+        try {
+          const data = await jsonp_({action: "getArchive", kind, offset: first ? 0 : recoveryNextOffset});
+          if (generation !== recoveryPageGeneration) return;
+          if (!data?.ok || !Array.isArray(data.entries)) throw new Error(data?.error || "El servicio requiere v6");
+          for (const entry of data.entries) recoveryEntries.set(entry.id, {...recoveryEntries.get(entry.id), ...entry});
+          recoveryNextOffset = data.nextOffset;
+          $("recoveryMessage").textContent = "Copias del dispositivo y de Google. Recuperar un respaldo incorpora sus notas sin eliminar las actuales.";
+          renderRecovery_();
+        } catch (error) {
+          if (generation === recoveryPageGeneration) $("recoveryMessage").textContent = "Mostrando copias locales. " + syncError_(error).text;
+        } finally {
+          if (generation === recoveryPageGeneration) $("recoveryMore").disabled = recoveryNextOffset === null;
+        }
+      }
+      function renderRecovery_() {
+        const list = $("recoveryList");
+        list.innerHTML = "";
+        const entries = [...recoveryEntries.values()].filter(e => e.kind === recoveryKind).sort((a, b) => b.at - a.at);
+        $("recoveryEmpty").hidden = entries.length > 0;
+        $("recoveryMore").hidden = recoveryNextOffset === null || !API_TOKEN;
+        for (const entry of entries) {
+          const article = document.createElement("article");
+          article.className = "recovery-entry";
+          const title = document.createElement("strong");
+          title.textContent = new Date(entry.at).toLocaleString("es-CO") + " · " + (entry.source === "cloud" ? "Google" : "Este dispositivo");
+          const preview = document.createElement("p");
+          preview.textContent = entry.kind === "backup" ? ((entry.noteCount ?? entry.state?.notes?.length ?? 0) + " notas en este respaldo") : (entry.note?.text ?? entry.preview ?? "Nota vacía").slice(0, 200) || "Nota vacía";
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "btn";
+          button.textContent = "Revisar y recuperar";
+          button.addEventListener("click", () => previewRecovery_(entry));
+          article.appendChild(title); article.appendChild(preview); article.appendChild(button);
+          list.appendChild(article);
+        }
+      }
+      async function previewRecovery_(entry) {
+        try {
+          if (!entry.note && !entry.state) {
+            const data = await jsonp_({action: "getArchive", kind: entry.kind, id: entry.id});
+            if (!data?.ok || !data.entry) throw new Error(data?.error || "No se encontró la copia");
+            entry = {...data.entry, source: "cloud"};
+            recoveryEntries.set(entry.id, entry);
+          }
+          recoverySelected = entry;
+          $("recoveryPreviewText").textContent = entry.kind === "backup" ? JSON.stringify(entry.state, null, 2) : entry.note.text;
+          $("recoveryRestore").textContent = entry.kind === "backup" ? "Recuperar sin reemplazar notas actuales" : entry.kind === "history" ? "Volver a esta versión" : "Restaurar nota";
+          $("recoveryPreview").showModal();
+        } catch (error) { $("recoveryMessage").textContent = syncError_(error).text; }
+      }
+      async function restoreSelected_() {
+        if (!recoverySelected) return;
+        const entry = recoverySelected;
+        $("recoveryRestore").disabled = true;
+        try {
+          if (entry.kind === "backup") {
+            validateRemote_(entry.state);
+            await persistRecoveryEntry_({id: "before_restore_" + makeId(), kind: "backup", at: Date.now(), state: cloneState_(serializeState()), source: "device"});
+            await importFile({name: "respaldo.json", text: async () => JSON.stringify(entry.state)});
+          } else {
+            const restored = cloneState_(entry.note);
+            if (!restored?.id || typeof restored.text !== "string") throw new Error("Copia inválida");
+            let existing = getNoteById(restored.id);
+            if (entry.kind === "history" && existing) {
+              const previousText = existing.text, previousUpdatedAt = existing.updatedAt;
+              await rememberNote_("history", existing);
+              existing = getNoteById(restored.id);
+              if (!existing || existing.text !== previousText || existing.updatedAt !== previousUpdatedAt) throw new Error("La nota cambió durante la recuperación");
+              existing.text = restored.text;
+              existing.updatedAt = Date.now();
+            } else if (!notes.some(n => n.id === restored.id && n.text === restored.text)) {
+              if (existing) restored.id = makeId();
+              if (!categories.some(c => c.id === restored.categoryId)) restored.categoryId = GENERAL_CATEGORY_ID;
+              restored.updatedAt = Date.now();
+              notes.push(restored);
+            }
+            saveDebounced(); renderAll();
+          }
+          await flushPendingSave_();
+          $("recoveryPreview").close();
+          renderRecovery_();
+          toast("Recuperación guardada en este dispositivo");
+        } catch (_) { $("recoveryMessage").textContent = "No se pudo completar la recuperación. Se conserva la copia y tus notas actuales."; }
+        finally { $("recoveryRestore").disabled = false; }
+      }
+
+
       document.addEventListener("DOMContentLoaded", () => { init(); });
 
       async function init() {
@@ -1483,6 +1800,7 @@
           sortEl.value = settings.sortMode;
 
           bindEvents();
+          initReliability_();
 
           renderCategoryFilter();
           syncTopSelectTitles_();
@@ -2416,6 +2734,7 @@
           localSavedRevision = revision;
           saved = true;
           cacheLocal_(record);
+          dailyLocalBackup_(record.state).catch(() => {});
           if (revision === localRevision) { try { acknowledgeJournals_(); } catch {} }
           else stagePending_();
           notifyLocal_();
@@ -2425,6 +2744,7 @@
           toast(staged ? "Guardado en la copia de recuperación de este dispositivo" : "No se pudo guardar: exporta tus notas antes de cerrar", 5000);
         }).finally(() => {
           localSavePromise = null;
+          renderSyncStatus_();
           if (saved && localRevision > localSavedRevision) scheduleSaveDebounced_();
           if (saved) flushCloudSave_();
         });
@@ -2432,6 +2752,8 @@
       }
       function flushCloudSave_() {
         if (flushPromise) return flushPromise;
+        if (Date.now() < syncState.retryAt) return Promise.resolve();
+        setSyncState_("syncing");
         let cloudCommitted = false;
         flushPromise = (async () => {
           const revision = localRevision;
@@ -2439,12 +2761,17 @@
           const before = cloneState_(baseState || emptyState_());
           const remote = await apiGetState_();
           validateRemote_(remote);
+          if (remote.backupAt) syncState.backupAt = remote.backupAt;
           // Un backend antiguo se puede leer, pero no sobrescribir sin revisión.
           const merged = mergeLocalStates_(before, snapshot, remote);
           let committed = cloneState_(remote);
-          if (remote.revision && !stateEqual_(merged, remote)) {
+          const archiveUpload = remote.capabilities?.archive ? [...recoveryEntries.values()].filter(e => e.source === "device" && e.kind !== "backup" && e.cloudUploaded !== API_URL && e.note).slice(0, 30) : [];
+          if (remote.revision && (!stateEqual_(merged, remote) || archiveUpload.length)) {
             merged.baseRevision = remote.revision;
+            if (archiveUpload.length) merged.recoveryEntries = archiveUpload;
             await apiSaveAll_(merged);
+            delete merged.recoveryEntries;
+            for (const entry of archiveUpload) { entry.cloudUploaded = API_URL; persistRecoveryEntry_(entry).catch(() => {}); }
             committed = cloneState_({...merged, revision: merged.savedRevision});
             delete committed.baseRevision;
             delete committed.savedRevision;
@@ -2469,20 +2796,24 @@
           if (revision === localRevision && stateEqual_(next, record.state)) localSavedRevision = revision;
           confirmedRevision = revision;
           cloudCommitted = true;
+          syncState.at = Date.now();
+          syncState.failures = 0;
+          syncState.retryAt = 0;
+          try { localStorage.setItem(LAST_SYNC_KEY, String(syncState.at)); } catch (_) {}
+          setSyncState_("synced");
           cacheLocal_(record);
           notifyLocal_();
           if (hasCloudChanges_()) stagePending_();
           else { try { acknowledgeJournals_(); } catch {} }
         })().catch(error => {
           console.warn("Sincronización remota no disponible:", error);
-          if (!cloudNoticeShown) {
-            cloudNoticeShown = true;
-            const backedUp = stagedPendingKey && safeStorageGet_(stagedPendingKey);
-            toast(localRevision <= localSavedRevision ? "Notas guardadas en este dispositivo. Nube no disponible" :
-              backedUp ? "Copia de recuperación guardada en este dispositivo. Nube no disponible" : "No se pudo confirmar el guardado: exporta tus notas", 5000);
-          }
+          syncState.failures++;
+          syncState.retryAt = Date.now() + Math.min(300000, AUTOSYNC_MS * 2 ** Math.min(syncState.failures - 1, 5));
+          setSyncState_("error", error);
+
         }).finally(() => {
           flushPromise = null;
+          renderSyncStatus_();
           if (cloudCommitted && hasCloudChanges_()) setTimeout(flushCloudSave_, 0);
         });
         return flushPromise;
@@ -2491,7 +2822,9 @@
       const scheduleSaveDebounced_ = debounce(flushPendingSave_, 600);
 
       function saveDebounced() {
+        observeRecoveryChanges_();
         localRevision++;
+        renderSyncStatus_();
         stagePending_();
         scheduleSaveDebounced_();
       }
@@ -2968,6 +3301,8 @@
 
         activeNoteId = id;
 
+        rememberNote_("history", note).catch(() => {});
+        historyCheckpoints.set(note.id, Date.now());
         noteEditorEl.value = note.text || "";
         updateNoteMeta_(note);
 
@@ -3033,7 +3368,7 @@
         });
       }
 
-      function onListClick(e) {
+      async function onListClick(e) {
         const catBtn = e.target.closest("[data-action]");
 
         // ✅ Toggle categorías (acordeón en NO fijadas)
@@ -3138,6 +3473,10 @@
         }
 
         if (action === "clear") {
+          const previousText = note.text, previousUpdatedAt = note.updatedAt;
+          try { await rememberNote_("history", note); } catch (_) { toast("No se limpió la nota: no se pudo guardar su historial", 6000); return; }
+          note = getNoteById(id);
+          if (!note || note.text !== previousText || note.updatedAt !== previousUpdatedAt) { toast("La nota cambió. Revisa el texto antes de limpiarla", 6000); return; }
           note.text = "";
           note.updatedAt = Date.now();
           saveDebounced();
@@ -3272,11 +3611,16 @@
         }
       }
 
-      function deleteNote(id) {
+      async function deleteNote(id) {
         const idx = notes.findIndex(n => n.id === id);
         if (idx === -1) return;
 
-        const [removed] = notes.splice(idx, 1);
+        const archived = cloneState_(notes[idx]);
+        try { await rememberNote_("trash", archived); } catch (_) { toast("No se eliminó la nota: no se pudo asegurar su copia en la papelera", 6000); return; }
+        const currentIndex = notes.findIndex(n => n.id === id);
+        if (currentIndex === -1) return;
+        if (JSON.stringify(notes[currentIndex]) !== JSON.stringify(archived)) { toast("La nota cambió mientras se preparaba la papelera. Revisa el texto antes de eliminarla", 6000); return; }
+        const [removed] = notes.splice(currentIndex, 1);
         const undoEntry = { note: removed, index: idx };
 
         if (activeNoteId === id) closeNoteDialog_();
@@ -3307,6 +3651,7 @@
           v: 5,
           exportedAt: Date.now(),
           pendingBackups: readPending_().map(entry => entry.value),
+          recoveryEntries: [...recoveryEntries.values()].filter(e => e.note || e.state),
           notes,
           categories,
           settings: {
@@ -3368,6 +3713,13 @@
           const data = safeParse(text, null);
           if (!data || typeof data !== "object" || !Array.isArray(data.notes)) { toast("JSON de notas inválido"); return; }
 
+          if (Array.isArray(data.recoveryEntries)) {
+            for (const entry of data.recoveryEntries) {
+              if (!entry || typeof entry.id !== "string" || !["trash", "history", "backup"].includes(entry.kind) || !Number.isFinite(entry.at)) continue;
+              if (entry.note && typeof entry.note.text === "string") await persistRecoveryEntry_({...entry, source: "device"});
+              else if (entry.state) { validateRemote_(entry.state); await persistRecoveryEntry_({...entry, source: "device"}); }
+            }
+          }
           const incomingCats = Array.isArray(data.categories) ? data.categories : [];
           let incomingNotes = Array.isArray(data.notes) ? data.notes : [];
           // Exportar un conflicto conserva todas sus variantes recuperables.

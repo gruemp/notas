@@ -14,7 +14,7 @@ const apiEndpoint=fs.readFileSync(path.join(root,'notas.html'),'utf8').match(/co
 const fixture={ok:true,v:4,categories:[{id:'general',name:'General',color:'#4F46E5',order:-100000,collapsed:false,collapsedPinned:false}],notes:[{id:'fixture',text:'el retén bueno\n\nsegundo párrafo',createdAt:1700000000000,updatedAt:1700000000000,pinned:false,order:0,categoryId:'general'}],settings:{}};
 let server,browser,origin,baseline;
 before(async()=>{
-  baseline=execFileSync('git',['show','5e6ad21bbb66675312414e06f91812874b2d09dc:notas.html'],{cwd:root,encoding:'utf8'});
+  baseline=process.env.NOTAS_BASELINE_FILE?fs.readFileSync(process.env.NOTAS_BASELINE_FILE,'utf8'):execFileSync('git',['show','5e6ad21bbb66675312414e06f91812874b2d09dc:notas.html'],{cwd:root,encoding:'utf8'});
   server=http.createServer((req,res)=>{
     const pathname=new URL(req.url,'http://localhost').pathname;
     const file=pathname==='/'?'index.html':pathname.slice(1);
@@ -30,7 +30,7 @@ after(async()=>{await browser?.close();await new Promise(r=>server?.close(r));})
 async function contextFor({mobile=false,api='offline',seed=false,seedAuth=true,serviceWorkers='block'}={}){
   const context=await browser.newContext({...mobile?devices['iPhone 13']:{viewport:{width:1280,height:900}},timezoneId:'America/Bogota',serviceWorkers});
   await context.addInitScript(({seed,fixture,api,apiEndpoint,seedAuth})=>{
-    if(api==='v5'&&seedAuth)localStorage.setItem('notas_web_cloud_connection_v1',JSON.stringify({endpoint:apiEndpoint,token:"a".repeat(64)}));
+    if(api!=='offline'&&seedAuth)localStorage.setItem('notas_web_cloud_connection_v1',JSON.stringify({endpoint:apiEndpoint,token:"a".repeat(64)}));
     localStorage.setItem('notas_web_category_collapse_v1',JSON.stringify({general:{normal:false,pinned:false}}));
     if(seed&&!localStorage.getItem('notas_web_last_state_v1'))localStorage.setItem('notas_web_last_state_v1',JSON.stringify(fixture));
   },{seed,fixture,api,apiEndpoint,seedAuth});
@@ -117,6 +117,7 @@ for(const mobile of [false,true]){
   test((mobile?'mobile':'desktop')+': rendered appearance matches the original main exactly',async()=>{
     const {context}=await contextFor({mobile,api:'legacy',seed:true});const original=await context.newPage(),updated=await context.newPage();
     await original.goto(origin+'/baseline.html');await ready(original);await updated.goto(origin+'/notas.html');await ready(updated);await savedText(updated,fixture.notes[0].text);
+    await updated.locator('#syncPanel').evaluate(el=>el.style.display='none');
     for(const page of [original,updated]){await page.locator('#toast').evaluate(el=>{el.classList.remove('show');el.style.opacity='0';});await page.evaluate(()=>document.activeElement.blur());}
     assert.deepEqual(await original.locator('svg').evaluateAll(els=>els.map(el=>el.outerHTML)),await updated.locator('svg').evaluateAll(els=>els.map(el=>el.outerHTML)));
     await original.bringToFront();const before=await original.screenshot({animations:'disabled'});
@@ -135,7 +136,41 @@ for(const mobile of [false,true]){
     }
     await context.close();
   });
+
 }
+for(const mobile of [false,true]) test((mobile?'mobile':'desktop')+': persistent status and trash restore work offline after a full reload',async()=>{
+  const {context}=await contextFor({mobile});const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);
+  await create(page,'recover this offline');const id=(await record(page)).state.notes[0].id;
+  await page.locator('.note[data-id="'+id+'"]').getByRole('button',{name:'Eliminar',exact:true}).click();
+  await waitRecord(page,r=>r?.state.notes.length===0);await page.reload();await ready(page);
+  assert.ok((await page.locator('#syncSummary').innerText()).includes('dispositivo'));
+  await page.locator('#openRecovery').click();const row=page.locator('.recovery-entry').filter({hasText:'recover this offline'});
+  await row.getByRole('button',{name:'Revisar y recuperar',exact:true}).click();assert.equal(await page.locator('#recoveryPreviewText').innerText(),'recover this offline');
+  await page.locator('#recoveryRestore').click();await savedText(page,'recover this offline');
+  await page.locator('#recoveryClose').click();
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.screenshot({path:path.join(root,'test-results',(mobile?'mobile':'desktop')+'-reliability.png')});await context.close();
+});
+
+test('cloud history and independent backups can be recovered without deleting current notes',async()=>{
+  const {context,backend:b}=await contextFor({api:'v5'});b.context.Utilities.formatDate=()=> '2026-10-30';
+  const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);await savedText(page,fixture.notes[0].text);
+  const id=(await record(page)).state.notes[0].id;await openNote(page,id);await page.locator('#noteEditor').fill('new version kept');await page.locator('#noteClose').click();
+  await waitRecord(page,r=>r?.cloudBase?.notes.some(n=>n.text==='new version kept'));
+  await page.locator('#openRecovery').click();await page.locator('#recoveryKind').selectOption('backup');
+  const row=page.locator('.recovery-entry').filter({hasText:'Google'}).filter({hasText:'1 notas'});
+  await row.getByRole('button',{name:'Revisar y recuperar',exact:true}).click();await page.locator('#recoveryRestore').click();
+  await savedText(page,'new version kept');await savedText(page,fixture.notes[0].text);assert.equal((await record(page)).state.notes.length,2);
+  await context.close();
+});
+
+test('Google connection control navigates only to the configured Google owner deployment',async()=>{
+  const html=fs.readFileSync(path.join(root,'notas.html'),'utf8');const login=html.match(/const GOOGLE_CONNECT_URL = "([^"]+)"/)[1];
+  assert.match(login,/^https:\/\/script\.google\.com\/macros\/s\/[a-zA-Z0-9_-]+\/exec$/);
+  const {context}=await contextFor();await context.route(login+'?action=connect',route=>route.fulfill({contentType:'text/html',body:'<h1>Google owner authentication</h1>'}));
+  const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);await page.locator('#connectGoogle').click();
+  await page.getByRole('heading',{name:'Google owner authentication'}).waitFor();assert.equal(page.url(),login+'?action=connect');await context.close();
+});
 test('clipboard permission delay survives an autosave and canceling the fallback does not alter a note',async()=>{
   const {context}=await contextFor();const page=await context.newPage();await page.goto(origin+'/notas.html');await ready(page);
   await page.locator('#newNote').click();await page.locator('#noteClose').click();
@@ -197,3 +232,4 @@ test('a delayed IndexedDB read cannot replace an edit that committed after that 
   assert.equal(await page.locator('.note[data-id="'+id+'"] .note-view').innerText(),'after delayed read');
   await page.reload();await ready(page);assert.equal((await record(page)).state.notes.find(n=>n.id===id).text,'after delayed read');await context.close();
 });
+
