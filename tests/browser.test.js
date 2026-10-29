@@ -306,7 +306,7 @@ test('responsive layout: desktop uses wide sidebar and grid while mobile retains
     assert.equal(desktop.horizontalOverflow,false);
     await page.screenshot({path:path.join(root,'test-results','desktop-wide.png'),fullPage:true});
     await page.locator('[data-ui-nav="categories"]').click();
-    assert.ok(await page.locator('.ui-category-card').isVisible());
+    assert.ok(await page.locator('#uiCategoriesPage > .ui-category-card').first().isVisible());
     assert.ok((await page.locator('#uiCategoriesPage').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length))>=2);
     await page.locator('[data-ui-nav="notes"]').click();
     await page.setViewportSize({width:390,height:844});
