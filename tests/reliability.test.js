@@ -106,7 +106,7 @@ test('v6: restoring a version never reports success when local persistence faile
   const c=client(),messages=[];c.api.setState(initial());c.api.onToast(m=>messages.push(m));
   c.api.storage(async()=>null,async()=>{throw Error('IndexedDB unavailable');});
   c.api.selectRecovery({id:'old-version',kind:'history',note:note('one','recover me')});
-  c.elements.get('recoveryPreview').open=true;
+  c.context.document.getElementById('recoveryPreview').open=true;
   await c.api.restoreSelected_();
 
   assert.equal(c.api.getState().notes[0].text,'recover me');
