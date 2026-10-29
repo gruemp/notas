@@ -76,3 +76,12 @@ test('v6: visible status distinguishes authorization, slow service, and unconfir
   let attempts=0;c.api.api(async()=>{attempts++;throw Error('No autorizado.');},()=>assert.fail());await c.api.flushCloudSave_();await c.api.flushCloudSave_();assert.equal(attempts,1);
   await c.api.retrySync_();assert.equal(attempts,2);assert.equal(c.api.syncState().error.code,'AUTH_INVALID');
 });
+
+test('v6: an edit while the trash copy is being written cancels deletion',async()=>{
+  const c=client();c.api.setState(initial());const write=c.localStorage.setItem;let changed=false;
+  c.localStorage.setItem=(key,value)=>{
+    write(key,value);
+    if(!changed&&key.startsWith('notas_archive_v6:trash:')) { changed=true;c.api.edit('one','newest edit'); }
+  };
+  await c.api.deleteNote('one');assert.equal(changed,true);assert.equal(c.api.getState().notes[0].text,'newest edit');
+});

@@ -1730,7 +1730,10 @@
             if (!restored?.id || typeof restored.text !== "string") throw new Error("Copia inválida");
             let existing = getNoteById(restored.id);
             if (entry.kind === "history" && existing) {
+              const previousText = existing.text, previousUpdatedAt = existing.updatedAt;
               await rememberNote_("history", existing);
+              existing = getNoteById(restored.id);
+              if (!existing || existing.text !== previousText || existing.updatedAt !== previousUpdatedAt) throw new Error("La nota cambió durante la recuperación");
               existing.text = restored.text;
               existing.updatedAt = Date.now();
             } else if (!notes.some(n => n.id === restored.id && n.text === restored.text)) {
@@ -3470,7 +3473,10 @@
         }
 
         if (action === "clear") {
+          const previousText = note.text, previousUpdatedAt = note.updatedAt;
           try { await rememberNote_("history", note); } catch (_) { toast("No se limpió la nota: no se pudo guardar su historial", 6000); return; }
+          note = getNoteById(id);
+          if (!note || note.text !== previousText || note.updatedAt !== previousUpdatedAt) { toast("La nota cambió. Revisa el texto antes de limpiarla", 6000); return; }
           note.text = "";
           note.updatedAt = Date.now();
           saveDebounced();

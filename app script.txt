@@ -615,13 +615,15 @@ function archiveHash_(value) {
     .map(b => (b & 255).toString(16).padStart(2, "0")).join("");
 }
 function appendArchive_(entry) {
-  if (archiveEntries_().some(e => e.id === entry.id)) return;
+  const known = archiveEntries_();
+  if (known.some(e => e.id === entry.id)) return;
   const chunks = JSON.stringify(entry).match(/[\s\S]{1,30000}/g) || [];
   const sh = archiveSheet_(), first = sh.getLastRow() + 1;
   if (first + chunks.length - 1 > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), first + chunks.length - 1 - sh.getMaxRows());
   sh.getRange(first, 1, chunks.length, 6).setValues(chunks.map((text, i) => [entry.id, entry.kind, entry.at, i, chunks.length, "'" + text]));
   SpreadsheetApp.flush();
-  archiveCache_ = null;
+  known.push(entry);
+  archiveCache_ = known.sort((a, b) => b.at - a.at || a.id.localeCompare(b.id));
 }
 function acceptRecoveryEntries_(entries) {
   if (entries == null) return;
@@ -654,11 +656,13 @@ function dailyBackup_(state) {
     return;
   }
   // Record the destination immediately so a failed write reuses the same file.
-  const pendingKey = "NOTAS_BACKUP_PENDING_" + day;
-  let destination = props.getProperty(pendingKey);
+  const pendingKey = "NOTAS_BACKUP_PENDING";
+  let pending;
+  try { pending = JSON.parse(props.getProperty(pendingKey) || "null"); } catch (_) {}
+  let destination = pending?.day === day ? pending.id : null;
   const backup = destination ? SpreadsheetApp.openById(destination) : SpreadsheetApp.create(day + "_notas_respaldo");
   destination = backup.getId();
-  props.setProperty(pendingKey, destination);
+  props.setProperty(pendingKey, JSON.stringify({day, id: destination}));
   const cats = ensureSheetWithHeaders_(backup, SHEET_CATS, CAT_HEADERS, CAT_HEADERS_ES);
   const notes = ensureSheetWithHeaders_(backup, SHEET_NOTES, NOTE_HEADERS, NOTE_HEADERS_ES);
   writeObjects_(cats, CAT_HEADERS, state.categories);
@@ -668,6 +672,7 @@ function dailyBackup_(state) {
   appendArchive_({id, kind: "backup", at, state: {categories: state.categories, notes: state.notes}, spreadsheetId: destination, source: "cloud"});
   props.setProperty("NOTAS_BACKUP_DAY", day);
   props.setProperty("NOTAS_LAST_BACKUP_AT", String(at));
+  props.setProperty(pendingKey, "");
 }
 function archivePage_(params) {
   const kind = String(params.kind || "trash");
