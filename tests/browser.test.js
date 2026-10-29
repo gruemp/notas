@@ -125,7 +125,7 @@ for(const mobile of [false,true]){
     await page.goto(origin+'/notas.html');await ready(page);
     assert.equal(await page.locator('#uiPageTitle').innerText(),'Notas');
     assert.equal(await page.locator('.ui-nav button').count(),2);
-    assert.ok(await page.locator('.ui-chip').count()>0);
+    assert.equal(await page.locator('#uiChips').count(),0,'No se debe repetir el filtro de categorías');
     assert.ok(await page.locator('.note .ui-card-title').count()>0);
     assert.ok(await page.locator('#newNote').isVisible());
     await page.locator('[data-ui-nav="categories"]').click();
@@ -333,7 +333,7 @@ test('responsive layout: desktop uses wide sidebar and grid while mobile retains
 });
 
 
-test('category folder color is identical in note cards, filters and category view on desktop and mobile',async()=>{
+test('category folder color is identical in note cards and category view on desktop and mobile',async()=>{
   const {context}=await contextFor({api:'offline',seed:true});
   const page=await context.newPage();
   try {
@@ -349,12 +349,12 @@ test('category folder color is identical in note cards, filters and category vie
     await row.locator('select').selectOption({label:'Trabajo'});
     await waitRecord(page,r=>r?.state.notes.some(n=>n.id==='fixture'&&r.state.categories.some(c=>c.name==='Trabajo'&&c.id===n.categoryId)));
     const colorFromCard=await row.locator('.ui-card-folder').evaluate(el=>getComputedStyle(el).color);
-    const colorFromChip=await page.locator('.ui-chip').filter({hasText:'Trabajo'}).locator('.ui-chip-folder').evaluate(el=>getComputedStyle(el).color);
-    assert.equal(colorFromCard,colorFromChip,'Note and filter folder must use one color source');
     await page.locator('[data-ui-nav="categories"]').click();
     const colorFromCategory=await page.locator('.ui-category-card').filter({hasText:'Trabajo'}).locator('.ui-folder').evaluate(el=>getComputedStyle(el).color);
     assert.equal(colorFromCard,colorFromCategory,'Note card and categories view must match');
-    await page.locator('#uiBackToNotes').click();
+    await page.locator('#uiCategoriesPage > .ui-category-card').filter({hasText:'Trabajo'}).locator('.ui-category-label').click();
+    assert.equal(await page.locator('#uiPageTitle').innerText(),'Notas');
+    assert.ok(await row.isVisible(),'Abrir una categoría debe filtrar sus notas');
     await page.setViewportSize({width:390,height:844});
     assert.equal(await row.locator('.ui-card-folder').evaluate(el=>getComputedStyle(el).color),colorFromCategory);
     await page.reload();await ready(page);
@@ -412,7 +412,6 @@ test('contextual visual polish keeps balanced cards and readable status in dark 
     await openSettings(page);
     const theming=await page.evaluate(()=>{
       document.documentElement.setAttribute('data-theme','light');
-      const selectors=['body','.searchbox','.ui-chip','.note','.ui-category-card','.ui-nav'];
       const color=s=>getComputedStyle(document.querySelector(s)).color;
       const background=s=>getComputedStyle(document.querySelector(s)).backgroundColor;
       const note=document.querySelector('.note');
@@ -423,7 +422,6 @@ test('contextual visual polish keeps balanced cards and readable status in dark 
         statusColor:color('#syncSummary'),
         noteBorder:getComputedStyle(note).borderTopColor,
         headingColor:color('.ui-heading h1'),
-        chipBackground:background('.ui-chip'),
         visualTokens:getComputedStyle(document.documentElement).getPropertyValue('--ui-title').trim()
       };
     });
@@ -465,7 +463,7 @@ test('natural flow: controls and feedback scroll with the page at mobile, tablet
           previewAlign:getComputedStyle(document.querySelector('.ui-card-preview')).textAlign,
           noteContentAlignment:getComputedStyle(document.querySelector('.note-view')).alignItems,
           overflow:document.documentElement.scrollWidth>innerWidth,
-          chipOverflow:getComputedStyle(document.querySelector('.ui-chips')).overflowX,
+          redundantCategoryPanel:document.querySelector('#uiChips')!==null,
           navBeforeList:document.querySelector('.ui-nav').compareDocumentPosition(document.querySelector('.list')) & Node.DOCUMENT_POSITION_FOLLOWING
         };
       });
@@ -478,7 +476,7 @@ test('natural flow: controls and feedback scroll with the page at mobile, tablet
       assert.equal(start.overflow,false);
       assert.notEqual(start.navBeforeList,0,'Navigation should be before notes in accessible DOM order');
       assert.ok(start.nav<start.list&&start.add<start.list,'Navigation and primary action should precede notes');
-      assert.notEqual(start.chipOverflow,'auto','Filters should wrap rather than create a nested horizontal scroller');
+      assert.equal(start.redundantCategoryPanel,false,'El panel de categorías duplicado debe estar ausente');
       const scroll=await page.evaluate(()=>{
         scrollTo(0,Math.min(340,document.documentElement.scrollHeight-innerHeight));
         return scrollY;
