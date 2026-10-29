@@ -11,9 +11,21 @@ assert.ok(match, 'Falta el script principal de notas.html');
 new vm.Script(match[1], { filename: 'notas.html' });
 new vm.Script(backend, { filename: 'app script.txt' });
 new vm.Script(fs.readFileSync(path.join(root, 'sw.js'), 'utf8'), { filename: 'sw.js' });
-const crypto = require('node:crypto');
-const visualPrefix = (html.split('<script>')[0] + '<script>').replace(/\r\n/g, '\n').replace(/<!-- NOTAS_V6_BEGIN -->[\s\S]*?<!-- NOTAS_V6_END -->/g, '').replace(/>\s+</g, '><');
-assert.equal(crypto.createHash('sha256').update(visualPrefix).digest('hex'), '21286856e3c7edeb38a841f1120b5fa12f301f77b00a3c9378affaa959ecb056', 'Cambió el CSS o marcado visual original');
+// La distribución responsive ahora cambia deliberadamente el orden visual.
+ // En lugar de bloquear todo cambio de marcado con un hash, comprobamos
+ // la integridad de los controles y que las barras no queden ancladas.
+const requiredIds = ['search','catFilter','sort','uiBottomNav','uiAddDock','newNote',
+  'syncPanel','syncSummary','uiChips','notesList','pinnedList','uiCategoriesPage',
+  'uiCategorySheet','catDialog','noteDialog','recoveryDialog','toast'];
+for (const id of requiredIds) {
+  const count = html.split('id="' + id + '"').length - 1;
+  assert.equal(count, 1, 'Falta o está duplicado el control ' + id);
+}
+const mainIndex = html.indexOf('<main class="list"');
+assert.ok(mainIndex > html.indexOf('id="uiBottomNav"'), 'La navegación debe preceder a las notas');
+assert.ok(mainIndex > html.indexOf('id="uiAddDock"'), 'Nueva nota debe preceder a las tarjetas');
+const styles = [...html.matchAll(/<style(?:\\s[^>]*)?>([\\s\\S]*?)<\\/style>/g)].map(m => m[1]).join('\\n');
+assert.doesNotMatch(styles, /position:\\s*(?:fixed|sticky)\\b/i, 'No debe haber barras inmovilizadas');
 assert.match(html, /function apiSaveAll_\(state\)/, 'Falta guardado remoto');
 assert.match(html, /function stagePending_\(\)/, 'Falta respaldo de cambios');
 assert.match(html, /function startAutoSync\(\)/, 'Falta sincronización');
