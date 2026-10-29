@@ -300,9 +300,9 @@ test('responsive layout: desktop uses wide sidebar and grid while mobile retains
     });
     assert.ok(desktop.appWidth>1200,'Desktop container must use most of a 1440px monitor: '+JSON.stringify(desktop));
     assert.ok(desktop.navRight<desktop.notesLeft,'Desktop navigation must be a sidebar: '+JSON.stringify(desktop));
-    assert.equal(desktop.navPosition,'sticky');
+    assert.equal(desktop.navPosition,'static');
     assert.ok(desktop.cardColumns>=3,'Notes should use multiple columns on desktop: '+JSON.stringify(desktop));
-    assert.ok(desktop.addTop<200,'New note action should be at the top on desktop');
+    assert.ok(desktop.addTop<460,'New note action should follow the header in normal flow');
     assert.equal(desktop.horizontalOverflow,false);
     await page.screenshot({path:path.join(root,'test-results','desktop-wide.png'),fullPage:true});
     await page.locator('[data-ui-nav="categories"]').click();
@@ -323,9 +323,9 @@ test('responsive layout: desktop uses wide sidebar and grid while mobile retains
       };
     });
     assert.ok(mobile.appWidth<=mobile.viewport+1,'Mobile layout must stay fluid: '+JSON.stringify(mobile));
-    assert.equal(mobile.navPosition,'fixed');
+    assert.equal(mobile.navPosition,'static');
     assert.equal(mobile.cardColumns,1);
-    assert.equal(mobile.navBottom,844);
+    assert.ok(mobile.navBottom<844,'Navigation should be above notes rather than attached to the viewport');
     assert.equal(mobile.horizontalOverflow,false);
     assert.deepEqual(errors,[]);
     await page.screenshot({path:path.join(root,'test-results','mobile-unchanged.png'),fullPage:true});
@@ -399,10 +399,10 @@ test('contextual visual polish keeps balanced cards and readable status in dark 
       assert.ok(values.titleSize>=28&&values.cardTitleSize>=15,'Text size too small: '+JSON.stringify(values));
       assert.ok(values.cardRadius>=16,'Cards should have a coherent rounded shape');
       if(width<1024){
-        assert.equal(values.navPosition,'fixed','Mobile/tablet retains lower navigation');
+        assert.equal(values.navPosition,'static','Mobile/tablet navigation follows the content flow');
         assert.equal(values.columns,1,'Mobile/tablet retains its existing single-column layout');
       }else{
-        assert.equal(values.navPosition,'sticky','Desktop retains lateral navigation');
+        assert.equal(values.navPosition,'static','Desktop navigation does not remain pinned');
         assert.ok(values.contentLeft>=values.navRight,'Sidebar and main content must not overlap');
         assert.ok(values.columns>=2,'Desktop must retain a multi-column grid');
       }
@@ -438,4 +438,68 @@ test('contextual visual polish keeps balanced cards and readable status in dark 
     await page.screenshot({path:path.join(root,'test-results','polish-light-categories.png'),fullPage:true});
     assert.deepEqual(errors,[]);
   }finally{await context.close();}
+});
+
+
+test('natural flow: controls and feedback scroll with the page at mobile, tablet and desktop sizes',async()=>{
+  const {context}=await contextFor({api:'offline',seed:true});
+  const page=await context.newPage();const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  try {
+    await page.goto(origin+'/notas.html');await ready(page);
+    for(let i=0;i<14;i++)await create(page,'Nota fluida '+i+'\nContenido amplio para verificar desplazamiento natural');
+    for(const width of [390,768,1024,1440]){
+      await page.setViewportSize({width,height:540});
+      await page.evaluate(()=>scrollTo(0,0));
+      const start=await page.evaluate(()=>{
+        const box=selector=>document.querySelector(selector).getBoundingClientRect();
+        return {
+          header:box('.header').top,
+          nav:box('.ui-nav').top,
+          add:box('#uiAddDock').top,
+          list:box('.list').top,
+          navPosition:getComputedStyle(document.querySelector('.ui-nav')).position,
+          addPosition:getComputedStyle(document.querySelector('#uiAddDock')).position,
+          headerPosition:getComputedStyle(document.querySelector('.header')).position,
+          overflow:document.documentElement.scrollWidth>innerWidth,
+          chipOverflow:getComputedStyle(document.querySelector('.ui-chips')).overflowX,
+          navBeforeList:document.querySelector('.ui-nav').compareDocumentPosition(document.querySelector('.list')) & Node.DOCUMENT_POSITION_FOLLOWING
+        };
+      });
+      assert.equal(start.headerPosition,'static');
+      assert.equal(start.navPosition,'static');
+      assert.equal(start.addPosition,'static');
+      assert.equal(start.overflow,false);
+      assert.notEqual(start.navBeforeList,0,'Navigation should be before notes in accessible DOM order');
+      assert.ok(start.nav<start.list&&start.add<start.list,'Navigation and primary action should precede notes');
+      assert.notEqual(start.chipOverflow,'auto','Filters should wrap rather than create a nested horizontal scroller');
+      const scroll=await page.evaluate(()=>{
+        scrollTo(0,Math.min(340,document.documentElement.scrollHeight-innerHeight));
+        return scrollY;
+      });
+      assert.ok(scroll>=100,'Long notes should permit scrolling at '+width);
+      const moved=await page.evaluate(()=>{
+        const y=selector=>document.querySelector(selector).getBoundingClientRect().top;
+        return {header:y('.header'),nav:y('.ui-nav'),add:y('#uiAddDock')};
+      });
+      assert.ok(start.header-moved.header>90,'Header stays in document flow at '+width);
+      assert.ok(start.nav-moved.nav>90,'Navigation scrolls with document at '+width);
+      assert.ok(start.add-moved.add>90,'Primary action scrolls with document at '+width);
+      await page.evaluate(()=>scrollTo(0,0));
+      await page.screenshot({path:path.join(root,'test-results','flow-'+width+'.png'),fullPage:true});
+    }
+    await page.setViewportSize({width:390,height:700});
+    const note=page.locator('.note').first();
+    await note.locator('.ui-note-more').click();
+    await note.locator('[data-action="delete"]').click();
+    assert.equal(await page.locator('#toast').evaluate(el=>getComputedStyle(el).position),'static');
+    await page.getByRole('button',{name:'Deshacer',exact:true}).click();
+    assert.ok(await page.locator('.note').count()>0);
+    await page.locator('[data-ui-nav="categories"]').click();
+    await page.locator('#uiCategoriesPage > .ui-category-card').first().locator('.ui-category-menu').click();
+    assert.notEqual(await page.locator('#uiCategorySheet').evaluate(el=>getComputedStyle(el).position),'fixed');
+    assert.ok(await page.locator('#uiCategoryCancel').isVisible());
+    await page.locator('#uiCategoryCancel').click();
+    assert.deepEqual(errors,[]);
+  }finally {await context.close();}
 });
