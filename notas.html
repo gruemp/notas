@@ -2273,7 +2273,14 @@
       .ui-nav button{font-size:11.5px}
       .note{column-gap:7px;padding-inline:12px}
     }
-    /* NOTAS_UI_POLISH_20261029_END */
+    /* Legibilidad del selector nativo y del panel de conexión en tema claro. */
+    [data-theme="light"] .toolbar2 .selectwrap svg{
+      color:#2d436b;stroke:#2d436b;opacity:1;
+    }
+    [data-theme="light"].ui-settings-open #syncPanel .reliability-actions{
+      background:#fff;border-color:#d6deee;box-shadow:0 8px 20px rgba(34,52,94,.09);
+    }
+        /* NOTAS_UI_POLISH_20261029_END */
 
   </style>
   <!-- NOTAS_V6_END -->
