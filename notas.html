@@ -1737,6 +1737,19 @@
       </button>
     </div>
     <!-- NOTAS_V6_END -->
+    <!-- NOTAS_V6_BEGIN -->
+    <section id="syncPanel" class="sync-panel" aria-label="Guardado y conexión">
+      <strong id="syncSummary" role="status" aria-live="polite">Abriendo notas del dispositivo…</strong>
+      <p id="syncDetail"></p><p id="syncError"></p><p id="recoveryWarning"></p>
+      <div class="reliability-actions">
+        <button id="connectGoogle" class="btn" type="button">Conectar con Google</button>
+        <button id="retrySync" class="btn" type="button">Reintentar sincronización</button>
+        <button id="openRecovery" class="btn" type="button">Papelera, historial y respaldos</button>
+      </div>
+    </section>
+    <!-- NOTAS_V6_END -->
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
       <div class="topbar" aria-label="Barra superior">
 
         <div class="searchbox" role="search">
@@ -1794,15 +1807,6 @@
             <span class="sr-only">Nueva categoría</span>
           </button>
 
-          <button id="newNote" class="btn btn-add" type="button" aria-label="Nueva nota" title="Nueva nota">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <path d="M14 2v6h6"></path>
-              <path d="M12 12v6"></path>
-              <path d="M9 15h6"></path>
-            </svg>
-            <span class="sr-only">Nueva nota</span>
-          </button>
 
           <button id="exportJson" class="btn" type="button" aria-label="Exportar JSON" title="Exportar JSON">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1857,18 +1861,23 @@
         <!-- NOTAS_V6_END -->
     </header>
 
-    <!-- NOTAS_V6_BEGIN -->
-    <section id="syncPanel" class="sync-panel" aria-label="Guardado y conexión">
-      <strong id="syncSummary" role="status" aria-live="polite">Abriendo notas del dispositivo…</strong>
-      <p id="syncDetail"></p><p id="syncError"></p><p id="recoveryWarning"></p>
-      <div class="reliability-actions">
-        <button id="connectGoogle" class="btn" type="button">Conectar con Google</button>
-        <button id="retrySync" class="btn" type="button">Reintentar sincronización</button>
-        <button id="openRecovery" class="btn" type="button">Papelera, historial y respaldos</button>
-      </div>
-    </section>
-    <!-- NOTAS_V6_END -->
-
+    <!-- Navegación y acción principal en el flujo natural de lectura. -->
+    <nav id="uiBottomNav" class="ui-nav" aria-label="Navegación principal">
+      <button data-ui-nav="notes" type="button" aria-current="page"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>Notas</button>
+      <button data-ui-nav="categories" type="button"><svg viewBox="0 0 24 24"><path d="M3 7V5h7l2 3h9v12H3z"></path></svg>Categorías</button>
+      <button data-ui-nav="trash" type="button"><svg viewBox="0 0 24 24"><path d="M4 7h16M8 7V4h8v3M6 7l1 14h10l1-14M10 11v6M14 11v6"></path></svg>Papelera</button>
+    </nav>
+    <div id="uiAddDock" class="ui-add-dock">
+          <button id="newNote" class="btn btn-add" type="button" aria-label="Nueva nota" title="Nueva nota">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <path d="M14 2v6h6"></path>
+              <path d="M12 12v6"></path>
+              <path d="M9 15h6"></path>
+            </svg>
+            <span class="sr-only">Nueva nota</span>
+          </button>
+    </div>
     <main class="list" aria-label="Notas">
       <section id="pinnedSection" class="section" hidden>
         <div id="pinnedTitle" class="section-title section-toggle" role="button" tabindex="0" aria-label="Mostrar/ocultar fijadas">
@@ -1897,15 +1906,7 @@
         <div class="empty-sub">Prueba con otra búsqueda o crea una nota nueva.</div>
       </div>
     </main>
-    <!-- NOTAS_V6_BEGIN -->
     <section id="uiCategoriesPage" class="ui-categories" aria-label="Categorías" hidden></section>
-    <div id="uiAddDock" class="ui-add-dock"></div>
-    <nav id="uiBottomNav" class="ui-nav" aria-label="Navegación principal">
-      <button data-ui-nav="notes" type="button" aria-current="page"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"></rect><path d="M8 8h8M8 12h8M8 16h5"></path></svg>Notas</button>
-      <button data-ui-nav="categories" type="button"><svg viewBox="0 0 24 24"><path d="M3 7V5h7l2 3h9v12H3z"></path></svg>Categorías</button>
-      <button data-ui-nav="trash" type="button"><svg viewBox="0 0 24 24"><path d="M4 7h16M8 7V4h8v3M6 7l1 14h10l1-14M10 11v6M14 11v6"></path></svg>Papelera</button>
-    </nav>
-    <!-- NOTAS_V6_END -->
   </div>
 
   <!-- ✅ Modal categorías -->
@@ -1994,7 +1995,6 @@
   </dialog>
   <!-- NOTAS_V6_END -->
 
-  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <script>
     (() => {
