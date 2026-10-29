@@ -922,7 +922,12 @@
     .note-view:focus-visible{outline:2px solid #b2a4ff;outline-offset:4px}
     .ui-card-title{font-size:16px;font-weight:735;color:#fff;line-height:1.4;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
     .ui-card-preview{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:#c4cef1;font-size:14px;line-height:1.4;margin-top:8px;overflow-wrap:anywhere}
-    .ui-card-meta{font-size:12px;color:#afbbdf;margin-top:10px}
+    .ui-card-meta{font-size:12px;color:#afbbdf;margin-top:10px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+    .ui-card-category{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+    .ui-card-folder,.ui-chip-folder{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+    .ui-card-folder svg{width:16px;height:16px;fill:currentColor;stroke:none}
+    .ui-chip-folder svg{width:16px;height:16px;fill:currentColor;stroke:none}
+    .ui-chip:has(.ui-chip-folder){display:inline-flex;align-items:center;gap:7px}
     .ui-pin{color:#ffcf5d;margin-right:9px}
     .ui-note-more{grid-column:2;grid-row:1;align-self:start;justify-self:end;border:0;background:transparent;color:#b7c4f2;border-radius:10px;min-width:29px;min-height:37px;font-size:24px;line-height:1;cursor:pointer}
     .note .actions{display:none;position:absolute;top:56px;right:12px;z-index:10;flex-wrap:wrap;max-width:calc(100% - 24px);padding:10px;border-radius:14px;background:#111b32;border:1px solid #536385;box-shadow:0 12px 24px rgba(0,0,0,.3)}
@@ -974,6 +979,186 @@
       .note{padding:17px 17px 15px}
       .ui-category-card{min-height:82px}
       #syncDetail{display:none}
+    }
+
+    /* Desktop: pantalla amplia con navegación lateral, tarjetas en rejilla y controles superiores.
+       En móviles se conserva exactamente la distribución anterior (< 1024 px). */
+    @media (min-width: 1024px) {
+      .app {
+        position: relative;
+        width: 100%;
+        max-width: 1560px;
+        margin: 0 auto;
+        padding: 28px 32px 72px;
+        display: grid;
+        grid-template-columns: 216px minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        gap: 16px 28px;
+        align-items: start;
+      }
+      .header {
+        grid-column: 2;
+        grid-row: 1;
+        margin: 0;
+        padding: 0 0 12px;
+        display: grid;
+        grid-template-columns: minmax(260px, 420px) minmax(0, 1fr);
+        column-gap: 22px;
+        row-gap: 12px;
+        min-width: 0;
+      }
+      .ui-heading { grid-column: 1 / -1; padding-right: 210px; min-height: 55px; }
+      .ui-heading h1 { font-size: 34px; }
+      #syncPanel { grid-column: 1 / -1; margin: -8px 0 2px; }
+      #syncDetail { display: block; }
+      .topbar {
+        grid-column: 1;
+        min-width: 0;
+        width: 100%;
+        display: flex;
+        flex-direction: column !important;
+        align-items: stretch;
+        gap: 12px;
+        overflow: visible;
+      }
+      .searchbox { width: 100%; min-width: 0; margin: 0; }
+      .ui-chips {
+        grid-column: 2;
+        min-width: 0;
+        width: 100%;
+        align-self: start;
+        display: flex;
+        flex-wrap: wrap;
+        overflow: visible;
+        gap: 8px;
+        padding: 4px 0;
+      }
+      .ui-chip { min-height: 46px; padding: 9px 18px; }
+      .ui-settings-open .toolbar2 { display: flex !important; flex-wrap: wrap; }
+      .ui-nav {
+        position: sticky;
+        grid-column: 1;
+        grid-row: 1 / span 2;
+        align-self: start;
+        top: 24px;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        transform: none;
+        width: 100%;
+        min-height: 0;
+        margin: 0;
+        padding: 16px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        background: rgba(24, 34, 57, .94);
+        border: 1px solid var(--line);
+        border-radius: 23px;
+        box-shadow: 0 14px 35px rgba(0, 0, 0, .12);
+      }
+      .ui-nav::before {
+        content: "NAVEGACIÓN";
+        display: block;
+        padding: 8px 12px 10px;
+        color: #a6b4dc;
+        font-size: 11px;
+        font-weight: 750;
+        letter-spacing: .12em;
+      }
+      .ui-nav button {
+        flex-direction: row;
+        justify-content: flex-start;
+        gap: 12px;
+        width: 100%;
+        min-height: 48px;
+        padding: 10px 13px;
+        color: #bcc8ea;
+        font-size: 15px;
+        border-radius: 13px;
+        text-align: left;
+      }
+      .ui-nav button[aria-current="page"] {
+        color: #ded8ff;
+        background: #333454;
+      }
+      .ui-nav button:hover { background: #29354d; }
+      .ui-nav button svg { width: 22px; height: 22px; }
+      .ui-add-dock {
+        position: absolute;
+        top: 27px;
+        right: 32px;
+        bottom: auto;
+        left: auto;
+        z-index: 80;
+        transform: none;
+        width: 190px;
+        margin: 0;
+      }
+      #newNote {
+        width: 100%;
+        height: 50px;
+        padding: 0 16px;
+        border-radius: 16px;
+        font-size: 14px;
+        box-shadow: 0 5px 16px rgba(0,0,0,.15);
+      }
+      #newNote .sr-only { font-size: 14px; }
+      .list {
+        grid-column: 2;
+        grid-row: 2;
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+      }
+      .section { margin: 0 0 28px; }
+      .section-title { font-size: 17px; padding: 9px 3px 15px; }
+      #pinnedList, #notesList {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+        align-items: stretch;
+        gap: 16px;
+      }
+      .note {
+        min-width: 0;
+        min-height: 156px;
+        align-content: start;
+        padding: 20px;
+        border-radius: 21px;
+      }
+      .note-view { min-width: 0; }
+      .note .actions { top: 54px; }
+      .ui-categories {
+        grid-column: 2;
+        grid-row: 2;
+        min-width: 0;
+        max-width: none;
+        margin: 0;
+      }
+      [data-ui-view="categories"] .ui-categories {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+        align-content: start;
+        gap: 16px;
+      }
+      .ui-category-card { min-width: 0; min-height: 105px; }
+      .ui-category-new { min-height: 80px; margin: 0; }
+      .ui-category-sheet {
+        bottom: 50%;
+        width: min(540px, calc(100% - 40px));
+        border: 1px solid #495676;
+        border-radius: 27px;
+        transform: translateY(50%);
+      }
+      .toast { bottom: 24px; }
+      [data-theme="light"] .ui-nav {
+        background: #fff;
+        box-shadow: 0 14px 35px rgba(32,48,100,.09);
+      }
+      [data-theme="light"] .ui-nav button[aria-current="page"] {
+        background: #e9e5ff;
+        color: #392e7d;
+      }
     }
     @media(prefers-reduced-motion:reduce){.ui-nav button,.ui-chip,.ui-note-more{transition:none}}
     [data-theme="light"] .sync-panel{background:#fff;color:#172033}[data-theme="light"] #syncError,[data-theme="light"] #recoveryWarning{color:#825000}
@@ -1895,6 +2080,12 @@
       // Vista de tarjetas y categorías. Es una presentación del mismo estado persistente.
       const uiFolderSvg_ = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 6a2 2 0 0 1 2-2h6l2 3h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"></path></svg>';
       let uiCategoryToDelete_ = null;
+      const uiCategoryPalette_ = ["#a799f8", "#d787a9", "#6c9ccf", "#8ccea7", "#ecc179"];
+      function uiCategoryColor_(catId) {
+        if (catId === GENERAL_CATEGORY_ID) return "#6c9ccf";
+        const index = sortCategories(categories).findIndex(c => c.id === catId);
+        return uiCategoryPalette_[Math.max(0, index) % uiCategoryPalette_.length];
+      }
 
       function uiRelativeTime_(ms) {
         const delta = Math.max(0, Date.now() - (Number(ms) || 0));
@@ -1911,9 +2102,10 @@
         const preview = firstIndex < 0 ? "" : lines.slice(firstIndex + 1).join(" ").trim();
         const cat = getCategoryById(note.categoryId || GENERAL_CATEGORY_ID);
         const heading = makeHighlightedHTML(title, terms, true);
+        const categoryColor = uiCategoryColor_(cat?.id || GENERAL_CATEGORY_ID);
         return '<div class="ui-card-title">' + (note.pinned ? '<span class="ui-pin" aria-label="Fijada">✦</span>' : '') + heading + '</div>'
           + (preview ? '<div class="ui-card-preview">' + makeHighlightedHTML(preview, terms, true) + '</div>' : '')
-          + '<div class="ui-card-meta">' + escapeHTML(cat?.name || "General") + ' · ' + escapeHTML(uiRelativeTime_(note.updatedAt || note.createdAt)) + '</div>';
+          + '<div class="ui-card-meta"><span class="ui-card-category"><span class="ui-card-folder" style="color:' + categoryColor + '" aria-hidden="true">' + uiFolderSvg_ + '</span>' + escapeHTML(cat?.name || "General") + '</span><span class="ui-card-time">· ' + escapeHTML(uiRelativeTime_(note.updatedAt || note.createdAt)) + '</span></div>';
       }
       function renderUIChips_() {
         const root = $("uiChips");
@@ -1923,7 +2115,17 @@
           const button = document.createElement("button");
           button.type = "button";
           button.className = "ui-chip";
-          button.textContent = item.name;
+          if (item.id !== "all") {
+            const folder = document.createElement("span");
+            folder.className = "ui-chip-folder";
+            folder.style.color = uiCategoryColor_(item.id);
+            folder.innerHTML = uiFolderSvg_;
+            folder.setAttribute("aria-hidden", "true");
+            button.appendChild(folder);
+          }
+          const label = document.createElement("span");
+          label.textContent = item.name;
+          button.appendChild(label);
           button.setAttribute("aria-pressed", String((settings.categoryFilter || "all") === item.id));
           button.addEventListener("click", () => {
             settings.categoryFilter = item.id;
@@ -1937,14 +2139,13 @@
         const root = $("uiCategoriesPage");
         if (!root) return;
         root.replaceChildren();
-        const colors = ["#a799f8", "#d787a9", "#6c9ccf", "#8ccea7", "#ecc179"];
-        sortCategories(categories).forEach((category, i) => {
+        sortCategories(categories).forEach(category => {
           const count = notes.filter(n => n.categoryId === category.id).length;
           const row = document.createElement("div");
           row.className = "ui-category-card";
           const folder = document.createElement("span");
           folder.className = "ui-folder";
-          folder.style.color = category.id === GENERAL_CATEGORY_ID ? "#6c9ccf" : colors[i % colors.length];
+          folder.style.color = uiCategoryColor_(category.id);
           folder.innerHTML = uiFolderSvg_;
           const label = document.createElement("button");
           label.type = "button";

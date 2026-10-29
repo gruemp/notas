@@ -272,3 +272,92 @@ test('category removal archives its notes and full category snapshot before chan
   assert.ok(entries.some(e=>e.kind==='backup'&&e.id.startsWith('before_category_delete_')));
   await context.close();
 });
+
+
+test('responsive layout: desktop uses wide sidebar and grid while mobile retains the bottom navigation',async()=>{
+  const {context}=await contextFor({api:'offline',seed:true});
+  const page=await context.newPage();
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  try {
+    await page.setViewportSize({width:1440,height:900});
+    await page.goto(origin+'/notas.html');await ready(page);
+    for(let i=0;i<5;i++)await create(page,'Nota escritorio '+i+'\nDetalle '+i);
+    const desktop=await page.evaluate(()=>{
+      const box=selector=>document.querySelector(selector).getBoundingClientRect();
+      const cards=[...document.querySelectorAll('#notesList .note:not([hidden])')].map(card=>{
+        const r=card.getBoundingClientRect();return {left:Math.round(r.left),top:Math.round(r.top),width:r.width};
+      });
+      return {
+        appWidth:box('.app').width,
+        navRight:box('.ui-nav').right,
+        notesLeft:box('.list').left,
+        addTop:box('#newNote').top,
+        navPosition:getComputedStyle(document.querySelector('.ui-nav')).position,
+        cardColumns:new Set(cards.map(card=>card.left)).size,
+        horizontalOverflow:document.documentElement.scrollWidth>innerWidth
+      };
+    });
+    assert.ok(desktop.appWidth>1200,'Desktop container must use most of a 1440px monitor: '+JSON.stringify(desktop));
+    assert.ok(desktop.navRight<desktop.notesLeft,'Desktop navigation must be a sidebar: '+JSON.stringify(desktop));
+    assert.equal(desktop.navPosition,'sticky');
+    assert.ok(desktop.cardColumns>=3,'Notes should use multiple columns on desktop: '+JSON.stringify(desktop));
+    assert.ok(desktop.addTop<200,'New note action should be at the top on desktop');
+    assert.equal(desktop.horizontalOverflow,false);
+    await page.screenshot({path:path.join(root,'test-results','desktop-wide.png'),fullPage:true});
+    await page.locator('[data-ui-nav="categories"]').click();
+    assert.ok(await page.locator('#uiCategoriesPage > .ui-category-card').first().isVisible());
+    assert.ok((await page.locator('#uiCategoriesPage').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length))>=2);
+    await page.locator('[data-ui-nav="notes"]').click();
+    await page.setViewportSize({width:390,height:844});
+    const mobile=await page.evaluate(()=>{
+      const box=selector=>document.querySelector(selector).getBoundingClientRect();
+      const nav=document.querySelector('.ui-nav');
+      return {
+        viewport:innerWidth,
+        appWidth:box('.app').width,
+        navBottom:Math.round(box('.ui-nav').bottom),
+        navPosition:getComputedStyle(nav).position,
+        cardColumns:new Set([...document.querySelectorAll('#notesList .note:not([hidden])')].map(el=>Math.round(el.getBoundingClientRect().left))).size,
+        horizontalOverflow:document.documentElement.scrollWidth>innerWidth
+      };
+    });
+    assert.ok(mobile.appWidth<=mobile.viewport+1,'Mobile layout must stay fluid: '+JSON.stringify(mobile));
+    assert.equal(mobile.navPosition,'fixed');
+    assert.equal(mobile.cardColumns,1);
+    assert.equal(mobile.navBottom,844);
+    assert.equal(mobile.horizontalOverflow,false);
+    assert.deepEqual(errors,[]);
+    await page.screenshot({path:path.join(root,'test-results','mobile-unchanged.png'),fullPage:true});
+  }finally {await context.close();}
+});
+
+
+test('category folder color is identical in note cards, filters and category view on desktop and mobile',async()=>{
+  const {context}=await contextFor({api:'offline',seed:true});
+  const page=await context.newPage();
+  try {
+    await page.setViewportSize({width:1440,height:900});
+    await page.goto(origin+'/notas.html');await ready(page);
+    await openSettings(page);
+    await page.locator('#newCatTop').click();
+    await page.locator('#catNewName').fill('Trabajo');
+    await page.locator('#catAddBtn').click();
+    await page.locator('#catClose').click();
+    const row=page.locator('.note[data-id="fixture"]');
+    await row.locator('.ui-note-more').click();
+    await row.locator('select').selectOption({label:'Trabajo'});
+    await waitRecord(page,r=>r?.state.notes.some(n=>n.id==='fixture'&&r.state.categories.some(c=>c.name==='Trabajo'&&c.id===n.categoryId)));
+    const colorFromCard=await row.locator('.ui-card-folder').evaluate(el=>getComputedStyle(el).color);
+    const colorFromChip=await page.locator('.ui-chip').filter({hasText:'Trabajo'}).locator('.ui-chip-folder').evaluate(el=>getComputedStyle(el).color);
+    assert.equal(colorFromCard,colorFromChip,'Note and filter folder must use one color source');
+    await page.locator('[data-ui-nav="categories"]').click();
+    const colorFromCategory=await page.locator('.ui-category-card').filter({hasText:'Trabajo'}).locator('.ui-folder').evaluate(el=>getComputedStyle(el).color);
+    assert.equal(colorFromCard,colorFromCategory,'Note card and categories view must match');
+    await page.locator('[data-ui-nav="notes"]').click();
+    await page.setViewportSize({width:390,height:844});
+    assert.equal(await row.locator('.ui-card-folder').evaluate(el=>getComputedStyle(el).color),colorFromCategory);
+    await page.reload();await ready(page);
+    assert.equal(await page.locator('.note[data-id="fixture"] .ui-card-folder').evaluate(el=>getComputedStyle(el).color),colorFromCategory);
+  }finally {await context.close();}
+});
