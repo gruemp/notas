@@ -45,3 +45,9 @@ La suite funcional comprueba versiones, concurrencia, recuperación, almacenamie
 
 La prueba visual protege el CSS y marcado originales excluyendo únicamente los bloques nuevos señalados `NOTAS_V6_BEGIN/END`; compara también la interfaz original con el panel nuevo oculto. Las nuevas pantallas tienen capturas propias y una comprobación de desbordamiento en móvil.
 
+
+## Nueva interfaz y reversión (octubre de 2026)
+
+La vista principal incorpora tarjetas, encabezado de estado, búsqueda, filtros por categoría y navegación inferior a Notas, Categorías y Papelera. El engranaje abre las herramientas de ordenación, importación, exportación, tema y conexión. Las acciones por nota se abren desde «⋮». La pantalla de categorías permite abrir una categoría o moverla, junto con sus notas, a la papelera después de conservar cada nota y un respaldo local completo. El respaldo se puede importar desde la sección «Respaldos automáticos» del panel de recuperación, sin reemplazar las notas actuales.
+
+**Reversión de diseño:** la versión anterior exacta, incluida su lógica y su service worker, quedó inmovilizada en la rama [`backup/notas-original-ui-20261029`](https://github.com/gruemp/notas/tree/backup/notas-original-ui-20261029), commit `ad70f6f2a97893b178b357f7c090e66c1340bc27`. Para volver atrás sin eliminar datos, restaurar los archivos de esa rama en una nueva rama de trabajo, ejecutar las pruebas y fusionar el PR a `main`; GitHub Pages lo publicará automáticamente. No borrar datos del navegador ni modificar la hoja o la clave de Google. Los cambios de datos hechos con la interfaz nueva no se revierten al restaurar solo el diseño.
