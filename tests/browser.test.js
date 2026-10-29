@@ -247,6 +247,7 @@ test('category removal archives its notes and full category snapshot before chan
   await openSettings(page);await page.locator('#newCatTop').click();
   await page.locator('#catNewName').fill('Trabajo');await page.locator('#catAddBtn').click();await page.locator('#catClose').click();
   const id=(await record(page)).state.notes[0].id;
+  await page.locator('.note[data-id="'+id+'"] .ui-note-more').click();
   await page.locator('.note[data-id="'+id+'"] select').selectOption({label:'Trabajo'});
   await savedText(page,'recover category body');
   await page.locator('[data-ui-nav="categories"]').click();
