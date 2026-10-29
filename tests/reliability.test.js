@@ -85,3 +85,34 @@ test('v6: an edit while the trash copy is being written cancels deletion',async(
   };
   await c.api.deleteNote('one');assert.equal(changed,true);assert.equal(c.api.getState().notes[0].text,'newest edit');
 });
+
+test('v6: a failed local save displays a persistent warning until a confirmed retry',async()=>{
+  const c=client();c.api.setState(initial());
+  c.api.storage(async()=>null,async()=>{throw Error('IndexedDB unavailable');});
+  c.api.edit('one','pending local write');
+  await c.api.flushLocal();
+  assert.match(c.elements.get('syncSummary').textContent,/sin confirmar/i);
+  assert.match(c.elements.get('syncError').textContent,/copia de emergencia/i);
+  assert.ok(c.api.getState().localRevision>c.api.getState().localSavedRevision);
+
+  c.api.storage(async()=>null,async(_before,state)=>({state,cloudBase:null,cloudEndpoint:c.api.endpoint,version:1}));
+  await c.api.flushLocal();
+  assert.equal(c.api.getState().localRevision,c.api.getState().localSavedRevision);
+  assert.doesNotMatch(c.elements.get('syncSummary').textContent,/sin confirmar/i);
+  assert.doesNotMatch(c.elements.get('syncError').textContent,/copia de emergencia/i);
+});
+
+test('v6: restoring a version never reports success when local persistence failed',async()=>{
+  const c=client(),messages=[];c.api.setState(initial());c.api.onToast(m=>messages.push(m));
+  c.api.storage(async()=>null,async()=>{throw Error('IndexedDB unavailable');});
+  c.api.selectRecovery({id:'old-version',kind:'history',note:note('one','recover me')});
+  c.elements.get('recoveryPreview').open=true;
+  await c.api.restoreSelected_();
+
+  assert.equal(c.api.getState().notes[0].text,'recover me');
+  assert.ok(c.api.getState().localRevision>c.api.getState().localSavedRevision);
+  assert.equal(c.elements.get('recoveryPreview').open,false);
+  assert.match(c.elements.get('recoveryMessage').textContent,/no confirmó su guardado/i);
+  assert.ok(!messages.some(m=>m.includes('Recuperación guardada')));
+  assert.ok([...c.api.recovery().values()].some(e=>e.kind==='history'&&e.note.text==='original'));
+});
