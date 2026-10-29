@@ -956,7 +956,7 @@
     .ui-category-sheet .ui-category-card{margin-bottom:16px}
     .ui-sheet-action{display:block;width:100%;border:0;padding:16px;border-radius:20px;font:inherit;font-weight:750;color:#fff;background:#ec4d60;min-height:58px;margin-top:14px;cursor:pointer}
     .ui-sheet-cancel{background:transparent;border:1px solid #677495;color:#f3f3ff}
-    [data-ui-view="categories"] .topbar,[data-ui-view="categories"] .list,[data-ui-view="categories"] .ui-add-dock{display:none!important}
+    [data-ui-view="categories"] .topbar,[data-ui-view="categories"] .ui-chips,[data-ui-view="categories"] .list,[data-ui-view="categories"] .ui-add-dock{display:none!important}
     [data-ui-view="categories"] .ui-categories{display:flex!important}
     .ui-settings-open[data-ui-view="categories"] .topbar{display:flex!important}
     [data-theme="light"] .note{background:linear-gradient(135deg,#fff,#f3f1ff);color:#172038}
@@ -2002,8 +2002,8 @@
         $("uiCategorySheetIcon").innerHTML = uiFolderSvg_;
         $("uiCategorySheetDescription").textContent = catId === GENERAL_CATEGORY_ID
           ? "La categoría General es necesaria para conservar las notas sin categoría y no se puede eliminar."
-          : "La categoría y sus " + count + (count === 1 ? " nota irán" : " notas irán")
-            + " a la papelera. Se guardará además un respaldo para recuperar todo el conjunto.";
+          : "La categoría y " + (count === 1 ? "su nota" : "sus " + count + " notas")
+            + " se moverán a la papelera. También se guardará un respaldo local para recuperar el conjunto.";
         $("uiCategoryDelete").disabled = catId === GENERAL_CATEGORY_ID;
         $("uiCategorySheet").showModal();
       }
