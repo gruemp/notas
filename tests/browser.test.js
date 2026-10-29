@@ -463,6 +463,7 @@ test('natural flow: controls and feedback scroll with the page at mobile, tablet
           headerPosition:getComputedStyle(document.querySelector('.header')).position,
           titleAlign:getComputedStyle(document.querySelector('.ui-card-title')).textAlign,
           previewAlign:getComputedStyle(document.querySelector('.ui-card-preview')).textAlign,
+          noteContentAlignment:getComputedStyle(document.querySelector('.note-view')).alignItems,
           overflow:document.documentElement.scrollWidth>innerWidth,
           chipOverflow:getComputedStyle(document.querySelector('.ui-chips')).overflowX,
           navBeforeList:document.querySelector('.ui-nav').compareDocumentPosition(document.querySelector('.list')) & Node.DOCUMENT_POSITION_FOLLOWING
@@ -471,6 +472,7 @@ test('natural flow: controls and feedback scroll with the page at mobile, tablet
       assert.equal(start.headerPosition,'static');
       assert.equal(start.titleAlign,'left','Note heading must align with its body');
       assert.equal(start.previewAlign,'left','Note description must remain aligned');
+      assert.equal(start.noteContentAlignment,'stretch','Title and meta must span the same width');
       assert.equal(start.navPosition,'static');
       assert.equal(start.addPosition,'static');
       assert.equal(start.overflow,false);
