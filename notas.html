@@ -934,6 +934,7 @@
     #newNote{display:flex;width:100%;height:56px;gap:12px;padding:0 24px;border-radius:30px;color:#19213f;background:linear-gradient(110deg,#b7a7ff,#a292f2);border:1px solid #cec4ff;box-shadow:0 8px 20px #080e2190;font-size:16px;font-weight:760}
     #newNote svg{width:24px;height:24px}
     #newNote .sr-only{position:static;display:inline;width:auto;height:auto;margin:0;clip:auto;overflow:visible;white-space:nowrap;font-size:16px}
+    .toast{z-index:130;bottom:164px}
     .ui-nav{position:fixed;z-index:54;left:50%;transform:translateX(-50%);bottom:0;width:min(740px,100%);min-height:79px;padding:9px max(14px,env(safe-area-inset-right)) calc(9px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(3,1fr);background:#101a30;border-top:1px solid #2e3c5c;box-shadow:0 -9px 26px rgba(0,0,0,.1)}
     .ui-nav button{border:0;background:none;color:#a6b3df;font:inherit;font-size:12px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;cursor:pointer;border-radius:12px}
     .ui-nav button svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8}
@@ -1492,7 +1493,7 @@
 
       const DEFAULT_SETTINGS = {
         sortMode: "manual",
-        theme: "auto",
+        theme: "dark",
         categoryFilter: "all",
         pinnedSectionCollapsed: false,
         notesSectionCollapsed: false
