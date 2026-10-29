@@ -87,7 +87,7 @@ for(const mobile of [false,true]){
       await rowAction(page,id,'clear');await rowAction(page,id,'copyPaste');await savedText(page,text);
       await openSettings(page);await page.locator('#newCatTop').click();await page.locator('#catNewName').fill('Trabajo');await page.locator('#catAddBtn').click();await page.locator('#catClose').click();
       const work=await row.locator('select option').allTextContents();assert.ok(work.includes('Trabajo'));
-      await row.locator('select').selectOption({label:'Trabajo'});await page.waitForFunction(()=>document.querySelector('#catFilter option')?.parentElement.options.length===3);
+      await row.locator('.ui-note-more').click();await row.locator('select').selectOption({label:'Trabajo'});await page.waitForFunction(()=>document.querySelector('#catFilter option')?.parentElement.options.length===3);
       const download=page.waitForEvent('download');await openSettings(page);await page.locator('#exportJson').click();const file=await download;const data=JSON.parse(fs.readFileSync(await file.path(),'utf8'));assert.ok(data.notes.some(n=>n.text===text));assert.ok(data.categories.some(c=>c.name==='Trabajo'));
       await page.goto(origin+'/');await ready(page);assert.equal((await record(page)).state.notes.length,1);assert.equal(posts(),0);assert.deepEqual(errors,[]);
     }catch(error){await page.screenshot({path:path.join(root,'test-results',mobile?'mobile.png':'desktop.png'),fullPage:true});throw error;}finally{await context.close();}
