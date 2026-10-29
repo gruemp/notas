@@ -24,8 +24,8 @@ for (const id of requiredIds) {
 const mainIndex = html.indexOf('<main class="list"');
 assert.ok(mainIndex > html.indexOf('id="uiBottomNav"'), 'La navegación debe preceder a las notas');
 assert.ok(mainIndex > html.indexOf('id="uiAddDock"'), 'Nueva nota debe preceder a las tarjetas');
-const styles = [...html.matchAll(/<style(?:\\s[^>]*)?>([\\s\\S]*?)<\\/style>/g)].map(m => m[1]).join('\\n');
-assert.doesNotMatch(styles, /position:\\s*(?:fixed|sticky)\\b/i, 'No debe haber barras inmovilizadas');
+const styles = [...html.matchAll(/<style(?:\s[^>]*)?>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
+assert.doesNotMatch(styles, /position:\s*(?:fixed|sticky)\b/i, 'No debe haber barras inmovilizadas');
 assert.match(html, /function apiSaveAll_\(state\)/, 'Falta guardado remoto');
 assert.match(html, /function stagePending_\(\)/, 'Falta respaldo de cambios');
 assert.match(html, /function startAutoSync\(\)/, 'Falta sincronización');
