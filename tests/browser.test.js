@@ -361,3 +361,81 @@ test('category folder color is identical in note cards, filters and category vie
     assert.equal(await page.locator('.note[data-id="fixture"] .ui-card-folder').evaluate(el=>getComputedStyle(el).color),colorFromCategory);
   }finally {await context.close();}
 });
+
+
+test('contextual visual polish keeps balanced cards and readable status in dark and light at mobile, tablet and desktop widths',async()=>{
+  const {context}=await contextFor({api:'offline',seed:true});
+  const page=await context.newPage();const errors=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  try {
+    await page.goto(origin+'/notas.html');await ready(page);
+    for(let i=0;i<4;i++)await create(page,'Nota visual '+i+'\nDescripción para comprobar la cuadrícula y sus tarjetas');
+    for(const width of [360,390,768,1024,1440,1920]){
+      await page.setViewportSize({width,height:900});
+      const values=await page.evaluate(()=>{
+        const el=s=>document.querySelector(s);
+        const b=s=>el(s).getBoundingClientRect();
+        const notes=[...document.querySelectorAll('#notesList .note:not([hidden])')];
+        const lefts=new Set(notes.map(n=>Math.round(n.getBoundingClientRect().left)));
+        const heading=el('.ui-heading h1'),title=el('.ui-card-title');
+        const data={
+          width:innerWidth,app:b('.app').width,main:b('.list').width,
+          navPosition:getComputedStyle(el('.ui-nav')).position,
+          navRight:b('.ui-nav').right,contentLeft:b('.list').left,
+          columns:lefts.size,
+          overflow:document.documentElement.scrollWidth>innerWidth,
+          titleSize:parseFloat(getComputedStyle(heading).fontSize),
+          cardTitleSize:parseFloat(getComputedStyle(title).fontSize),
+          cardRadius:parseFloat(getComputedStyle(el('.note')).borderRadius),
+          cards:notes.map(n=>{
+            const r=n.getBoundingClientRect();
+            return {x:Math.round(r.left),y:Math.round(r.top),w:Math.round(r.width)};
+          })
+        };
+        return data;
+      });
+      assert.ok(values.app<=width+1,'App spills from viewport: '+JSON.stringify(values));
+      assert.equal(values.overflow,false,'Page overflows horizontally at '+width);
+      assert.ok(values.titleSize>=28&&values.cardTitleSize>=15,'Text size too small: '+JSON.stringify(values));
+      assert.ok(values.cardRadius>=16,'Cards should have a coherent rounded shape');
+      if(width<1024){
+        assert.equal(values.navPosition,'fixed','Mobile/tablet retains lower navigation');
+        assert.equal(values.columns,1,'Mobile/tablet retains its existing single-column layout');
+      }else{
+        assert.equal(values.navPosition,'sticky','Desktop retains lateral navigation');
+        assert.ok(values.contentLeft>=values.navRight,'Sidebar and main content must not overlap');
+        assert.ok(values.columns>=2,'Desktop must retain a multi-column grid');
+      }
+      await page.screenshot({path:path.join(root,'test-results','polish-'+width+'.png'),fullPage:true});
+    }
+    const beforeTheme=await page.locator('.note').first().evaluate(el=>getComputedStyle(el).backgroundColor);
+    await openSettings(page);
+    const theming=await page.evaluate(()=>{
+      document.documentElement.setAttribute('data-theme','light');
+      const selectors=['body','.searchbox','.ui-chip','.note','.ui-category-card','.ui-nav'];
+      const color=s=>getComputedStyle(document.querySelector(s)).color;
+      const background=s=>getComputedStyle(document.querySelector(s)).backgroundColor;
+      const note=document.querySelector('.note');
+      return {
+        noteColor:color('.ui-card-title'),
+        previewColor:color('.ui-card-preview'),
+        searchColor:color('.searchbox input'),
+        statusColor:color('#syncSummary'),
+        noteBorder:getComputedStyle(note).borderTopColor,
+        headingColor:color('.ui-heading h1'),
+        chipBackground:background('.ui-chip'),
+        visualTokens:getComputedStyle(document.documentElement).getPropertyValue('--ui-title').trim()
+      };
+    });
+    assert.equal(theming.visualTokens,'#172139','Light mode must have the proper foreground palette');
+    assert.equal(theming.noteColor,'rgb(23, 33, 57)');
+    assert.equal(theming.headingColor,'rgb(23, 33, 57)');
+    assert.equal(theming.searchColor,'rgb(23, 33, 57)');
+    await page.screenshot({path:path.join(root,'test-results','polish-light-desktop.png'),fullPage:true});
+    await page.locator('[data-ui-nav="categories"]').click();
+    assert.ok(await page.locator('#uiCategoriesPage > .ui-category-card').first().isVisible());
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+    await page.screenshot({path:path.join(root,'test-results','polish-light-categories.png'),fullPage:true});
+    assert.deepEqual(errors,[]);
+  }finally{await context.close();}
+});
