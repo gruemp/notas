@@ -1757,6 +1757,14 @@
       white-space:normal;
       overflow-wrap:anywhere;
     }
+    /* Composición editorial uniforme: títulos, descripciones y etiquetas comparten eje. */
+    .note .content,.note .note-view,.ui-card-title,.ui-card-preview,.ui-card-meta {
+      text-align:left;
+    }
+    .note .ui-card-meta {
+      justify-content:flex-start;
+      align-items:center;
+    }
     .ui-add-dock {
       position:static;
       inset:auto;
