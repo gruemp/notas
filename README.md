@@ -69,3 +69,9 @@ Se han refinado únicamente los estilos CSS de la cabecera, estado de sincroniza
 La navegación y el botón «Nueva nota» ahora forman parte del documento y se desplazan naturalmente en móvil, tableta y escritorio. En móvil aparecen debajo de la cabecera y antes de las notas; en PC se conserva la barra lateral, pero sin fijarla. Los filtros de categoría se distribuyen en líneas y no requieren un área horizontal con desplazamiento propio. El estado de sincronización y los avisos de «Deshacer» aparecen en la cabecera en el flujo normal. El menú de eliminación sigue utilizando su diálogo temporal accesible; no se cambian las operaciones de datos ni la conexión de Google.
 
 El cambio de presentación se puede revertir sin borrar notas mediante la rama de respaldo [`backup/notas-before-flow-layout-20261029`](https://github.com/gruemp/notas/tree/backup/notas-before-flow-layout-20261029), commit `d18d693e87cec7a54acfa67d0a688c83ab859001`. Los tests comprueban que no haya navegación fija, pérdida de las acciones existentes ni desbordamientos.
+
+## Navegación simplificada (octubre de 2026)
+
+La aplicación abre directamente en **Notas**, por lo que se ha retirado su pestaña redundante de la navegación. Se conservan **Categorías** y **Papelera**; desde la pantalla de categorías se vuelve a la lista mediante un botón contextual **Volver** junto al título. La operación no modifica las notas, los filtros, la estructura de almacenamiento ni la conexión con Google.
+
+La versión inmediatamente anterior está en la rama [`backup/notas-before-removing-notes-tab-20261029`](https://github.com/gruemp/notas/tree/backup/notas-before-removing-notes-tab-20261029). Se puede recuperar la navegación anterior sin tocar los datos.
