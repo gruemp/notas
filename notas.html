@@ -546,6 +546,11 @@
     }
     [data-theme="light"] .note-view{ background: rgba(255,255,255,.75); }
 
+    /* Evita la selección de texto y el menú nativo durante la pulsación larga móvil. */
+    @media (pointer: coarse) {
+      .note-view { user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
+    }
+
     .note-view:focus{
       outline:none;
       border-color: rgba(0,255,153,.40);
@@ -3823,6 +3828,7 @@
 
         // Lista
         [pinnedListEl, notesListEl].forEach(root => {
+          root.addEventListener("click", onNoteViewClickCapture_, true);
           root.addEventListener("click", onListClick);
           root.addEventListener("keydown", onListKeydown);
           root.addEventListener("change", onListChange);
@@ -3832,7 +3838,13 @@
           root.addEventListener("drop", onDrop);
           root.addEventListener("dragend", onDragEnd);
 
-          if (supportsPointer) root.addEventListener("pointerdown", onHandlePointerDown);
+          if (supportsPointer) {
+            root.addEventListener("pointerdown", onHandlePointerDown);
+            root.addEventListener("pointerdown", onNoteViewPointerDown_);
+            root.addEventListener("contextmenu", (e) => {
+              if (isCoarsePointer && e.target.closest(".note-view")) e.preventDefault();
+            });
+          }
         });
 
         // Modal nota
@@ -4916,7 +4928,8 @@
         view.className = "note-view";
         view.tabIndex = 0;
         view.setAttribute("role", "button");
-        view.setAttribute("aria-label", "Abrir editor");
+        view.title = "Toca para abrir; mantén pulsado para copiar";
+        view.setAttribute("aria-label", "Abrir editor; mantén pulsado para copiar");
         view.innerHTML = renderNoteCardHTML_(note, currentTerms());
 
         content.appendChild(view);
@@ -5267,6 +5280,60 @@
       /* =========================
          List events
       ========================== */
+      // La pulsación larga se confirma al soltar: así el portapapeles recibe
+      // el gesto del usuario también en navegadores móviles.
+      const NOTE_COPY_PRESS_MS_ = 550;
+      let suppressNoteViewClick_ = null;
+      function onNoteViewClickCapture_(e) {
+        const pending = suppressNoteViewClick_;
+        if (!pending) return;
+        suppressNoteViewClick_ = null;
+        if (Date.now() < pending.until && e.target.closest(".note-view") === pending.view) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }
+
+      function onNoteViewPointerDown_(e) {
+        if (e.isPrimary === false || (e.pointerType === "mouse" && e.button !== 0)) return;
+        const view = e.target.closest(".note-view");
+        if (!view) return; // El arrastre y el menú tienen controles independientes.
+        const noteEl = view.closest(".note");
+        if (!noteEl) return;
+        const pointerId = e.pointerId;
+        const x = e.clientX, y = e.clientY;
+        let longPress = false;
+        const timer = setTimeout(() => { longPress = true; }, NOTE_COPY_PRESS_MS_);
+        function cleanup() {
+          clearTimeout(timer);
+          window.removeEventListener("pointermove", onMove);
+          window.removeEventListener("pointerup", onUp);
+          window.removeEventListener("pointercancel", onCancel);
+          window.removeEventListener("blur", onCancel);
+        }
+        function onMove(ev) {
+          if (ev.pointerId === pointerId && Math.hypot(ev.clientX - x, ev.clientY - y) > 10) cleanup();
+        }
+        function onCancel(ev) {
+          if (ev.type === "blur" || ev.pointerId === pointerId) cleanup();
+        }
+        function onUp(ev) {
+          if (ev.pointerId !== pointerId) return;
+          cleanup();
+          if (!longPress) return; // El toque normal sigue abriendo el editor.
+          suppressNoteViewClick_ = {view, until: Date.now() + 1200};
+          const note = getNoteById(noteEl.dataset.id);
+          if (!note) return;
+          void copyToClipboard(String(note.text ?? "")).then(ok => {
+            toast(ok ? "Nota copiada al portapapeles" : "No se pudo copiar la nota");
+          });
+        }
+        window.addEventListener("pointermove", onMove, {passive:true});
+        window.addEventListener("pointerup", onUp);
+        window.addEventListener("pointercancel", onCancel);
+        window.addEventListener("blur", onCancel);
+      }
+
       function findNoteEl(target) { return target.closest(".note"); }
 
       function syncCatGroupsUI_(pinned) {
