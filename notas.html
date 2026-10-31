@@ -5298,6 +5298,7 @@
         if (e.isPrimary === false || (e.pointerType === "mouse" && e.button !== 0)) return;
         const view = e.target.closest(".note-view");
         if (!view) return; // El arrastre y el menú tienen controles independientes.
+        suppressNoteViewClick_ = null; // Un gesto nuevo no debe heredar la supresión del anterior.
         const noteEl = view.closest(".note");
         if (!noteEl) return;
         const pointerId = e.pointerId;
