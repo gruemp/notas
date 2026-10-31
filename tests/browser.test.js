@@ -187,6 +187,72 @@ test('clipboard permission delay survives an autosave and canceling the fallback
   await page.evaluate(()=>{navigator.clipboard.readText=()=>Promise.reject(new Error('Denied'));});page.once('dialog',dialog=>dialog.dismiss());await firstRowAction(page,'copyPaste');
   assert.equal((await record(page)).state.notes[0].text,'');await context.close();
 });
+for(const mobile of [false,true]){
+  test((mobile?'mobile':'desktop')+': append clipboard to an existing note without opening editor and persist across reload',async()=>{
+    const {context}=await contextFor({mobile,seed:true});
+    const page=await context.newPage(),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    try{
+      await page.goto(origin+'/notas.html');await ready(page);
+      const id='fixture',oldText=fixture.notes[0].text;
+      await page.evaluate(()=>{navigator.clipboard.readText=()=>Promise.resolve('Nuevo contenido\ncon segunda línea');});
+      const row=page.locator('.note[data-id="'+id+'"]');
+      await rowAction(page,id,'appendClipboard');
+      const text=oldText+'\n\nNuevo contenido\ncon segunda línea';
+      await savedText(page,text);
+      assert.equal(await page.locator('#noteDialog').evaluate(el=>el.open),false,'No debe abrirse el editor');
+      assert.equal((await record(page)).state.notes.filter(n=>n.id===id).length,1,'No debe crearse otra nota');
+      assert.ok((await row.locator('.ui-card-preview').innerText()).includes('Nuevo contenido'));
+      await page.reload();await ready(page);
+      assert.equal((await record(page)).state.notes.find(n=>n.id===id).text,text);
+      assert.equal(await page.locator('#noteDialog').evaluate(el=>el.open),false);
+      assert.deepEqual(errors,[]);
+    }finally{await context.close();}
+  });
+}
+test('append clipboard: empty, denied or delayed stale reads never overwrite a note',async()=>{
+  const {context}=await contextFor({seed:true}),page=await context.newPage();
+  await page.goto(origin+'/notas.html');await ready(page);
+  const id='fixture',original=fixture.notes[0].text;
+
+  await page.evaluate(()=>{navigator.clipboard.readText=()=>Promise.resolve('   ');});
+  await rowAction(page,id,'appendClipboard');
+  assert.equal((await record(page)).state.notes.find(n=>n.id===id).text,original);
+
+  await page.evaluate(()=>{navigator.clipboard.readText=()=>Promise.reject(new Error('Denied'));});
+  page.once('dialog',dialog=>dialog.dismiss());
+  await rowAction(page,id,'appendClipboard');
+  assert.equal((await record(page)).state.notes.find(n=>n.id===id).text,original);
+
+  await page.evaluate(()=>{navigator.clipboard.readText=()=>new Promise(resolve=>window.finishAppendClipboard=resolve);});
+  await rowAction(page,id,'appendClipboard');
+  await page.waitForFunction(()=>typeof window.finishAppendClipboard==='function');
+  await openNote(page,id);
+  await page.locator('#noteEditor').fill('Contenido editado mientras se leía');
+  await page.locator('#noteClose').click();
+  await savedText(page,'Contenido editado mientras se leía');
+  await page.evaluate(()=>window.finishAppendClipboard('texto que NO debe sobrescribir'));
+  await page.waitForFunction(()=>document.querySelector('#toast').textContent.includes('cambió'));
+  assert.equal((await record(page)).state.notes.find(n=>n.id===id).text,'Contenido editado mientras se leía');
+  await context.close();
+});
+test('append clipboard syncs to Google using existing protocol without opening editor',async()=>{
+  const {context,backend:b,posts}=await contextFor({api:'v5',seed:true});
+  const page=await context.newPage();
+  try{
+    await page.goto(origin+'/notas.html');await ready(page);
+    await waitRecord(page,r=>r?.state?.notes.some(n=>n.id==='fixture'));
+    await page.evaluate(()=>{navigator.clipboard.readText=()=>Promise.resolve('Añadido desde portapapeles');});
+    await rowAction(page,'fixture','appendClipboard');
+    const value=fixture.notes[0].text+'\n\nAñadido desde portapapeles';
+    await savedText(page,value);
+    assert.equal(await page.locator('#noteDialog').evaluate(el=>el.open),false);
+    await waitRecord(page,r=>r?.cloudBase?.notes.some(n=>n.id==='fixture'&&n.text===value));
+    assert.ok(b.get().notes.some(n=>n.id==='fixture'&&n.text===value));
+    assert.ok(posts()>0);
+  }finally{await context.close();}
+});
+
 test('closing the tab before the debounce finishes recovers the newest text on reopening',async()=>{
   const {context}=await contextFor();const first=await context.newPage();await first.goto(origin+'/notas.html');await ready(first);
   await first.locator('#newNote').click();await first.locator('#noteEditor').fill('last keystroke before closing');await first.close();
