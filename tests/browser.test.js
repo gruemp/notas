@@ -405,6 +405,13 @@ test('contextual visual polish keeps balanced cards and readable status in dark 
         assert.equal(values.navPosition,'static','Desktop navigation does not remain pinned');
         assert.ok(values.contentLeft>=values.navRight,'Sidebar and main content must not overlap');
         assert.ok(values.columns>=2,'Desktop must retain a multi-column grid');
+        const actionSpacing=await page.evaluate(()=>{
+          const settings=document.querySelector('#uiSettings').getBoundingClientRect();
+          const action=document.querySelector('#newNote').getBoundingClientRect();
+          return {settingsRight:settings.right,actionLeft:action.left};
+        });
+        assert.ok(actionSpacing.settingsRight+8<=actionSpacing.actionLeft,
+          'El botón de configuración no debe quedar tapado por Nueva nota: '+JSON.stringify(actionSpacing));
       }
       await page.screenshot({path:path.join(root,'test-results','polish-'+width+'.png'),fullPage:true});
     }
@@ -497,6 +504,13 @@ test('natural flow: controls and feedback scroll with the page at mobile, tablet
     await note.locator('.ui-note-more').click();
     await note.locator('[data-action="delete"]').click();
     assert.equal(await page.locator('#toast').evaluate(el=>getComputedStyle(el).position),'static');
+    const toastLayout=await page.locator('#toast').evaluate(el=>{
+      const box=el.getBoundingClientRect();
+      return {transform:getComputedStyle(el).transform,left:box.left,right:box.right,width:innerWidth};
+    });
+    assert.equal(toastLayout.transform,'none','El aviso no debe trasladarse fuera del flujo');
+    assert.ok(toastLayout.left>=-1&&toastLayout.right<=toastLayout.width+1,
+      'El aviso debe caber en el móvil: '+JSON.stringify(toastLayout));
     await page.getByRole('button',{name:'Deshacer',exact:true}).click();
     assert.ok(await page.locator('.note').count()>0);
     await page.locator('[data-ui-nav="categories"]').click();
