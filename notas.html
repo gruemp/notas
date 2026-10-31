@@ -2316,6 +2316,230 @@
       .header .topbar {grid-column:1}
       .header .searchbox {width:100%}
     }
+/* NOTAS_UI_REFINEMENT_20261030_BEGIN — presentación; sin cambios de lógica. */
+    :root {
+      --notes-accent:#c7baff;
+      --notes-accent-soft:rgba(183,170,255,.14);
+      --notes-card-stroke:rgba(190,208,234,.30);
+    }
+
+    /* Primera pantalla: cabecera identificable y herramientas separadas. */
+    .header {
+      background:
+        radial-gradient(ellipse 470px 260px at 92% -65%,rgba(168,147,240,.22),transparent 78%),
+        linear-gradient(145deg,#263c55 0%,#162b44 68%,#13253e 100%) !important;
+      border-color:rgba(185,202,233,.35);
+      box-shadow:0 22px 46px rgba(0,9,27,.23),inset 0 1px rgba(255,255,255,.08);
+    }
+    .ui-heading h1 {max-width:100%;letter-spacing:-.045em}
+    .ui-settings {
+      background:rgba(205,198,255,.11);
+      border-color:rgba(198,201,244,.38);
+      color:#eee9ff;
+    }
+    .ui-back-button {border-color:rgba(199,186,255,.36)}
+    #syncSummary {font-variant-numeric:tabular-nums}
+    #syncDetail {max-width:78ch}
+    .searchbox {
+      border-color:rgba(193,211,242,.47);
+      background:rgba(7,23,43,.57);
+      box-shadow:0 10px 24px rgba(0,10,28,.13),inset 0 1px rgba(255,255,255,.06);
+    }
+    .searchbox input {min-width:0;letter-spacing:0}
+    .toolbar2 {padding:12px;gap:10px}
+    .toolbar2 .btn,.toolbar2 .selectwrap {min-height:44px}
+
+    /* Identidad estable de filtros, navegación y acción primaria. */
+    .ui-nav {border-color:rgba(185,200,230,.33)}
+    .ui-nav button {
+      gap:10px;
+      border:1px solid transparent;
+      min-height:52px;
+    }
+    .ui-nav button svg {
+      flex:none;
+      color:#c8d7f1;
+    }
+    .ui-nav button[aria-current="page"] {
+      border-color:rgba(201,183,255,.33);
+      background:rgba(169,145,244,.18);
+      color:#f1ebff;
+    }
+    .ui-nav button[aria-current="page"] svg {color:#d7c7ff}
+    #newNote {
+      border-color:#e4daff;
+      background:linear-gradient(125deg,#e0d6ff 0%,#b8a8ff 100%);
+      box-shadow:0 12px 26px rgba(59,49,129,.26),inset 0 1px rgba(255,255,255,.62);
+    }
+    .ui-chip {border-color:rgba(183,202,233,.39)}
+    .ui-chip[aria-pressed="true"] {
+      background:linear-gradient(125deg,#e0d8ff,#bdb0ff);
+      border-color:#e9e2ff;
+      color:#26214b;
+    }
+
+    /* Jerarquía de notas: título, lectura, categoría, fecha y acciones. */
+    .section-title {
+      font-size:17px;
+      border-color:rgba(192,209,239,.30);
+      letter-spacing:-.015em;
+    }
+    .section-title .section-count {font-variant-numeric:tabular-nums}
+    .note {
+      border-color:var(--notes-card-stroke);
+      box-shadow:0 14px 30px rgba(0,10,29,.19),inset 0 1px rgba(255,255,255,.07);
+    }
+    .note:has(.ui-pin) {border-top:2px solid #e2bb7a}
+    .ui-card-title {
+      font-size:16px;
+      line-height:1.42;
+      letter-spacing:-.018em;
+      text-wrap:pretty;
+    }
+    .ui-card-preview {line-height:1.63;color:#d9e4f5}
+    .ui-card-meta {align-items:center;row-gap:9px}
+    .ui-card-category {
+      max-width:100%;
+      padding:5px 9px;
+      border-radius:9px;
+      border:1px solid rgba(192,208,235,.20);
+      background:rgba(5,18,35,.25);
+      color:#e2eaff;
+      font-weight:620;
+      line-height:1.4;
+    }
+    .ui-card-time {font-variant-numeric:tabular-nums}
+    .ui-note-more,.ui-category-menu {
+      border-color:rgba(194,210,235,.26);
+      background:rgba(204,216,242,.10);
+    }
+    .ui-category-card {
+      border-color:var(--notes-card-stroke);
+      box-shadow:0 13px 28px rgba(0,9,28,.17),inset 0 1px rgba(255,255,255,.045);
+    }
+    .ui-category-label {line-height:1.48}
+    .ui-category-label small {margin-top:6px}
+    .ui-category-new {
+      min-height:78px;
+      border-color:rgba(200,187,255,.62);
+      background:rgba(121,97,198,.17);
+    }
+
+    /* El aviso se presenta en el flujo del encabezado, sin desplazarse
+       medio ancho ni reservar espacio cuando está inactivo. */
+    .toast {
+      width:fit-content;
+      max-width:100%;
+      transform:none;
+      margin:0;
+      box-shadow:0 10px 24px rgba(0,7,22,.21);
+    }
+    .toast:not(.show) {display:none}
+    .toast.show {
+      display:flex;
+      transform:none;
+      margin:7px 0 15px;
+      padding:11px 14px;
+      border:1px solid rgba(197,212,238,.33);
+      border-radius:13px;
+      background:#243b55;
+      color:#f4f7ff;
+    }
+    .toast .toast-btn {color:inherit}
+    .empty {
+      padding:32px 20px;
+      border-color:rgba(180,200,233,.40);
+      background:linear-gradient(145deg,rgba(35,55,78,.8),rgba(21,38,62,.76));
+    }
+    .empty-title {letter-spacing:-.02em}
+
+    /* Contraste equivalente y superficies armonizadas en el tema claro. */
+    [data-theme="light"] {
+      --notes-card-stroke:rgba(88,111,152,.22);
+    }
+    [data-theme="light"] .header {
+      background:
+        radial-gradient(ellipse 480px 260px at 94% -65%,rgba(177,159,252,.22),transparent 76%),
+        linear-gradient(140deg,#fff 0%,#f2f5ff 100%) !important;
+      border-color:#d7dfef;
+      box-shadow:0 18px 36px rgba(31,49,86,.10),inset 0 1px #fff;
+    }
+    [data-theme="light"] .ui-settings {
+      color:#47368e;
+      border-color:#c8c9eb;
+      background:#eae8fc;
+    }
+    [data-theme="light"] .searchbox {
+      background:#fff;border-color:#bbcbe3;
+      box-shadow:0 8px 21px rgba(38,64,105,.07);
+    }
+    [data-theme="light"] .ui-nav {border-color:#d4ddef}
+    [data-theme="light"] .ui-nav button svg {color:#5c6e91}
+    [data-theme="light"] .ui-nav button[aria-current="page"] {
+      background:#e8e3ff;border-color:#d3c8f8;color:#42317f;
+    }
+    [data-theme="light"] .ui-nav button[aria-current="page"] svg {color:#6a52ba}
+    [data-theme="light"] #newNote {
+      background:linear-gradient(125deg,#e8e1ff,#c6b8ff);
+      border-color:#ad9be8;color:#24204c;
+      box-shadow:0 9px 21px rgba(83,67,153,.15);
+    }
+    [data-theme="light"] .ui-chip[aria-pressed="true"] {
+      background:#e1d9ff;color:#30266c;border-color:#b5a8e9;
+    }
+    [data-theme="light"] .section-title {border-color:#ccd7e8}
+    [data-theme="light"] .note {
+      box-shadow:0 11px 26px rgba(35,55,93,.09);
+    }
+    [data-theme="light"] .note:has(.ui-pin) {border-top-color:#c99743}
+    [data-theme="light"] .ui-card-category {
+      background:#eff3fa;color:#3c5070;border-color:#dae3f0;
+    }
+    [data-theme="light"] .ui-note-more,
+    [data-theme="light"] .ui-category-menu {
+      background:#f0f3fb;border-color:#d5deed;color:#455777;
+    }
+    [data-theme="light"] .ui-category-card {box-shadow:0 11px 26px rgba(35,55,93,.09)}
+    [data-theme="light"] .ui-category-new {
+      background:#f2edff;border-color:#bdaee7;color:#4d398c;
+    }
+    [data-theme="light"] .toast.show {
+      background:#263c57;color:#f7faff;border-color:#425978;
+    }
+    [data-theme="light"] .empty {
+      background:linear-gradient(145deg,#fff,#f4f7fd);
+      border-color:#cbd7e8;
+    }
+
+    /* Mantiene los puntos de ruptura y las cuadrículas del proyecto. */
+    @media(min-width:1024px) {
+      /* Reserva espacio para Nueva nota sin tapar el engranaje. */
+      .header .ui-heading {padding-right:210px}
+      .header {padding:26px 28px}
+      .ui-nav {gap:10px}
+      .ui-nav button {padding:12px 14px}
+      .section-body {gap:18px}
+      .ui-category-card {padding:19px}
+    }
+    @media(max-width:1023px) {
+      .ui-nav {border-radius:18px}
+      .ui-nav button {padding:10px 12px}
+      .ui-add-dock {margin-bottom:18px}
+      .toast.show {max-width:100%}
+    }
+    @media(max-width:600px) {
+      .header {padding:19px 16px 20px}
+      .ui-heading h1 {font-size:clamp(29px,7vw,31px)}
+      .searchbox {min-height:54px;height:54px}
+      .ui-nav {gap:7px}
+      .ui-nav button {min-height:54px;padding:9px 7px}
+      .note {padding:17px 15px}
+      .ui-card-preview {line-height:1.57}
+      .ui-card-category {padding:4px 8px}
+      .ui-category-card {padding:17px 15px}
+      .toast.show {margin:9px 0 14px}
+    }
+    /* NOTAS_UI_REFINEMENT_20261030_END */
     /* NOTAS_UI_POLISH_20261029_END */
 
   </style>
