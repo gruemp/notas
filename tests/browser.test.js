@@ -69,6 +69,47 @@ async function create(page,text){await page.locator('#newNote').click();await pa
 async function openNote(page,id){await page.locator('.note[data-id="'+id+'"] .note-view').click();}
 async function rowAction(page,id,action){const row=page.locator('.note[data-id="'+id+'"]');await row.locator('.ui-note-more').click();await row.locator('[data-action="'+action+'"]').click();}
 async function firstRowAction(page,action){await rowAction(page,await page.locator('.note').first().getAttribute('data-id'),action);}
+async function holdNoteCard(page,card,mobile){
+  const rect=await card.boundingBox();
+  const x=Math.round(rect.x+rect.width/2),y=Math.round(rect.y+rect.height/2);
+  if(mobile){
+    const cdp=await page.context().newCDPSession(page);
+    try{
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+      await page.waitForTimeout(700);
+      await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    }finally{await cdp.detach();}
+  }else{
+    await page.mouse.move(x,y);
+    await page.mouse.down();
+    await page.waitForTimeout(700);
+    await page.mouse.up();
+  }
+}
+for(const mobile of [false,true]){
+  test((mobile?'mobile':'desktop')+': mantener pulsada una tarjeta copia el texto completo sin abrir editor',async()=>{
+    const {context}=await contextFor({mobile,seed:true});
+    await context.grantPermissions(['clipboard-read','clipboard-write']);
+    const page=await context.newPage(),errors=[];
+    page.on('pageerror',e=>errors.push(e.message));
+    try{
+      await page.goto(origin+'/notas.html');await ready(page);
+      const card=page.locator('.note[data-id="fixture"] .note-view');
+      await holdNoteCard(page,card,mobile);
+      await page.waitForFunction(()=>document.querySelector('#toast')?.textContent.includes('Nota copiada al portapapeles'));
+      assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),fixture.notes[0].text,'Debe copiar saltos de línea y contenido completo');
+      assert.equal(await page.locator('#noteDialog').evaluate(el=>el.open),false,'La pulsación larga no abre el editor');
+      assert.equal((await record(page)).state.notes.find(n=>n.id==='fixture').text,fixture.notes[0].text,'No cambia la nota');
+      await page.evaluate(()=>navigator.clipboard.writeText('sin cambios'));
+      if(mobile)await card.tap();else await card.click();
+      assert.equal(await page.locator('#noteDialog').evaluate(el=>el.open),true,'El toque normal abre el editor');
+      assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),'sin cambios','El toque corto no copia');
+      await page.locator('#noteClose').click();
+      assert.deepEqual(errors,[]);
+    }finally{await context.close();}
+  });
+}
+
 async function openSettings(page){if(await page.locator('#uiSettings').getAttribute('aria-expanded')!=='true')await page.locator('#uiSettings').click();}
 
 for(const mobile of [false,true]){

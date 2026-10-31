@@ -91,3 +91,7 @@ El menú de acciones «⋮» de cada nota contiene ahora el botón **«Agregar p
 El guardado se confirma primero en este dispositivo a través del almacenamiento duradero existente; la sincronización de Google sigue el mismo proceso habitual y se confirma por separado en el indicador de conexión. Si el portapapeles está vacío, se deniega la lectura o la nota cambia durante una lectura pendiente, no se sobreescribe el contenido. Cuando el navegador no permite leer automáticamente, se ofrece la alternativa existente de pegar en un cuadro del navegador, sin abrir la nota.
 
 El cambio actualiza la caché offline de la aplicación. Las pruebas de navegador verifican escritorio, móvil, recarga, ausencia de apertura del editor, lecturas fallidas o tardías y sincronización con el servicio simulado de Google.
+
+## Copiar una nota con pulsación prolongada (31 de octubre de 2026)
+
+En la lista de notas, mantén pulsada una tarjeta durante aproximadamente medio segundo y suéltala para copiar **todo el contenido** al portapapeles, incluidos los saltos de línea, sin abrir el editor. Funciona con el dedo en móvil y con el ratón en escritorio. Un toque/clic corto sigue abriendo el editor; el arrastre mediante el control «≡» continúa funcionando como antes. Deslizar el dedo para desplazarse no activa la copia. El aviso de confirmación distingue una copia correcta de un error de permisos del navegador. La copia no modifica las notas ni su sincronización y la nueva caché offline se publica con el cambio.
