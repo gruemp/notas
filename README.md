@@ -75,3 +75,11 @@ El cambio de presentación se puede revertir sin borrar notas mediante la rama d
 La aplicación abre directamente en **Notas**, por lo que se ha retirado su pestaña redundante de la navegación. Se conservan **Categorías** y **Papelera**; desde la pantalla de categorías se vuelve a la lista mediante un botón contextual **Volver** junto al título. La operación no modifica las notas, los filtros, la estructura de almacenamiento ni la conexión con Google.
 
 La versión inmediatamente anterior está en la rama [`backup/notas-before-removing-notes-tab-20261029`](https://github.com/gruemp/notas/tree/backup/notas-before-removing-notes-tab-20261029). Se puede recuperar la navegación anterior sin tocar los datos.
+
+## Refinamiento visual contextual (30 de octubre de 2026)
+
+Se ajustaron exclusivamente los estilos de la interfaz en `notas.html`: cabecera y búsqueda, navegación, jerarquía tipográfica, separación de tarjetas, categorías, estados, controles táctiles y adaptación a escritorio y móvil, conservando las cuadrículas, los puntos de ruptura, el orden accesible y las funciones actuales. Las notas fijadas se distinguen por un borde superior y las categorías por su identificación visual. El aviso «Deshacer» ya no desplaza su contenido fuera de la pantalla ni deja espacio vacío cuando está inactivo. Se reservó espacio en la cabecera de escritorio para evitar que «Nueva nota» tape el botón de configuración.
+
+Todos los elementos de navegación permanecen en el flujo normal de la página, sin anclarse durante el desplazamiento. No se modificaron el motor de notas, las credenciales, Google Apps Script ni la sincronización. El `service worker` usa una nueva versión de caché para actualizar la presentación en dispositivos sin eliminar información local.
+
+**Validación:** `npm test` y `npm run test:browser`. Las pruebas de navegador comprueban también la ausencia de superposición de los controles superiores y que el aviso «Deshacer» quepa en móvil.
