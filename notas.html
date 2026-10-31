@@ -2539,6 +2539,25 @@
       .ui-category-card {padding:17px 15px}
       .toast.show {margin:9px 0 14px}
     }
+
+    /* Acción de anexar desde el menú de cada nota, sin abrir el editor. */
+    .note .actions .btn-append {
+      border-color:rgba(119,210,188,.57);
+      background:linear-gradient(145deg,#284e55,#245060);
+      color:#ddfff4;
+    }
+    .note .actions .btn-append:disabled {
+      opacity:.58;
+      cursor:wait;
+    }
+    [data-theme="light"] .note .actions .btn-append {
+      border-color:#94cbb8;
+      background:#e3f6ef;
+      color:#226353;
+    }
+    @media(max-width:600px) {
+      .note .actions {gap:7px;padding:8px}
+    }
     /* NOTAS_UI_REFINEMENT_20261030_END */
     /* NOTAS_UI_POLISH_20261029_END */
 
@@ -3076,8 +3095,13 @@
             <rect x="9" y="9" width="10" height="10" rx="2"></rect>
             <path d="M7 15H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v1"></path>
           </svg>`,
-        paste: `
+        appendClipboard: `
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <rect x="5" y="5" width="14" height="17" rx="2"></rect>
+            <path d="M9 5V3h6v2"></path>
+            <path d="M12 11v7M8.5 14.5h7"></path>
+          </svg>`,
+        paste: `          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M9 4h6"></path>
             <path d="M9 4a2 2 0 0 0-2 2v1h10V6a2 2 0 0 0-2-2"></path>
             <path d="M7 7h10v15H7z"></path>
@@ -4915,6 +4939,14 @@
         cpBtn.dataset.action = "copyPaste";
         setCopyPasteUI(cpBtn, note.text);
 
+        const appendBtn = document.createElement("button");
+        appendBtn.className = "btn btn-append";
+        appendBtn.type = "button";
+        appendBtn.dataset.action = "appendClipboard";
+        appendBtn.title = "Agregar contenido del portapapeles al final de la nota";
+        appendBtn.setAttribute("aria-label", "Agregar portapapeles a la nota sin abrirla");
+        appendBtn.innerHTML = `${Icons.appendClipboard}<span class="sr-only">Agregar portapapeles</span>`;
+
         const clearBtn = document.createElement("button");
         clearBtn.className = "btn btn-ghost";
         clearBtn.type = "button";
@@ -4934,6 +4966,7 @@
         actions.appendChild(catSelWrap);
         actions.appendChild(pinBtn);
         actions.appendChild(cpBtn);
+        actions.appendChild(appendBtn);
         actions.appendChild(clearBtn);
         actions.appendChild(delBtn);
 
@@ -5253,6 +5286,59 @@
         });
       }
 
+/* Anexa el texto del portapapeles sin abrir el editor ni reemplazar texto. */
+      async function appendClipboardToNote_(noteId, button) {
+        const original = getNoteById(noteId);
+        if (!original) return;
+        const originalText = original.text || "";
+        const originalUpdatedAt = original.updatedAt;
+        button.disabled = true;
+        try {
+          // La lectura se inicia en el clic, para respetar el permiso del navegador.
+          const clipboardText = await readFromClipboard();
+          if (!clipboardText || !clipboardText.trim()) {
+            toast("El portapapeles está vacío; no se cambió la nota");
+            return;
+          }
+
+          let current = getNoteById(noteId);
+          if (!current || current.text !== originalText || current.updatedAt !== originalUpdatedAt) {
+            toast("La nota cambió mientras se leía el portapapeles. Inténtalo de nuevo", 4500);
+            return;
+          }
+          try {
+            await rememberNote_("history", current);
+          } catch {
+            toast("No se agregó el texto: no se pudo conservar la versión anterior", 5000);
+            return;
+          }
+
+          current = getNoteById(noteId);
+          if (!current || current.text !== originalText || current.updatedAt !== originalUpdatedAt) {
+            toast("La nota cambió durante el respaldo. Inténtalo de nuevo", 4500);
+            return;
+          }
+
+          const separator = !originalText || originalText.endsWith("\n\n")
+            ? "" : originalText.endsWith("\n") ? "\n" : "\n\n";
+          current.text = originalText + separator + clipboardText;
+          current.updatedAt = Date.now();
+          saveDebounced();
+          renderAll();
+          await flushPendingSave_();
+          if (localRevision > localSavedRevision) {
+            toast("Texto agregado, pero el guardado local está pendiente. Exporta las notas antes de cerrar", 6500);
+            return;
+          }
+          toast("Portapapeles agregado y guardado en este dispositivo", 3200);
+        } catch (error) {
+          console.warn("No se pudo agregar el portapapeles:", error);
+          toast("No se pudo agregar el portapapeles a la nota", 5000);
+        } finally {
+          button.disabled = false;
+        }
+      }
+
       async function onListClick(e) {
         const catBtn = e.target.closest("[data-action]");
 
@@ -5363,6 +5449,11 @@
               toast("Pegado ✅");
             }
           })();
+          return;
+        }
+
+        if (action === "appendClipboard") {
+          await appendClipboardToNote_(id, actionBtn);
           return;
         }
 
