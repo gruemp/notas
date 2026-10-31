@@ -83,3 +83,11 @@ Se ajustaron exclusivamente los estilos de la interfaz en `notas.html`: cabecera
 Todos los elementos de navegación permanecen en el flujo normal de la página, sin anclarse durante el desplazamiento. No se modificaron el motor de notas, las credenciales, Google Apps Script ni la sincronización. El `service worker` usa una nueva versión de caché para actualizar la presentación en dispositivos sin eliminar información local.
 
 **Validación:** `npm test` y `npm run test:browser`. Las pruebas de navegador comprueban también la ausencia de superposición de los controles superiores y que el aviso «Deshacer» quepa en móvil.
+
+## Agregar portapapeles directamente a una nota
+
+El menú de acciones «⋮» de cada nota contiene ahora el botón **«Agregar portapapeles»** (portapapeles con signo +), entre copiar y limpiar. Al pulsarlo, se lee el texto del portapapeles y se agrega al final de la nota, separado por una línea en blanco cuando ya existe contenido. No se abre el editor, no se reemplaza el texto anterior y no se crea una nota adicional. La versión anterior se guarda en el historial antes del cambio.
+
+El guardado se confirma primero en este dispositivo a través del almacenamiento duradero existente; la sincronización de Google sigue el mismo proceso habitual y se confirma por separado en el indicador de conexión. Si el portapapeles está vacío, se deniega la lectura o la nota cambia durante una lectura pendiente, no se sobreescribe el contenido. Cuando el navegador no permite leer automáticamente, se ofrece la alternativa existente de pegar en un cuadro del navegador, sin abrir la nota.
+
+El cambio actualiza la caché offline de la aplicación. Las pruebas de navegador verifican escritorio, móvil, recarga, ausencia de apertura del editor, lecturas fallidas o tardías y sincronización con el servicio simulado de Google.
